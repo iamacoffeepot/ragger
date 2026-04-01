@@ -3,6 +3,12 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
+from clogger.requirements.quest import QuestRequirement
+from clogger.requirements.quest_point import QuestPointRequirement
+from clogger.requirements.skill import SkillRequirement
+from clogger.rewards.experience import ExperienceReward
+from clogger.rewards.item import ItemReward
+
 
 @dataclass
 class Quest:
@@ -20,9 +26,7 @@ class Quest:
         row = conn.execute("SELECT id, name, points FROM quests WHERE name = ?", (name,)).fetchone()
         return cls(*row) if row else None
 
-    def xp_rewards(self, conn: sqlite3.Connection) -> list:
-        from clogger.rewards.experience import ExperienceReward
-
+    def xp_rewards(self, conn: sqlite3.Connection) -> list[ExperienceReward]:
         rows = conn.execute(
             """
             SELECT er.id, er.eligible_skills, er.amount
@@ -35,9 +39,7 @@ class Quest:
         ).fetchall()
         return [ExperienceReward(*row) for row in rows]
 
-    def item_rewards(self, conn: sqlite3.Connection) -> list:
-        from clogger.rewards.item import ItemReward
-
+    def item_rewards(self, conn: sqlite3.Connection) -> list[ItemReward]:
         rows = conn.execute(
             """
             SELECT ir.id, ir.item_id, ir.quantity
@@ -50,9 +52,7 @@ class Quest:
         ).fetchall()
         return [ItemReward(*row) for row in rows]
 
-    def skill_requirements(self, conn: sqlite3.Connection) -> list:
-        from clogger.requirements.skill import SkillRequirement
-
+    def skill_requirements(self, conn: sqlite3.Connection) -> list[SkillRequirement]:
         rows = conn.execute(
             """
             SELECT sr.id, sr.skill, sr.level
@@ -65,9 +65,7 @@ class Quest:
         ).fetchall()
         return [SkillRequirement(row[0], row[1], row[2]) for row in rows]
 
-    def quest_requirements(self, conn: sqlite3.Connection) -> list:
-        from clogger.requirements.quest import QuestRequirement
-
+    def quest_requirements(self, conn: sqlite3.Connection) -> list[QuestRequirement]:
         rows = conn.execute(
             """
             SELECT qr.id, qr.required_quest_id, qr.partial
@@ -79,9 +77,7 @@ class Quest:
         ).fetchall()
         return [QuestRequirement(row[0], row[1], bool(row[2])) for row in rows]
 
-    def quest_point_requirement(self, conn: sqlite3.Connection):
-        from clogger.requirements.quest_point import QuestPointRequirement
-
+    def quest_point_requirement(self, conn: sqlite3.Connection) -> QuestPointRequirement | None:
         row = conn.execute(
             """
             SELECT qpr.id, qpr.points
