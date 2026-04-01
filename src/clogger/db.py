@@ -60,6 +60,23 @@ SCHEMAS: list[str] = [
         UNIQUE(location, tier)
     )
     """,
+    f"""
+    CREATE TABLE IF NOT EXISTS experience_rewards (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        skill TEXT NOT NULL CHECK(skill IN ({_skill_values})),
+        amount INTEGER NOT NULL CHECK(amount > 0),
+        UNIQUE(skill, amount)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS item_rewards (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (item_id) REFERENCES items(id),
+        UNIQUE(item_id, quantity)
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS quest_requirements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
