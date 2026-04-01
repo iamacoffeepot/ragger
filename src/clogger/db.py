@@ -14,7 +14,8 @@ SCHEMAS: list[str] = [
     CREATE TABLE IF NOT EXISTS quests (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
-        points INTEGER NOT NULL DEFAULT 0
+        points INTEGER NOT NULL DEFAULT 0,
+        autocompleted INTEGER NOT NULL DEFAULT 0
     )
     """,
     """

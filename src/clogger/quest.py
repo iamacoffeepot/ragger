@@ -15,16 +15,17 @@ class Quest:
     id: int
     name: str
     points: int
+    autocompleted: bool
 
     @classmethod
     def all(cls, conn: sqlite3.Connection) -> list[Quest]:
-        rows = conn.execute("SELECT id, name, points FROM quests ORDER BY name").fetchall()
-        return [cls(*row) for row in rows]
+        rows = conn.execute("SELECT id, name, points, autocompleted FROM quests ORDER BY name").fetchall()
+        return [cls(row[0], row[1], row[2], bool(row[3])) for row in rows]
 
     @classmethod
     def by_name(cls, conn: sqlite3.Connection, name: str) -> Quest | None:
-        row = conn.execute("SELECT id, name, points FROM quests WHERE name = ?", (name,)).fetchone()
-        return cls(*row) if row else None
+        row = conn.execute("SELECT id, name, points, autocompleted FROM quests WHERE name = ?", (name,)).fetchone()
+        return cls(row[0], row[1], row[2], bool(row[3])) if row else None
 
     def xp_rewards(self, conn: sqlite3.Connection) -> list[ExperienceReward]:
         rows = conn.execute(
@@ -97,7 +98,7 @@ class Quest:
         def _traverse(quest_id: int) -> None:
             rows = conn.execute(
                 """
-                SELECT q.id, q.name, q.points
+                SELECT q.id, q.name, q.points, q.autocompleted
                 FROM quests q
                 JOIN quest_requirements qr ON qr.required_quest_id = q.id
                 JOIN quest_quest_requirements qqr ON qqr.quest_requirement_id = qr.id
@@ -109,7 +110,7 @@ class Quest:
                 if row[0] not in visited:
                     visited.add(row[0])
                     _traverse(row[0])
-                    chain.append(Quest(*row))
+                    chain.append(Quest(row[0], row[1], row[2], bool(row[3])))
 
         _traverse(self.id)
         return chain
