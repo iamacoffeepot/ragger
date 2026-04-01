@@ -16,6 +16,10 @@ unlockable_regions:
 
 max_region_unlocks: 3
 
+starting_skills:
+  Herblore: 3
+  Runecraft: 5
+
 autocompleted_quests:
   - Dragon Slayer I
   - Learning the Ropes

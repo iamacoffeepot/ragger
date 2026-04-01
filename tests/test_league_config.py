@@ -59,6 +59,7 @@ def test_completed_quests_with_chain(conn: sqlite3.Connection) -> None:
         always_accessible=[],
         unlockable_regions=[],
         max_region_unlocks=0,
+        starting_skills={},
         autocompleted_quests=["Quest A"],
     )
     completed = config.completed_quests(conn)
@@ -75,6 +76,7 @@ def test_starting_quest_points(conn: sqlite3.Connection) -> None:
         always_accessible=[],
         unlockable_regions=[],
         max_region_unlocks=0,
+        starting_skills={},
         autocompleted_quests=["Quest A"],
     )
     # Quest A (2) + Quest B (3) from chain
@@ -87,6 +89,7 @@ def test_available_regions() -> None:
         always_accessible=[Region.VARLAMORE, Region.KARAMJA],
         unlockable_regions=[Region.ASGARNIA, Region.KANDARIN, Region.MORYTANIA],
         max_region_unlocks=3,
+        starting_skills={},
         autocompleted_quests=[],
     )
     assert config.available_regions() == [Region.VARLAMORE, Region.KARAMJA]
