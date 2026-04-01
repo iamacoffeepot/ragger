@@ -48,6 +48,8 @@ SKILL_NAME_MAP = {s.label.lower(): s for s in Skill}
 QUEST_REQ_PATTERN = re.compile(r"^\*\*\[\[([^]|]+?)(?:\|[^]]+)?\]\]", re.MULTILINE)
 # Matches "Started [[Quest Name]]" for partial requirements
 STARTED_QUEST_PATTERN = re.compile(r"[Ss]tarted\s+\[\[([^]|]+?)(?:\|[^]]+)?\]\]")
+# Matches {{SCP|Skill|Level}} in requirements section
+SKILL_REQ_PATTERN = re.compile(r"\{\{SCP\|(\w+)\|(\d+)")
 
 
 @dataclass
@@ -58,6 +60,7 @@ class QuestData:
     lamp_rewards: list[tuple[int, int]] = field(default_factory=list)  # (eligible_mask, amount)
     item_rewards: list[tuple[str, int]] = field(default_factory=list)  # (item_name, quantity)
     quest_reqs: list[tuple[str, bool]] = field(default_factory=list)  # (quest_name, partial)
+    skill_reqs: list[tuple[int, int]] = field(default_factory=list)  # (skill_id, level)
 
 
 # Items that are not real item rewards (descriptions, abilities, etc.)
@@ -66,6 +69,21 @@ ITEM_REWARD_SKIP = {
     "defence", "ranged", "prayer", "magic", "runecraft", "construction", "agility",
     "herblore", "thieving", "crafting", "fletching", "hunter", "mining", "smithing",
     "fishing", "cooking", "firemaking", "woodcutting", "farming", "file",
+}
+
+# Overrides for skill requirements that the wiki encodes in non-standard ways
+# Format: quest name -> list of (skill_id, level) replacing parsed values
+SKILL_REQ_OVERRIDES: dict[str, list[tuple[int, int]]] = {
+    "While Guthix Sleeps": [
+        (Skill.ATTACK, 65),
+        (Skill.STRENGTH, 65),
+        (Skill.THIEVING, 72),
+        (Skill.MAGIC, 67),
+        (Skill.AGILITY, 66),
+        (Skill.FARMING, 65),
+        (Skill.HERBLORE, 65),
+        (Skill.HUNTER, 62),
+    ],
 }
 
 COMBAT_SKILLS_MASK = (
@@ -209,6 +227,17 @@ def parse_quest_wikitext(name: str, wikitext: str) -> QuestData:
     if req_section:
         quest.quest_reqs = parse_quest_requirements(req_section)
 
+        # Skill requirements — use override if available, otherwise parse
+        if name in SKILL_REQ_OVERRIDES:
+            quest.skill_reqs = SKILL_REQ_OVERRIDES[name]
+        else:
+            for match in SKILL_REQ_PATTERN.finditer(req_section):
+                skill_name = match.group(1).lower()
+                level = int(match.group(2))
+                skill = SKILL_NAME_MAP.get(skill_name)
+                if skill is not None and 1 <= level <= 99:
+                    quest.skill_reqs.append((skill.value, level))
+
     rewards_section = extract_rewards_section(wikitext)
     if not rewards_section:
         return quest
@@ -349,6 +378,25 @@ def ingest(db_path: Path) -> None:
             )
             item_count += 1
 
+    # Insert skill requirements and link to quests
+    skill_req_count = 0
+    for q in quest_data:
+        quest_id = quest_ids[q.name]
+        for skill_id, level in q.skill_reqs:
+            conn.execute(
+                "INSERT OR IGNORE INTO skill_requirements (skill, level) VALUES (?, ?)",
+                (skill_id, level),
+            )
+            req_id = conn.execute(
+                "SELECT id FROM skill_requirements WHERE skill = ? AND level = ?",
+                (skill_id, level),
+            ).fetchone()[0]
+            conn.execute(
+                "INSERT OR IGNORE INTO quest_skill_requirements (quest_id, skill_requirement_id) VALUES (?, ?)",
+                (quest_id, req_id),
+            )
+            skill_req_count += 1
+
     # Insert quest requirements and link to quests
     req_count = 0
     for q in quest_data:
@@ -375,7 +423,8 @@ def ingest(db_path: Path) -> None:
     conn.commit()
     print(
         f"Inserted {len(quest_data)} quests, {xp_count} XP rewards, "
-        f"{item_count} item rewards, {req_count} quest requirements into {db_path}"
+        f"{item_count} item rewards, {skill_req_count} skill requirements, "
+        f"{req_count} quest requirements into {db_path}"
     )
     conn.close()
 
