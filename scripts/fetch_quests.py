@@ -228,10 +228,20 @@ def ingest(db_path: Path) -> None:
     # Insert experience rewards and link to quests
     xp_count = 0
     for q in quest_data:
+        quest_id = quest_ids[q.name]
         for skill_id, amount in q.xp_rewards:
+            mask = 1 << skill_id
             conn.execute(
                 "INSERT OR IGNORE INTO experience_rewards (eligible_skills, amount) VALUES (?, ?)",
-                (1 << skill_id, amount),
+                (mask, amount),
+            )
+            reward_id = conn.execute(
+                "SELECT id FROM experience_rewards WHERE eligible_skills = ? AND amount = ?",
+                (mask, amount),
+            ).fetchone()[0]
+            conn.execute(
+                "INSERT OR IGNORE INTO quest_experience_rewards (quest_id, experience_reward_id) VALUES (?, ?)",
+                (quest_id, reward_id),
             )
             xp_count += 1
         for mask, amount in q.lamp_rewards:
@@ -239,13 +249,21 @@ def ingest(db_path: Path) -> None:
                 "INSERT OR IGNORE INTO experience_rewards (eligible_skills, amount) VALUES (?, ?)",
                 (mask, amount),
             )
+            reward_id = conn.execute(
+                "SELECT id FROM experience_rewards WHERE eligible_skills = ? AND amount = ?",
+                (mask, amount),
+            ).fetchone()[0]
+            conn.execute(
+                "INSERT OR IGNORE INTO quest_experience_rewards (quest_id, experience_reward_id) VALUES (?, ?)",
+                (quest_id, reward_id),
+            )
             xp_count += 1
 
-    # Insert item rewards
+    # Insert item rewards and link to quests
     item_count = 0
     for q in quest_data:
+        quest_id = quest_ids[q.name]
         for item_name, quantity in q.item_rewards:
-            # Ensure item exists
             conn.execute("INSERT OR IGNORE INTO items (name) VALUES (?)", (item_name,))
             item_id = conn.execute(
                 "SELECT id FROM items WHERE name = ?", (item_name,)
@@ -253,6 +271,14 @@ def ingest(db_path: Path) -> None:
             conn.execute(
                 "INSERT OR IGNORE INTO item_rewards (item_id, quantity) VALUES (?, ?)",
                 (item_id, quantity),
+            )
+            reward_id = conn.execute(
+                "SELECT id FROM item_rewards WHERE item_id = ? AND quantity = ?",
+                (item_id, quantity),
+            ).fetchone()[0]
+            conn.execute(
+                "INSERT OR IGNORE INTO quest_item_rewards (quest_id, item_reward_id) VALUES (?, ?)",
+                (quest_id, reward_id),
             )
             item_count += 1
 

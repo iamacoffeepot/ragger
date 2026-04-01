@@ -78,6 +78,24 @@ SCHEMAS: list[str] = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS quest_experience_rewards (
+        quest_id INTEGER NOT NULL,
+        experience_reward_id INTEGER NOT NULL,
+        PRIMARY KEY (quest_id, experience_reward_id),
+        FOREIGN KEY (quest_id) REFERENCES quests(id),
+        FOREIGN KEY (experience_reward_id) REFERENCES experience_rewards(id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS quest_item_rewards (
+        quest_id INTEGER NOT NULL,
+        item_reward_id INTEGER NOT NULL,
+        PRIMARY KEY (quest_id, item_reward_id),
+        FOREIGN KEY (quest_id) REFERENCES quests(id),
+        FOREIGN KEY (item_reward_id) REFERENCES item_rewards(id)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS quest_requirements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         required_quest_id INTEGER NOT NULL,
