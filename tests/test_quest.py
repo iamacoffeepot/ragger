@@ -186,3 +186,40 @@ def test_requirement_chain(conn: sqlite3.Connection) -> None:
     assert "Quest C" in names
     assert "Quest B" in names
     assert names.index("Quest C") < names.index("Quest B")
+
+
+def test_requirement_tree(conn: sqlite3.Connection) -> None:
+    # A -> B -> C
+    conn.executemany(
+        "INSERT INTO quests (name, points) VALUES (?, ?)",
+        [("Quest A", 1), ("Quest B", 1), ("Quest C", 1)],
+    )
+    a = Quest.by_name(conn, "Quest A")
+    b = Quest.by_name(conn, "Quest B")
+    c = Quest.by_name(conn, "Quest C")
+
+    conn.execute(
+        "INSERT INTO quest_requirements (required_quest_id, partial) VALUES (?, ?)",
+        (b.id, 0),
+    )
+    req_b_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.execute(
+        "INSERT INTO quest_quest_requirements (quest_id, quest_requirement_id) VALUES (?, ?)",
+        (a.id, req_b_id),
+    )
+    conn.execute(
+        "INSERT INTO quest_requirements (required_quest_id, partial) VALUES (?, ?)",
+        (c.id, 0),
+    )
+    req_c_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.execute(
+        "INSERT INTO quest_quest_requirements (quest_id, quest_requirement_id) VALUES (?, ?)",
+        (b.id, req_c_id),
+    )
+    conn.commit()
+
+    tree = a.requirement_tree(conn)
+    lines = tree.split("\n")
+    assert lines[0] == "Quest A"
+    assert "Quest B" in lines[1]
+    assert "Quest C" in lines[2]

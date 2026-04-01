@@ -117,3 +117,34 @@ class Quest:
 
         _traverse(self.id)
         return chain
+
+    def requirement_tree(self, conn: sqlite3.Connection) -> str:
+        """Return a string representation of the quest requirement tree."""
+        lines: list[str] = []
+        visited: set[int] = set()
+
+        def _build(quest_id: int, name: str, depth: int) -> None:
+            rows = conn.execute(
+                """
+                SELECT q.id, q.name
+                FROM quests q
+                JOIN quest_requirements qr ON qr.required_quest_id = q.id
+                JOIN quest_quest_requirements qqr ON qqr.quest_requirement_id = qr.id
+                WHERE qqr.quest_id = ?
+                ORDER BY q.name
+                """,
+                (quest_id,),
+            ).fetchall()
+            for req_id, req_name in rows:
+                prefix = "  " * depth + "└─ "
+                if req_id in visited:
+                    lines.append(f"{prefix}{req_name} (see above)")
+                else:
+                    visited.add(req_id)
+                    lines.append(f"{prefix}{req_name}")
+                    _build(req_id, req_name, depth + 1)
+
+        lines.append(self.name)
+        visited.add(self.id)
+        _build(self.id, self.name, 1)
+        return "\n".join(lines)
