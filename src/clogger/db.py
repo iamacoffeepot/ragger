@@ -13,6 +13,12 @@ SCHEMAS: list[str] = [
         points INTEGER NOT NULL DEFAULT 0
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE
+    )
+    """,
     f"""
     CREATE TABLE IF NOT EXISTS skill_requirements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
