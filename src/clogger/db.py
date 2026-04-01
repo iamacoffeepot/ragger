@@ -1,9 +1,9 @@
 import sqlite3
 from pathlib import Path
 
-from clogger.enums import DiaryLocation, DiaryTier, Skill
+from clogger.enums import ALL_SKILLS_MASK, DiaryLocation, DiaryTier, Skill
 
-_skill_values = ", ".join(f"'{s.value}'" for s in Skill)
+_skill_ids = ", ".join(str(s.value) for s in Skill)
 _diary_location_values = ", ".join(f"'{l.value}'" for l in DiaryLocation)
 _diary_tier_values = ", ".join(f"'{t.value}'" for t in DiaryTier)
 
@@ -24,7 +24,7 @@ SCHEMAS: list[str] = [
     f"""
     CREATE TABLE IF NOT EXISTS skill_requirements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        skill TEXT NOT NULL CHECK(skill IN ({_skill_values})),
+        skill INTEGER NOT NULL CHECK(skill IN ({_skill_ids})),
         level INTEGER NOT NULL CHECK(level BETWEEN 1 AND 99),
         UNIQUE(skill, level)
     )
@@ -63,9 +63,9 @@ SCHEMAS: list[str] = [
     f"""
     CREATE TABLE IF NOT EXISTS experience_rewards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        skill TEXT NOT NULL CHECK(skill IN ({_skill_values})),
+        eligible_skills INTEGER NOT NULL CHECK(eligible_skills > 0 AND eligible_skills <= {ALL_SKILLS_MASK}),
         amount INTEGER NOT NULL CHECK(amount > 0),
-        UNIQUE(skill, amount)
+        UNIQUE(eligible_skills, amount)
     )
     """,
     """

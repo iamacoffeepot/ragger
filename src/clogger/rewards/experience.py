@@ -1,10 +1,8 @@
 from dataclasses import dataclass
 
-from clogger.enums import Skill
-
 
 @dataclass
 class ExperienceReward:
     id: int
-    skill: Skill
+    eligible_skills: int
     amount: int
