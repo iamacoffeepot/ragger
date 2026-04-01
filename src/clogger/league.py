@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
+from pathlib import Path
+
+import yaml
 
 from clogger.enums import Region, TaskDifficulty
+from clogger.quest import Quest
 from clogger.requirements.diary import DiaryRequirement
 from clogger.requirements.item import ItemRequirement
 from clogger.requirements.quest import QuestRequirement
@@ -113,3 +117,39 @@ class LeagueTask:
             (self.id,),
         ).fetchall()
         return [DiaryRequirement(row[0], row[1], row[2]) for row in rows]
+
+
+@dataclass
+class LeagueConfig:
+    starting_region: Region
+    always_accessible: list[Region]
+    unlockable_regions: list[Region]
+    max_region_unlocks: int
+    autocompleted_quests: list[str]
+
+    @staticmethod
+    def from_yaml(path: Path) -> LeagueConfig:
+        with open(path) as f:
+            data = yaml.safe_load(f)
+
+        return LeagueConfig(
+            starting_region=Region.from_label(data["starting_region"]),
+            always_accessible=[Region.from_label(r) for r in data["always_accessible"]],
+            unlockable_regions=[Region.from_label(r) for r in data["unlockable_regions"]],
+            max_region_unlocks=data["max_region_unlocks"],
+            autocompleted_quests=data["autocompleted_quests"],
+        )
+
+    def completed_quests(self, conn: sqlite3.Connection) -> list[Quest]:
+        return [q for q in Quest.all(conn) if q.autocompleted]
+
+    def starting_quest_points(self, conn: sqlite3.Connection) -> int:
+        return sum(q.points for q in self.completed_quests(conn))
+
+    def available_regions(self, unlocked: list[Region] | None = None) -> list[Region]:
+        regions = list(self.always_accessible)
+        if unlocked:
+            for r in unlocked:
+                if r in self.unlockable_regions and r not in regions:
+                    regions.append(r)
+        return regions
