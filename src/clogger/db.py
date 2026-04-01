@@ -1,9 +1,11 @@
 import sqlite3
 from pathlib import Path
 
-from clogger.enums import Skill
+from clogger.enums import DiaryLocation, DiaryTier, Skill
 
 _skill_values = ", ".join(f"'{s.value}'" for s in Skill)
+_diary_location_values = ", ".join(f"'{l.value}'" for l in DiaryLocation)
+_diary_tier_values = ", ".join(f"'{t.value}'" for t in DiaryTier)
 
 SCHEMAS: list[str] = [
     """
@@ -40,6 +42,22 @@ SCHEMAS: list[str] = [
         quantity INTEGER NOT NULL DEFAULT 1,
         FOREIGN KEY (item_id) REFERENCES items(id),
         UNIQUE(item_id, quantity)
+    )
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS diary_tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        location TEXT NOT NULL CHECK(location IN ({_diary_location_values})),
+        tier TEXT NOT NULL CHECK(tier IN ({_diary_tier_values})),
+        description TEXT NOT NULL
+    )
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS diary_requirements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        location TEXT NOT NULL CHECK(location IN ({_diary_location_values})),
+        tier TEXT NOT NULL CHECK(tier IN ({_diary_tier_values})),
+        UNIQUE(location, tier)
     )
     """,
     """
