@@ -5,3 +5,4 @@ from dataclasses import dataclass
 class Quest:
     id: int
     name: str
+    points: int
