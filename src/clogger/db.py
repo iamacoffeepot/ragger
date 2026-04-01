@@ -141,6 +141,15 @@ SCHEMAS: list[str] = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS diary_task_item_requirements (
+        diary_task_id INTEGER NOT NULL,
+        item_requirement_id INTEGER NOT NULL,
+        PRIMARY KEY (diary_task_id, item_requirement_id),
+        FOREIGN KEY (diary_task_id) REFERENCES diary_tasks(id),
+        FOREIGN KEY (item_requirement_id) REFERENCES item_requirements(id)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS quest_quest_requirements (
         quest_id INTEGER NOT NULL,
         quest_requirement_id INTEGER NOT NULL,

@@ -362,15 +362,15 @@ def ingest(db_path: Path) -> None:
             )
             xp_count += 1
 
-    # Insert item rewards and link to quests
+    # Insert item rewards and link to quests — only for items in the items table
+    item_ids = dict(conn.execute("SELECT name, id FROM items").fetchall())
     item_count = 0
     for q in quest_data:
         quest_id = quest_ids[q.name]
         for item_name, quantity in q.item_rewards:
-            conn.execute("INSERT OR IGNORE INTO items (name) VALUES (?)", (item_name,))
-            item_id = conn.execute(
-                "SELECT id FROM items WHERE name = ?", (item_name,)
-            ).fetchone()[0]
+            item_id = item_ids.get(item_name)
+            if item_id is None:
+                continue
             conn.execute(
                 "INSERT OR IGNORE INTO item_rewards (item_id, quantity) VALUES (?, ?)",
                 (item_id, quantity),
