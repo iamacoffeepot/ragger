@@ -1,7 +1,8 @@
 """Run all fetch scripts in the correct order.
 
 Order matters — items must be populated before quests or diary tasks,
-since those scripts reference the items table.
+since those scripts reference the items table. Linking scripts run last
+since they depend on multiple tables being populated.
 """
 
 import argparse
@@ -10,12 +11,16 @@ import sys
 from pathlib import Path
 
 SCRIPTS = [
+    # Core data (order matters)
     "scripts/fetch_items.py",
     "scripts/fetch_quests.py",
     "scripts/fetch_quest_regions.py",
     "scripts/fetch_diary_tasks.py",
     "scripts/fetch_diary_items.py",
     "scripts/fetch_shops.py",
+    "scripts/fetch_locations.py",
+    # Linking passes (depend on multiple tables)
+    "scripts/link_shop_locations.py",
 ]
 
 
