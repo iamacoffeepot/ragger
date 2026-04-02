@@ -11,6 +11,7 @@ from pathlib import Path
 
 from clogger.db import create_tables, get_connection
 from clogger.enums import Facility
+from clogger.location import Location
 
 
 def ingest(db_path: Path) -> None:
@@ -20,32 +21,17 @@ def ingest(db_path: Path) -> None:
     # Reset facilities bitmask
     conn.execute("UPDATE locations SET facilities = 0")
 
-    # Load all locations with coordinates
-    loc_rows = conn.execute(
-        "SELECT id, x, y FROM locations WHERE x IS NOT NULL AND y IS NOT NULL"
-    ).fetchall()
-    print(f"Loaded {len(loc_rows)} locations with coordinates")
-
-    # Load all facilities
     facility_rows = conn.execute("SELECT id, type, x, y FROM facilities").fetchall()
     print(f"Loaded {len(facility_rows)} facilities")
 
     linked = 0
     for _, ftype, fx, fy in facility_rows:
-        # Find nearest location by Chebyshev distance
-        best_id = None
-        best_dist = float("inf")
-        for loc_id, loc_x, loc_y in loc_rows:
-            dist = max(abs(fx - loc_x), abs(fy - loc_y))
-            if dist < best_dist:
-                best_dist = dist
-                best_id = loc_id
-
-        if best_id is not None:
+        loc = Location.nearest(conn, fx, fy)
+        if loc is not None:
             mask = Facility(ftype).mask
             conn.execute(
                 "UPDATE locations SET facilities = facilities | ? WHERE id = ?",
-                (mask, best_id),
+                (mask, loc.id),
             )
             linked += 1
 
