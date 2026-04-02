@@ -227,6 +227,7 @@ class Account:
         self.completed_quest_ids: set[int] = set()
         self.completed_task_ids: set[int] = set()
         self.unlocked_regions: list[Region] = list(config.always_accessible)
+        self.current_location: str = config.starting_location
 
         # Apply autocompleted quests
         for quest in config.completed_quests(conn):
