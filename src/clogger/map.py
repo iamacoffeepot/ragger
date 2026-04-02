@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sqlite3
 from dataclasses import dataclass
 
@@ -24,7 +26,7 @@ class MapSquare:
         return self.region_y * GAME_TILES_PER_REGION
 
     @classmethod
-    def get(cls, conn: sqlite3.Connection, plane: int, region_x: int, region_y: int) -> "MapSquare | None":
+    def get(cls, conn: sqlite3.Connection, plane: int, region_x: int, region_y: int) -> MapSquare | None:
         row = conn.execute(
             "SELECT id, plane, region_x, region_y, image FROM map_squares WHERE plane = ? AND region_x = ? AND region_y = ?",
             (plane, region_x, region_y),
@@ -32,7 +34,7 @@ class MapSquare:
         return cls(*row) if row else None
 
     @classmethod
-    def all(cls, conn: sqlite3.Connection, plane: int = 0) -> "list[MapSquare]":
+    def all(cls, conn: sqlite3.Connection, plane: int = 0) -> list[MapSquare]:
         rows = conn.execute(
             "SELECT id, plane, region_x, region_y, image FROM map_squares WHERE plane = ? ORDER BY region_x, region_y",
             (plane,),
@@ -40,7 +42,7 @@ class MapSquare:
         return [cls(*row) for row in rows]
 
     @classmethod
-    def at_game_coord(cls, conn: sqlite3.Connection, x: int, y: int, plane: int = 0) -> "MapSquare | None":
+    def at_game_coord(cls, conn: sqlite3.Connection, x: int, y: int, plane: int = 0) -> MapSquare | None:
         rx = x // GAME_TILES_PER_REGION
         ry = y // GAME_TILES_PER_REGION
         return cls.get(conn, plane, rx, ry)
@@ -63,7 +65,7 @@ class MapLink:
     description: str | None
 
     @classmethod
-    def all(cls, conn: sqlite3.Connection, link_type=None) -> list:
+    def all(cls, conn: sqlite3.Connection, link_type: MapLinkType | None = None) -> list[MapLink]:
         query = "SELECT id, src_location, dst_location, src_x, src_y, dst_x, dst_y, type, description FROM map_links"
         params: list = []
         if link_type is not None:
@@ -73,7 +75,7 @@ class MapLink:
         return [cls._from_row(r) for r in conn.execute(query, params).fetchall()]
 
     @classmethod
-    def departing(cls, conn: sqlite3.Connection, location: str, link_type=None) -> list:
+    def departing(cls, conn: sqlite3.Connection, location: str, link_type: MapLinkType | None = None) -> list[MapLink]:
         query = "SELECT id, src_location, dst_location, src_x, src_y, dst_x, dst_y, type, description FROM map_links WHERE src_location = ?"
         params: list = [location]
         if link_type is not None:
@@ -83,7 +85,7 @@ class MapLink:
         return [cls._from_row(r) for r in conn.execute(query, params).fetchall()]
 
     @classmethod
-    def arriving(cls, conn: sqlite3.Connection, location: str, link_type=None) -> list:
+    def arriving(cls, conn: sqlite3.Connection, location: str, link_type: MapLinkType | None = None) -> list[MapLink]:
         query = "SELECT id, src_location, dst_location, src_x, src_y, dst_x, dst_y, type, description FROM map_links WHERE dst_location = ?"
         params: list = [location]
         if link_type is not None:
@@ -93,7 +95,7 @@ class MapLink:
         return [cls._from_row(r) for r in conn.execute(query, params).fetchall()]
 
     @classmethod
-    def between(cls, conn: sqlite3.Connection, location_a: str, location_b: str, link_type=None) -> list:
+    def between(cls, conn: sqlite3.Connection, location_a: str, location_b: str, link_type: MapLinkType | None = None) -> list[MapLink]:
         if link_type is not None:
             query = """SELECT id, src_location, dst_location, src_x, src_y, dst_x, dst_y, type, description FROM map_links
                         WHERE ((src_location = ? AND dst_location = ?)
@@ -110,7 +112,7 @@ class MapLink:
         return [cls._from_row(r) for r in conn.execute(query, params).fetchall()]
 
     @classmethod
-    def reachable_from(cls, conn: sqlite3.Connection, location: str) -> dict:
+    def reachable_from(cls, conn: sqlite3.Connection, location: str) -> dict[str, list[MapLink]]:
         links = cls.departing(conn, location)
         result = {}
         for link in links:
