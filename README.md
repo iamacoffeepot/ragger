@@ -35,6 +35,16 @@ Or populate it yourself from the wiki (takes a while due to API rate limiting):
 uv run python scripts/fetch_all.py --league Raging_Echoes_League/Tasks
 ```
 
+### 2b. Map squares (optional)
+
+The walkability pipeline (`compute_walkability.py`) requires map tile data. Download `map-squares.zip` from the [latest release](https://github.com/iamacoffeepot/clogger/releases):
+
+```sh
+gh release download --pattern "map-squares.zip" --dir data
+```
+
+These are collision-flagged terrain tiles generated from the OSRS game cache using [osrs-wiki/osrs-wiki-maps](https://github.com/osrs-wiki/osrs-wiki-maps).
+
 ### 3. Start Claude Code
 
 ```sh
