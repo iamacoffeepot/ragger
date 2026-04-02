@@ -83,8 +83,8 @@ def make_blocked_checker(canvas: np.ndarray, x_min: int, x_max: int, y_min: int,
         # Black/dark void (includes dark grey fill between regions)
         if r < 40 and g < 40 and b < 40:
             return True
-        # Dark grey-blue map border (not ocean, not land)
-        if r < 100 and g < 100 and b < 130 and abs(r - g) < 10 and b > r + 20:
+        # Map border fill color
+        if r == 32 and g == 47 and b == 61:
             return True
         # Ocean blue
         if b > 120 and b > r + 20 and b > g:
