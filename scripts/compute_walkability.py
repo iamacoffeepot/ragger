@@ -23,7 +23,7 @@ from clogger.enums import MapLinkType
 
 
 DEFAULT_THRESHOLD = 0.975
-DEFAULT_SAMPLES = 60
+DEFAULT_SAMPLES = 200
 
 
 def load_canvas(zip_path: Path) -> tuple[np.ndarray, int, int, int, int]:
