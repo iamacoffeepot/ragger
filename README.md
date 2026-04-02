@@ -61,6 +61,12 @@ uv run pytest
 
 See [CLAUDE.md](CLAUDE.md) for the full Python API documentation.
 
+## Data attribution
+
+All game data is sourced from the [Old School RuneScape Wiki](https://oldschool.runescape.wiki/), which is licensed under [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/). The database distributed in releases contains content from wiki contributors — see the [wiki's copyright page](https://oldschool.runescape.wiki/w/RuneScape:Copyrights) for details.
+
+Old School RuneScape is a registered trademark of Jagex Ltd.
+
 ## License
 
-[MIT](LICENSE)
+Code is licensed under [MIT](LICENSE). Database contents are subject to the OSRS Wiki's [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/) license.
