@@ -1,17 +1,17 @@
 import sqlite3
 
-from clogger.enums import Region
+from clogger.enums import Region, ShopType
 from clogger.shop import Shop, ShopItem
 
 
 def _seed_shops(conn: sqlite3.Connection) -> None:
     conn.executemany(
-        """INSERT INTO shops (name, location, owner, members, region, sell_multiplier, buy_multiplier, delta)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO shops (name, location, owner, members, region, shop_type, sell_multiplier, buy_multiplier, delta)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         [
-            ("Toci's Gem Store", "Aldarin", "Toci", 1, Region.VARLAMORE.value, 1000, 700, 30),
-            ("Sunset Coast General Store", "Sunset Coast", "Shopkeeper", 1, Region.VARLAMORE.value, 1300, 400, 30),
-            ("Fernahei's Fishing Hut", "Shilo Village", "Fernahei", 1, Region.KARAMJA.value, 1000, 700, 10),
+            ("Toci's Gem Store", "Aldarin", "Toci", 1, Region.VARLAMORE.value, ShopType.GEM.value, 1000, 700, 30),
+            ("Sunset Coast General Store", "Sunset Coast", "Shopkeeper", 1, Region.VARLAMORE.value, ShopType.GENERAL.value, 1300, 400, 30),
+            ("Fernahei's Fishing Hut", "Shilo Village", "Fernahei", 1, Region.KARAMJA.value, ShopType.FISHING.value, 1000, 700, 10),
         ],
     )
     conn.executemany(
@@ -39,6 +39,21 @@ def test_all_filter_region(conn: sqlite3.Connection) -> None:
     shops = Shop.all(conn, region=Region.VARLAMORE)
     assert len(shops) == 2
     assert all(s.region == Region.VARLAMORE for s in shops)
+
+
+def test_all_filter_shop_type(conn: sqlite3.Connection) -> None:
+    _seed_shops(conn)
+    shops = Shop.all(conn, shop_type=ShopType.GEM)
+    assert len(shops) == 1
+    assert shops[0].name == "Toci's Gem Store"
+    assert shops[0].shop_type == ShopType.GEM
+
+
+def test_all_filter_region_and_type(conn: sqlite3.Connection) -> None:
+    _seed_shops(conn)
+    shops = Shop.all(conn, region=Region.VARLAMORE, shop_type=ShopType.GENERAL)
+    assert len(shops) == 1
+    assert shops[0].name == "Sunset Coast General Store"
 
 
 def test_by_name(conn: sqlite3.Connection) -> None:
