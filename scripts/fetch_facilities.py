@@ -9,7 +9,7 @@ from pathlib import Path
 
 from clogger.db import create_tables, get_connection
 from clogger.enums import Facility
-from clogger.wiki import fetch_page_wikitext
+from clogger.wiki import fetch_page_wikitext_with_attribution
 
 # Map template coordinate patterns
 COORD_XY_PARAM = re.compile(r"\|x\s*=\s*(\d+)\|y\s*=\s*(\d+)")
@@ -107,7 +107,7 @@ def ingest(db_path: Path) -> None:
     total = 0
     for facility, page in FACILITY_PAGES.items():
         print(f"\n=== {facility.label} ({page}) ===")
-        wikitext = fetch_page_wikitext(page)
+        wikitext = fetch_page_wikitext_with_attribution(conn, page, "facilities")
         entries = parse_facility_entries(wikitext)
         print(f"  Found {len(entries)} entries")
 

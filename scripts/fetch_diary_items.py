@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 from clogger.db import create_tables, get_connection
-from clogger.wiki import fetch_page_wikitext, link_requirement, strip_markup
+from clogger.wiki import fetch_page_wikitext_with_attribution, link_requirement, strip_markup
 
 # Pattern to extract wiki links from item text
 ITEM_LINK_PATTERN = re.compile(r"\[\[([^]|]+?)(?:\|([^]]+))?\]\]")
@@ -124,7 +124,7 @@ def ingest(db_path: Path) -> None:
         diary_tasks[(row[1], row[2], row[3])] = row[0]
 
     print("Fetching Achievement Diary page...")
-    wikitext = fetch_page_wikitext("Achievement Diary")
+    wikitext = fetch_page_wikitext_with_attribution(conn, "Achievement Diary", "diary_task_item_requirements")
     parsed = parse_diary_item_requirements(wikitext)
 
     matched = 0

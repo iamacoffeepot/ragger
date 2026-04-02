@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from clogger.db import create_tables, get_connection
-from clogger.wiki import fetch_category_members
+from clogger.wiki import fetch_category_members, record_attribution
 
 
 def ingest(db_path: Path) -> None:
@@ -21,6 +21,7 @@ def ingest(db_path: Path) -> None:
         "INSERT OR IGNORE INTO items (name) VALUES (?)",
         [(item,) for item in items],
     )
+    record_attribution(conn, "items", "Category:Items", ["Category contributors"])
     conn.commit()
     print(f"Inserted {conn.total_changes} items into {db_path}")
     conn.close()

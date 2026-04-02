@@ -196,6 +196,59 @@ def link_requirement(
     return req_id
 
 
+def fetch_page_contributors(page: str) -> list[str]:
+    """Fetch the list of contributors for a wiki page."""
+    contributors: list[str] = []
+    params = {
+        "action": "query",
+        "titles": page,
+        "prop": "contributors",
+        "pclimit": "500",
+        "format": "json",
+    }
+
+    while True:
+        resp = requests.get(API_URL, params=params, headers=HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+
+        for _, page_data in data["query"]["pages"].items():
+            for c in page_data.get("contributors", []):
+                contributors.append(c["name"])
+
+        if "continue" in data:
+            params["pccontinue"] = data["continue"]["pccontinue"]
+        else:
+            break
+
+    return contributors
+
+
+def record_attribution(
+    conn: sqlite3.Connection,
+    table_name: str,
+    wiki_page: str,
+    authors: list[str],
+) -> None:
+    """Record an attribution entry for a wiki page that was used to populate a table."""
+    conn.execute(
+        "INSERT INTO attributions (table_name, wiki_page, authors, fetched_at) VALUES (?, ?, ?, datetime('now'))",
+        (table_name, wiki_page, ", ".join(authors)),
+    )
+
+
+def fetch_page_wikitext_with_attribution(
+    conn: sqlite3.Connection,
+    page: str,
+    table_name: str,
+) -> str:
+    """Fetch wikitext and record attribution in one call."""
+    wikitext = fetch_page_wikitext(page)
+    contributors = fetch_page_contributors(page)
+    record_attribution(conn, table_name, page, contributors)
+    return wikitext
+
+
 def throttle() -> None:
     """Sleep to avoid hammering the wiki API.
 

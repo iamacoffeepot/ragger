@@ -248,6 +248,15 @@ SCHEMAS: list[str] = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS attributions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_name TEXT NOT NULL,
+        wiki_page TEXT NOT NULL,
+        authors TEXT,
+        fetched_at TEXT NOT NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS facilities (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type INTEGER NOT NULL,

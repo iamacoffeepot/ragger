@@ -12,7 +12,7 @@ from pathlib import Path
 from clogger.db import create_tables, get_connection
 from clogger.enums import DiaryLocation, DiaryTier, Region, TaskDifficulty
 from clogger.wiki import (
-    fetch_page_wikitext,
+    fetch_page_wikitext_with_attribution,
     link_requirement,
     parse_skill_requirements,
     strip_markup,
@@ -261,7 +261,7 @@ def ingest(db_path: Path, page: str = "Raging_Echoes_League/Tasks") -> None:
     item_ids = dict(conn.execute("SELECT name, id FROM items").fetchall())
 
     print(f"Fetching tasks from {page}...")
-    wikitext = fetch_page_wikitext(page)
+    wikitext = fetch_page_wikitext_with_attribution(conn, page, "league_tasks")
     tasks = parse_league_tasks(wikitext)
 
     skill_req_count = 0

@@ -13,7 +13,7 @@ from clogger.enums import Region
 from clogger.wiki import (
     extract_template,
     fetch_category_members,
-    fetch_page_wikitext,
+    fetch_page_wikitext_with_attribution,
     parse_template_param,
     strip_wiki_links,
     throttle,
@@ -147,7 +147,7 @@ def ingest(db_path: Path) -> None:
     skipped = 0
 
     for page in pages:
-        wikitext = fetch_page_wikitext(page)
+        wikitext = fetch_page_wikitext_with_attribution(conn, page, "locations")
 
         infobox = parse_infobox_location(wikitext, page)
         if not infobox:

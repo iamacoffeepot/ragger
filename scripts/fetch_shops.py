@@ -15,7 +15,7 @@ from clogger.enums import Region, ShopType
 from clogger.wiki import (
     extract_template,
     fetch_category_members,
-    fetch_page_wikitext,
+    fetch_page_wikitext_with_attribution,
     parse_template_param,
     strip_wiki_links,
     throttle,
@@ -134,7 +134,7 @@ def ingest(db_path: Path) -> None:
     item_count = 0
 
     for page in pages:
-        wikitext = fetch_page_wikitext(page)
+        wikitext = fetch_page_wikitext_with_attribution(conn, page, "shops")
 
         if "{{StoreTableHead" not in wikitext:
             continue

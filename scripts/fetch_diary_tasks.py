@@ -11,7 +11,7 @@ from pathlib import Path
 from clogger.db import create_tables, get_connection
 from clogger.enums import DiaryLocation
 from clogger.wiki import (
-    fetch_page_wikitext,
+    fetch_page_wikitext_with_attribution,
     link_requirement,
     parse_skill_requirements,
     strip_markup,
@@ -114,7 +114,7 @@ def ingest(db_path: Path) -> None:
     quest_req_count = 0
 
     for location, page in DIARY_PAGES.items():
-        wikitext = fetch_page_wikitext(page)
+        wikitext = fetch_page_wikitext_with_attribution(conn, page, "diary_tasks")
         tasks = parse_diary_tasks(wikitext)
 
         for task in tasks:

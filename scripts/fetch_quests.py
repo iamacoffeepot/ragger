@@ -14,7 +14,7 @@ from clogger.wiki import (
     SKILL_NAME_MAP,
     extract_section,
     fetch_category_members,
-    fetch_page_wikitext,
+    fetch_page_wikitext_with_attribution,
     link_requirement,
     parse_skill_requirements,
     throttle,
@@ -189,14 +189,14 @@ def ingest(db_path: Path) -> None:
         exclude_namespaces={2},
     )
 
+    conn = get_connection(db_path)
+
     print(f"Fetching data for {len(quest_names)} quests...")
     quest_data: list[QuestData] = []
     for title in quest_names:
-        wikitext = fetch_page_wikitext(title)
+        wikitext = fetch_page_wikitext_with_attribution(conn, title, "quests")
         quest_data.append(parse_quest_wikitext(title, wikitext))
         throttle()
-
-    conn = get_connection(db_path)
 
     # Insert quests
     conn.executemany(
