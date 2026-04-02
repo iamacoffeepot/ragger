@@ -74,11 +74,3 @@ class Location:
         for adj in adjs:
             result[adj.direction] = Location.by_name(conn, adj.neighbor)
         return result
-
-    def shop_ids(self, conn: sqlite3.Connection) -> list[int]:
-        """Return shop IDs linked to this location (avoids circular import with Shop)."""
-        rows = conn.execute(
-            "SELECT shop_id FROM shop_locations WHERE location_id = ?",
-            (self.id,),
-        ).fetchall()
-        return [row[0] for row in rows]
