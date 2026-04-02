@@ -22,6 +22,7 @@ FACILITY_PAGES = {
     Facility.ANVIL: "Anvil",
     Facility.ALTAR: "Altar/Locations",
     Facility.SPINNING_WHEEL: "Spinning_wheel",
+    Facility.LOOM: "Loom",
 }
 
 
