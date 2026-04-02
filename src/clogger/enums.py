@@ -265,6 +265,9 @@ IMMUNITY_LABELS: dict["Immunity", str] = {
 }
 
 
+MAP_LINK_ANYWHERE = "ANYWHERE"
+
+
 class MapLinkType(str, Enum):
     ENTRANCE = "entrance"
     EXIT = "exit"
