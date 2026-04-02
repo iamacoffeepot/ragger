@@ -10,13 +10,8 @@ import argparse
 import re
 from pathlib import Path
 
-import requests
-
 from clogger.db import create_tables, get_connection
-
-API_URL = "https://oldschool.runescape.wiki/api.php"
-USER_AGENT = "clogger/0.1 - OSRS Leagues planner"
-HEADERS = {"User-Agent": USER_AGENT}
+from clogger.wiki import fetch_page_wikitext, link_requirement, strip_markup
 
 # Pattern to extract wiki links from item text
 ITEM_LINK_PATTERN = re.compile(r"\[\[([^]|]+?)(?:\|([^]]+))?\]\]")
@@ -46,23 +41,6 @@ TIER_MAP = {
     "3": "Hard",
     "4": "Elite",
 }
-
-
-def fetch_achievement_diary_wikitext() -> str:
-    resp = requests.get(
-        API_URL,
-        params={"action": "parse", "page": "Achievement Diary", "prop": "wikitext", "format": "json"},
-        headers=HEADERS,
-    )
-    resp.raise_for_status()
-    return resp.json()["parse"]["wikitext"]["*"]
-
-
-def strip_markup(text: str) -> str:
-    text = re.sub(r"\[\[([^]|]*\|)?([^]]*)\]\]", r"\2", text)
-    text = re.sub(r"\{\{[^}]*\}\}", "", text)
-    text = re.sub(r"'{2,3}", "", text)
-    return text.strip()
 
 
 def parse_diary_item_requirements(wikitext: str) -> list[tuple[str, str, str, list[str]]]:
@@ -146,7 +124,7 @@ def ingest(db_path: Path) -> None:
         diary_tasks[(row[1], row[2], row[3])] = row[0]
 
     print("Fetching Achievement Diary page...")
-    wikitext = fetch_achievement_diary_wikitext()
+    wikitext = fetch_page_wikitext("Achievement Diary")
     parsed = parse_diary_item_requirements(wikitext)
 
     matched = 0
@@ -170,17 +148,14 @@ def ingest(db_path: Path) -> None:
             item_id = item_ids.get(item_name)
             if item_id is None:
                 continue
-            conn.execute(
-                "INSERT OR IGNORE INTO item_requirements (item_id, quantity) VALUES (?, ?)",
-                (item_id, 1),
-            )
-            req_id = conn.execute(
-                "SELECT id FROM item_requirements WHERE item_id = ? AND quantity = 1",
-                (item_id,),
-            ).fetchone()[0]
-            conn.execute(
-                "INSERT OR IGNORE INTO diary_task_item_requirements (diary_task_id, item_requirement_id) VALUES (?, ?)",
-                (diary_task_id, req_id),
+            link_requirement(
+                conn,
+                table="item_requirements",
+                columns={"item_id": item_id, "quantity": 1},
+                junction_table="diary_task_item_requirements",
+                entity_column="diary_task_id",
+                entity_id=diary_task_id,
+                requirement_column="item_requirement_id",
             )
             item_req_count += 1
 
