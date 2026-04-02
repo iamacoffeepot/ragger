@@ -236,13 +236,15 @@ SCHEMAS: list[str] = [
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         location TEXT NOT NULL,
+        location_id INTEGER,
         owner TEXT,
         members INTEGER NOT NULL DEFAULT 1,
         region INTEGER CHECK(region IN ({_region_ids}) OR region IS NULL),
         shop_type TEXT NOT NULL DEFAULT 'Other',
         sell_multiplier INTEGER NOT NULL DEFAULT 1000,
         buy_multiplier INTEGER NOT NULL DEFAULT 1000,
-        delta INTEGER NOT NULL DEFAULT 0
+        delta INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (location_id) REFERENCES locations(id)
     )
     """,
     f"""
