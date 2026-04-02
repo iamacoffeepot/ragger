@@ -11,3 +11,6 @@ wheels/
 
 # Data directory
 data/
+
+# Plans (personal routing notes)
+plans/
