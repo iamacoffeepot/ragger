@@ -15,7 +15,7 @@ from pathlib import Path
 import requests
 
 from clogger.db import create_tables, get_connection
-from clogger.enums import Region
+from clogger.enums import Region, ShopType
 
 API_URL = "https://oldschool.runescape.wiki/api.php"
 USER_AGENT = "clogger/0.1 - OSRS Leagues planner"
@@ -89,6 +89,7 @@ def parse_infobox_shop(wikitext: str) -> dict | None:
         "owner": parse_template_param(block, "owner"),
         "members": parse_template_param(block, "members"),
         "leagueRegion": parse_template_param(block, "leagueRegion"),
+        "special": parse_template_param(block, "special"),
     }
 
 
@@ -214,17 +215,19 @@ def ingest(db_path: Path) -> None:
 
         region = resolve_region(infobox["leagueRegion"])
         members = 1 if infobox["members"] != "No" else 0
+        shop_type = ShopType.from_label(infobox["special"] or "")
 
         conn.execute(
             """INSERT OR IGNORE INTO shops
-               (name, location, owner, members, region, sell_multiplier, buy_multiplier, delta)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               (name, location, owner, members, region, shop_type, sell_multiplier, buy_multiplier, delta)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 infobox["name"],
                 infobox["location"],
                 infobox["owner"],
                 members,
                 region,
+                shop_type.value,
                 pricing["sell_multiplier"],
                 pricing["buy_multiplier"],
                 pricing["delta"],

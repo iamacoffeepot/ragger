@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from clogger.enums import ALL_REGIONS_MASK, ALL_SKILLS_MASK, DiaryLocation, DiaryTier, Region, Skill, TaskDifficulty
+from clogger.enums import ALL_REGIONS_MASK, ALL_SKILLS_MASK, DiaryLocation, DiaryTier, Region, ShopType, Skill, TaskDifficulty
 
 _skill_ids = ", ".join(str(s.value) for s in Skill)
 _region_ids = ", ".join(str(r.value) for r in Region)
@@ -239,6 +239,7 @@ SCHEMAS: list[str] = [
         owner TEXT,
         members INTEGER NOT NULL DEFAULT 1,
         region INTEGER CHECK(region IN ({_region_ids}) OR region IS NULL),
+        shop_type TEXT NOT NULL DEFAULT 'Other',
         sell_multiplier INTEGER NOT NULL DEFAULT 1000,
         buy_multiplier INTEGER NOT NULL DEFAULT 1000,
         delta INTEGER NOT NULL DEFAULT 0
