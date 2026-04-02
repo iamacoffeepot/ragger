@@ -1,21 +1,20 @@
-"""Compute walkable connections between locations using Voronoi edges and map tile collision data.
+"""Compute walkable connections between locations using Voronoi cells and flood fill.
 
-Uses Euclidean Voronoi to determine which locations are neighbors, then samples
-the map tiles along each edge to determine if the path is blocked (water, walls, void).
+For each pair of Voronoi neighbors, rasterizes both cells at coarse resolution,
+flood fills from each location through non-blocked pixels, and checks if the
+floods intersect. If they do, the locations are walkable between each other.
 
 Stores walkable pairs as map links with type "walkable".
-
-Requires: fetch_locations.py to have been run and data/map-squares.zip to exist.
 """
 
 import argparse
-import os
 import io
+from collections import deque
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from scipy.spatial import Voronoi
+from scipy.spatial import KDTree, Voronoi
 
 from clogger.db import create_tables, get_connection
 from clogger.enums import MapLinkType
@@ -24,13 +23,11 @@ from clogger.map import GAME_TILES_PER_REGION, PIXELS_PER_REGION
 
 DEFAULT_THRESHOLD = 0.975
 DEFAULT_SAMPLES = 200
+DEFAULT_RESOLUTION = 4  # game tiles per pixel in the flood fill grid
 
 
 def load_canvas(conn) -> tuple[np.ndarray, int, int, int, int]:
-    """Load ground plane tiles from database and stitch into a canvas.
-
-    Returns (canvas, x_min_game, x_max_game, y_min_game, y_max_game).
-    """
+    """Load ground plane tiles from database and stitch into a canvas."""
     rows = conn.execute(
         "SELECT region_x, region_y, image FROM map_squares WHERE plane = 0"
     ).fetchall()
@@ -78,8 +75,8 @@ def make_blocked_checker(canvas: np.ndarray, x_min: int, x_max: int, y_min: int,
         # Red = collision flag from map renderer
         if r > 200 and g < 50 and b < 50:
             return True
-        # Black/dark void (includes dark grey fill between regions)
-        if r < 40 and g < 40 and b < 40:
+        # Black void (true void only, not dark terrain like Wilderness)
+        if r < 10 and g < 10 and b < 10:
             return True
         # Map border fill color
         if r == 32 and g == 47 and b == 61:
@@ -92,33 +89,121 @@ def make_blocked_checker(canvas: np.ndarray, x_min: int, x_max: int, y_min: int,
     return is_blocked
 
 
-def line_blocked_ratio(p0, p1, is_blocked, num_samples: int) -> float:
-    """Sample along a line and return the ratio of blocked points."""
+def flood_fill_check(
+    points: np.ndarray,
+    idx_a: int,
+    idx_b: int,
+    tree: KDTree,
+    is_blocked,
+    resolution: int,
+) -> bool:
+    """Check if two Voronoi neighbors are walkable via flood fill.
+
+    Rasterizes both Voronoi cells at the given resolution, flood fills from
+    each location, and returns True if the fills intersect.
+    """
+    a = points[idx_a]
+    b = points[idx_b]
+
+    # Bounding box of the two cells (approximate with padding)
+    pad = max(abs(a[0] - b[0]), abs(a[1] - b[1])) * 0.5 + 50
+    bx_min = int(min(a[0], b[0]) - pad)
+    bx_max = int(max(a[0], b[0]) + pad)
+    by_min = int(min(a[1], b[1]) - pad)
+    by_max = int(max(a[1], b[1]) + pad)
+
+    # Grid dimensions at coarse resolution
+    gw = (bx_max - bx_min) // resolution + 1
+    gh = (by_max - by_min) // resolution + 1
+
+    if gw <= 0 or gh <= 0 or gw > 500 or gh > 500:
+        return False
+
+    # Build cell ownership grid and blocked grid
+    # For each grid cell, determine which Voronoi point owns it
+    grid_coords = []
+    for gy in range(gh):
+        for gx in range(gw):
+            game_x = bx_min + gx * resolution
+            game_y = by_min + gy * resolution
+            grid_coords.append((game_x, game_y))
+
+    grid_coords_arr = np.array(grid_coords)
+    _, owners = tree.query(grid_coords_arr)
+    owners = owners.reshape(gh, gw)
+
+    # Mask: only cells owned by idx_a or idx_b
+    valid = (owners == idx_a) | (owners == idx_b)
+
+    # Blocked grid
+    blocked_grid = np.zeros((gh, gw), dtype=bool)
+    for gy in range(gh):
+        for gx in range(gw):
+            if not valid[gy, gx]:
+                blocked_grid[gy, gx] = True
+            else:
+                game_x = bx_min + gx * resolution
+                game_y = by_min + gy * resolution
+                blocked_grid[gy, gx] = is_blocked(game_x, game_y)
+
+    # Find unblocked seed points in each cell by grid sampling
+    seeds_a = []
+    seeds_b = []
+    for gy in range(0, gh, max(1, gh // 8)):
+        for gx in range(0, gw, max(1, gw // 8)):
+            if blocked_grid[gy, gx]:
+                continue
+            if owners[gy, gx] == idx_a:
+                seeds_a.append((gy, gx))
+            elif owners[gy, gx] == idx_b:
+                seeds_b.append((gy, gx))
+
+    # Also try near the center points
+    for idx, seeds, pt in [(idx_a, seeds_a, a), (idx_b, seeds_b, b)]:
+        cx = int((pt[0] - bx_min) / resolution)
+        cy = int((pt[1] - by_min) / resolution)
+        for dy in range(-3, 4):
+            for dx in range(-3, 4):
+                ny, nx = cy + dy, cx + dx
+                if 0 <= ny < gh and 0 <= nx < gw and not blocked_grid[ny, nx] and owners[ny, nx] == idx:
+                    seeds.append((ny, nx))
+
+    if not seeds_a or not seeds_b:
+        return False
+
+    # BFS from all A seeds at once, check if we reach any B seed
+    b_set = set(seeds_b)
+    visited = np.zeros((gh, gw), dtype=bool)
+    queue = deque()
+
+    for sy, sx in seeds_a:
+        if not visited[sy, sx]:
+            visited[sy, sx] = True
+            queue.append((sy, sx))
+
+    while queue:
+        cy, cx = queue.popleft()
+        if (cy, cx) in b_set:
+            return True
+        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            ny, nx = cy + dy, cx + dx
+            if 0 <= ny < gh and 0 <= nx < gw and not visited[ny, nx] and not blocked_grid[ny, nx]:
+                visited[ny, nx] = True
+                queue.append((ny, nx))
+
+    return False
+
+
+def edge_blocked_ratio(v0, v1, is_blocked, num_samples: int) -> float:
+    """Sample along an edge and return the ratio of blocked points."""
     blocked = 0
     for i in range(num_samples):
         t = i / (num_samples - 1)
-        gx = p0[0] + t * (p1[0] - p0[0])
-        gy = p0[1] + t * (p1[1] - p0[1])
+        gx = v0[0] + t * (v1[0] - v0[0])
+        gy = v0[1] + t * (v1[1] - v0[1])
         if is_blocked(gx, gy):
             blocked += 1
     return blocked / num_samples
-
-
-def is_edge_blocked(v0, v1, loc_a, loc_b, is_blocked, num_samples: int, threshold: float) -> bool:
-    """Check if a Voronoi edge is blocked using both edge and perpendicular sampling.
-
-    Samples along the Voronoi edge and along the line between the two location
-    centers. If either exceeds the blocked threshold, the edge is blocked.
-    """
-    edge_ratio = line_blocked_ratio(v0, v1, is_blocked, num_samples)
-    if edge_ratio >= threshold:
-        return True
-
-    center_ratio = line_blocked_ratio(loc_a, loc_b, is_blocked, num_samples)
-    if center_ratio >= threshold:
-        return True
-
-    return False
 
 
 def render_debug_image(
@@ -172,7 +257,7 @@ def render_debug_image(
     print(f"Debug image saved to {output_path}")
 
 
-def ingest(db_path: Path, threshold: float, samples: int, debug: bool = False) -> None:
+def ingest(db_path: Path, threshold: float, samples: int, resolution: int, debug: bool = False) -> None:
     create_tables(db_path)
     conn = get_connection(db_path)
 
@@ -181,7 +266,6 @@ def ingest(db_path: Path, threshold: float, samples: int, debug: bool = False) -
     is_blocked = make_blocked_checker(canvas, x_min, x_max, y_min, y_max)
     print(f"Canvas: {canvas.shape[1]}x{canvas.shape[0]} px, game coords {x_min}-{x_max} x {y_min}-{y_max}")
 
-    # Process overworld and underworld separately
     for world_name, y_op, y_threshold in [("overworld", "<", 5000), ("underworld", ">=", 5000)]:
         rows = conn.execute(
             f"SELECT name, x, y, region FROM locations WHERE x IS NOT NULL AND y IS NOT NULL AND y {y_op} ?",
@@ -197,10 +281,14 @@ def ingest(db_path: Path, threshold: float, samples: int, debug: bool = False) -
 
         print(f"{world_name}: Computing Voronoi with {len(rows)} locations...")
         vor = Voronoi(points)
+        tree = KDTree(points)
 
         walkable = 0
         blocked = 0
         edge_results: list[tuple[int, bool]] = []
+
+        total_edges = sum(1 for s in vor.ridge_vertices if -1 not in s)
+        print(f"{world_name}: Checking {total_edges} edges...")
 
         for ridge_idx, simplex in enumerate(vor.ridge_vertices):
             if -1 in simplex:
@@ -208,14 +296,18 @@ def ingest(db_path: Path, threshold: float, samples: int, debug: bool = False) -
 
             v0 = vor.vertices[simplex[0]]
             v1 = vor.vertices[simplex[1]]
-
             pt_indices = vor.ridge_points[ridge_idx]
             loc_a = names[pt_indices[0]]
             loc_b = names[pt_indices[1]]
 
-            loc_a_coords = (points[pt_indices[0]][0], points[pt_indices[0]][1])
-            loc_b_coords = (points[pt_indices[1]][0], points[pt_indices[1]][1])
-            is_walkable = not is_edge_blocked(v0, v1, loc_a_coords, loc_b_coords, is_blocked, samples, threshold)
+            # Quick check: if edge is mostly clear, use fast path
+            ratio = edge_blocked_ratio(v0, v1, is_blocked, samples)
+            if ratio < threshold:
+                # Edge looks walkable — verify with flood fill
+                is_walkable = flood_fill_check(points, pt_indices[0], pt_indices[1], tree, is_blocked, resolution)
+            else:
+                is_walkable = False
+
             edge_results.append((ridge_idx, is_walkable))
 
             if is_walkable:
@@ -259,28 +351,10 @@ def ingest(db_path: Path, threshold: float, samples: int, debug: bool = False) -
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compute walkability from map tiles")
-    parser.add_argument(
-        "--db",
-        type=Path,
-        default=Path("data/clogger.db"),
-        help="Path to the SQLite database",
-    )
-    parser.add_argument(
-        "--threshold",
-        type=float,
-        default=DEFAULT_THRESHOLD,
-        help=f"Blocked ratio threshold (default {DEFAULT_THRESHOLD})",
-    )
-    parser.add_argument(
-        "--samples",
-        type=int,
-        default=DEFAULT_SAMPLES,
-        help=f"Number of samples per edge (default {DEFAULT_SAMPLES})",
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Produce a debug image of overworld walkability edges",
-    )
+    parser.add_argument("--db", type=Path, default=Path("data/clogger.db"))
+    parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
+    parser.add_argument("--samples", type=int, default=DEFAULT_SAMPLES)
+    parser.add_argument("--resolution", type=int, default=DEFAULT_RESOLUTION)
+    parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
-    ingest(args.db, args.threshold, args.samples, args.debug)
+    ingest(args.db, args.threshold, args.samples, args.resolution, args.debug)
