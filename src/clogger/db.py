@@ -265,15 +265,6 @@ SCHEMAS: list[str] = [
     )
     """,
     """
-    CREATE TABLE IF NOT EXISTS shop_locations (
-        shop_id INTEGER NOT NULL,
-        location_id INTEGER NOT NULL,
-        PRIMARY KEY (shop_id, location_id),
-        FOREIGN KEY (shop_id) REFERENCES shops(id),
-        FOREIGN KEY (location_id) REFERENCES locations(id)
-    )
-    """,
-    """
     CREATE TABLE IF NOT EXISTS shop_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         shop_id INTEGER NOT NULL,
