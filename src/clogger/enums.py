@@ -209,3 +209,113 @@ _KARAMJA_DIARY_MIN_LEVEL: dict[DiaryTier, int] = {
     DiaryTier.HARD: 40,
     DiaryTier.ELITE: 70,
 }
+
+
+class ShopType(str, Enum):
+    GENERAL = "General store"
+    ARCHERY = "Archery shop"
+    AXE = "Axe shop"
+    CHAINBODY = "Chainbody shop"
+    HELMET = "Helmet shop"
+    MACE = "Mace shop"
+    PLATEBODY = "Platebody shop"
+    PLATELEGS = "Platelegs shop"
+    PLATESKIRT = "Plateskirt shop"
+    SCIMITAR = "Scimitar shop"
+    SHIELD = "Shield shop"
+    SWORD = "Sword shop"
+    AMULET = "Amulet shop"
+    CANDLE = "Candle shop"
+    CLOTHES = "Clothes shop"
+    COOKING = "Cooking shop"
+    CRAFTING = "Crafting shop"
+    CROSSBOW = "Crossbow shop"
+    JEWELLERY = "Jewellery shop"
+    DYE = "Dye shop"
+    FARMING = "Farming shop"
+    FISHING = "Fishing shop"
+    FOOD = "Food shop"
+    FUR = "Fur trader"
+    GEM = "Gem shop"
+    MAGIC = "Magic shop"
+    MINING = "Mining shop"
+    SILK = "Silk shop"
+    HERBLORE = "Herblore shop"
+    HUNTER = "Hunter shop"
+    KEBAB = "Kebab seller"
+    SILVER = "Silver shop"
+    SPICE = "Spice shop"
+    STAFF = "Staff shop"
+    VEGETABLE = "Vegetable shop"
+    WINE = "Wine shop"
+    BAR = "Bar"
+    REWARDS = "Rewards shop"
+    OTHER = "Other"
+
+    @classmethod
+    def from_label(cls, label: str) -> "ShopType":
+        """Map a wiki 'special' field value to a ShopType."""
+        if not label:
+            return cls.OTHER
+        cleaned = label.strip().lower()
+        for member in cls:
+            if member.value.lower() == cleaned:
+                return member
+        # Fuzzy matching for common variants
+        if "general" in cleaned:
+            return cls.GENERAL
+        if "fish" in cleaned:
+            return cls.FISHING
+        if "archery" in cleaned or "ranged" in cleaned:
+            return cls.ARCHERY
+        if "herb" in cleaned:
+            return cls.HERBLORE
+        if "farm" in cleaned:
+            return cls.FARMING
+        if "craft" in cleaned:
+            return cls.CRAFTING
+        if "gem" in cleaned:
+            return cls.GEM
+        if "magic" in cleaned or "rune" in cleaned:
+            return cls.MAGIC
+        if "food" in cleaned or "cook" in cleaned:
+            return cls.FOOD
+        if "mining" in cleaned or "ore" in cleaned:
+            return cls.MINING
+        if "hunter" in cleaned:
+            return cls.HUNTER
+        if "bar" in cleaned or "pub" in cleaned or "inn" in cleaned:
+            return cls.BAR
+        if "reward" in cleaned:
+            return cls.REWARDS
+        if "cloth" in cleaned or "fashion" in cleaned:
+            return cls.CLOTHES
+        if "fur" in cleaned:
+            return cls.FUR
+        if "silk" in cleaned:
+            return cls.SILK
+        if "spice" in cleaned:
+            return cls.SPICE
+        if "staff" in cleaned:
+            return cls.STAFF
+        if "sword" in cleaned:
+            return cls.SWORD
+        if "shield" in cleaned:
+            return cls.SHIELD
+        if "helmet" in cleaned:
+            return cls.HELMET
+        if "jewel" in cleaned:
+            return cls.JEWELLERY
+        if "kebab" in cleaned:
+            return cls.KEBAB
+        if "wine" in cleaned:
+            return cls.WINE
+        if "axe" in cleaned:
+            return cls.AXE
+        if "silver" in cleaned:
+            return cls.SILVER
+        if "dye" in cleaned:
+            return cls.DYE
+        if "candle" in cleaned:
+            return cls.CANDLE
+        return cls.OTHER
