@@ -5,6 +5,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from clogger.enums import Region, ShopType
+from clogger.location import Location
 
 
 @dataclass
@@ -128,3 +129,13 @@ class Shop:
             (self.id, item_name),
         ).fetchone()
         return ShopItem(*row) if row else None
+
+    def locations(self, conn: sqlite3.Connection) -> list[Location]:
+        rows = conn.execute(
+            """SELECT l.id, l.name, l.region, l.type, l.members
+               FROM locations l
+               JOIN shop_locations sl ON sl.location_id = l.id
+               WHERE sl.shop_id = ?""",
+            (self.id,),
+        ).fetchall()
+        return [Location._from_row(row) for row in rows]
