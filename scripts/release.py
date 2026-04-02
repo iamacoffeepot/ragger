@@ -85,11 +85,15 @@ def release(version: str, notes: str) -> None:
     size_mb = DB_PATH.stat().st_size / (1024 * 1024)
     print(f"Database: {DB_PATH} ({size_mb:.1f} MB)")
 
-    # Generate credits
+    # Generate and commit credits
     credits = generate_credits(DB_PATH)
     if credits:
         CREDITS_PATH.write_text(credits)
         print(f"Generated {CREDITS_PATH} ({len(credits)} chars)")
+        run(["git", "add", str(CREDITS_PATH)])
+        run(["git", "commit", "-m", f"docs: update CREDITS.md for {version}"])
+        run(["git", "push"])
+        print("Committed and pushed CREDITS.md")
 
     # Tag the commit
     result = run(["git", "tag", version], check=False)
