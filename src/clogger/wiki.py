@@ -83,6 +83,40 @@ def fetch_page_wikitext(page: str) -> str:
     return resp.json().get("parse", {}).get("wikitext", {}).get("*", "")
 
 
+def fetch_pages_wikitext_batch(pages: list[str]) -> dict[str, str]:
+    """Fetch raw wikitext for up to 50 pages in a single API call.
+
+    Returns a dict mapping page title to wikitext.
+    Uses action=query with revisions prop (supports batching).
+    """
+    result: dict[str, str] = {}
+
+    for i in range(0, len(pages), 50):
+        batch = pages[i:i + 50]
+        params = {
+            "action": "query",
+            "titles": "|".join(batch),
+            "prop": "revisions",
+            "rvprop": "content",
+            "rvslots": "main",
+            "format": "json",
+        }
+        resp = requests.get(API_URL, params=params, headers=HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+
+        for _, page_data in data.get("query", {}).get("pages", {}).items():
+            title = page_data.get("title", "")
+            revisions = page_data.get("revisions", [])
+            if revisions:
+                content = revisions[0].get("slots", {}).get("main", {}).get("*", "")
+                result[title] = content
+
+        throttle()
+
+    return result
+
+
 def strip_markup(text: str) -> str:
     """Remove wiki markup (links, templates, bold/italic) from text."""
     text = re.sub(r"\[\[([^]|]*\|)?([^]]*)\]\]", r"\2", text)
