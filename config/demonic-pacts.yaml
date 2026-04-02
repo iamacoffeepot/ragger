@@ -1,11 +1,11 @@
-starting_region: Varlamore
-starting_location: Civitas illa Fortis
+starting-region: Varlamore
+starting-location: Civitas illa Fortis
 
-always_accessible:
+always-accessible:
   - Varlamore
   - Karamja
 
-unlockable_regions:
+unlockable-regions:
   - Asgarnia
   - Fremennik
   - Kandarin
@@ -15,13 +15,13 @@ unlockable_regions:
   - Wilderness
   - Kourend
 
-max_region_unlocks: 3
+max-region-unlocks: 3
 
-starting_skills:
+starting-skills:
   Herblore: 3
   Runecraft: 5
 
-autocompleted_quests:
+autocompleted-quests:
   - Dragon Slayer I
   - Learning the Ropes
   - The Restless Ghost

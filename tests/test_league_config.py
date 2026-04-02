@@ -33,15 +33,15 @@ def test_from_yaml(tmp_path: Path) -> None:
     config_path = tmp_path / "test.yaml"
     config_path.write_text(
         """
-starting_region: Varlamore
-always_accessible:
+starting-region: Varlamore
+always-accessible:
   - Varlamore
   - Karamja
-unlockable_regions:
+unlockable-regions:
   - Asgarnia
   - Kandarin
-max_region_unlocks: 3
-autocompleted_quests:
+max-region-unlocks: 3
+autocompleted-quests:
   - Quest A
 """
     )

@@ -173,17 +173,17 @@ class LeagueConfig:
             data = yaml.safe_load(f)
 
         starting_skills: dict[Skill, int] = {}
-        for skill_name, level in data.get("starting_skills", {}).items():
+        for skill_name, level in data.get("starting-skills", {}).items():
             starting_skills[Skill.from_label(skill_name)] = level
 
         return LeagueConfig(
-            starting_region=Region.from_label(data["starting_region"]),
-            starting_location=data.get("starting_location", ""),
-            always_accessible=[Region.from_label(r) for r in data["always_accessible"]],
-            unlockable_regions=[Region.from_label(r) for r in data["unlockable_regions"]],
-            max_region_unlocks=data["max_region_unlocks"],
+            starting_region=Region.from_label(data["starting-region"]),
+            starting_location=data.get("starting-location", ""),
+            always_accessible=[Region.from_label(r) for r in data["always-accessible"]],
+            unlockable_regions=[Region.from_label(r) for r in data["unlockable-regions"]],
+            max_region_unlocks=data["max-region-unlocks"],
             starting_skills=starting_skills,
-            autocompleted_quests=data["autocompleted_quests"],
+            autocompleted_quests=data["autocompleted-quests"],
         )
 
     def completed_quests(self, conn: sqlite3.Connection, resolve_chains: bool = True) -> list[Quest]:
