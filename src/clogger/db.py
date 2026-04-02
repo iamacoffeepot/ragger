@@ -256,7 +256,6 @@ SCHEMAS: list[str] = [
         from_y INTEGER,
         to_x INTEGER,
         to_y INTEGER,
-        bidirectional INTEGER NOT NULL DEFAULT 1,
         type TEXT,
         description TEXT
     )

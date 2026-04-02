@@ -127,13 +127,21 @@ def ingest(db_path: Path) -> None:
                         for ux, uy in u["coords"]:
                             description = s["caption"] if s["caption"] else f"Entrance to {page_name}"
                             from_loc = parent if parent else page_name
+                            # Surface -> underground
                             conn.execute(
                                 """INSERT INTO map_links
                                    (from_location, to_location, from_x, from_y, to_x, to_y, type, description)
                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                                 (from_loc, page_name, sx, sy, ux, uy, "entrance", description),
                             )
-                            link_count += 1
+                            # Underground -> surface
+                            conn.execute(
+                                """INSERT INTO map_links
+                                   (from_location, to_location, from_x, from_y, to_x, to_y, type, description)
+                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                (page_name, from_loc, ux, uy, sx, sy, "exit", f"Exit from {page_name}"),
+                            )
+                            link_count += 2
 
             linked_pages.append(page_name)
 
