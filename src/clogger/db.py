@@ -253,7 +253,8 @@ SCHEMAS: list[str] = [
         type INTEGER NOT NULL,
         x INTEGER NOT NULL,
         y INTEGER NOT NULL,
-        name TEXT
+        name TEXT,
+        region INTEGER
     )
     """,
     f"""

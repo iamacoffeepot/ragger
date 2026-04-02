@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from clogger.enums import Facility as FacilityType
+from clogger.enums import Facility as FacilityType, Region
 from clogger.location import DistanceMetric
 
 
@@ -14,18 +14,26 @@ class FacilityEntry:
     x: int
     y: int
     name: str | None
+    region: Region | None = None
 
     @classmethod
     def all(
         cls,
         conn: sqlite3.Connection,
         facility_type: FacilityType | None = None,
+        region: Region | None = None,
     ) -> list[FacilityEntry]:
-        query = "SELECT id, type, x, y, name FROM facilities"
+        query = "SELECT id, type, x, y, name, region FROM facilities"
         params: list = []
+        conditions: list[str] = []
         if facility_type is not None:
-            query += " WHERE type = ?"
+            conditions.append("type = ?")
             params.append(facility_type.value)
+        if region is not None:
+            conditions.append("region = ?")
+            params.append(region.value)
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
         query += " ORDER BY id"
         rows = conn.execute(query, params).fetchall()
         return [cls._from_row(row) for row in rows]
@@ -40,7 +48,7 @@ class FacilityEntry:
         metric: DistanceMetric = DistanceMetric.CHEBYSHEV,
     ) -> FacilityEntry | None:
         """Find the nearest facility to the given coordinates."""
-        query = "SELECT id, type, x, y, name FROM facilities"
+        query = "SELECT id, type, x, y, name, region FROM facilities"
         params: list = []
         if facility_type is not None:
             query += " WHERE type = ?"
@@ -69,7 +77,7 @@ class FacilityEntry:
         metric: DistanceMetric = DistanceMetric.CHEBYSHEV,
     ) -> list[tuple[FacilityEntry, float]]:
         """Find all facilities within max_distance of the given coordinates."""
-        query = "SELECT id, type, x, y, name FROM facilities"
+        query = "SELECT id, type, x, y, name, region FROM facilities"
         params: list = []
         if facility_type is not None:
             query += " WHERE type = ?"
@@ -94,4 +102,5 @@ class FacilityEntry:
             x=row[2],
             y=row[3],
             name=row[4],
+            region=Region(row[5]) if row[5] is not None else None,
         )

@@ -25,13 +25,18 @@ def ingest(db_path: Path) -> None:
     print(f"Loaded {len(facility_rows)} facilities")
 
     linked = 0
-    for _, ftype, fx, fy in facility_rows:
+    for fid, ftype, fx, fy in facility_rows:
         loc = Location.nearest(conn, fx, fy)
         if loc is not None:
             mask = Facility(ftype).mask
             conn.execute(
                 "UPDATE locations SET facilities = facilities | ? WHERE id = ?",
                 (mask, loc.id),
+            )
+            region_val = loc.region.value if loc.region else None
+            conn.execute(
+                "UPDATE facilities SET region = ? WHERE id = ?",
+                (region_val, fid),
             )
             linked += 1
 
