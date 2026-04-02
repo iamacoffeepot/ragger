@@ -13,7 +13,7 @@ THROTTLE_DELAY = float(os.environ.get("CLOGGER_THROTTLE", DEFAULT_THROTTLE))
 from clogger.enums import Skill
 
 API_URL = "https://oldschool.runescape.wiki/api.php"
-USER_AGENT = "clogger/0.1 - OSRS Leagues planner"
+USER_AGENT = "clogger/0.2 (https://github.com/iamacoffeepot/clogger) OSRS Leagues planner"
 HEADERS = {"User-Agent": USER_AGENT}
 
 SKILL_NAME_MAP: dict[str, Skill] = {s.label.lower(): s for s in Skill}
