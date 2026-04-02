@@ -29,6 +29,7 @@ SCRIPTS = [
     # Linking passes (depend on multiple tables)
     "scripts/link_shop_locations.py",
     "scripts/link_facilities.py",
+    "scripts/compute_walkability.py",
 ]
 
 

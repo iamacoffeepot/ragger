@@ -5,8 +5,10 @@ description = "OSRS Leagues knowledge base for route planning"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "pillow>=12.2.0",
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",
+    "scipy>=1.17.1",
 ]
 
 [tool.setuptools.packages.find]
