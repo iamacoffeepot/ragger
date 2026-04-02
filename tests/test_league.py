@@ -67,6 +67,51 @@ def test_general_region(conn: sqlite3.Connection) -> None:
     assert task.region == Region.GENERAL
 
 
+def test_by_skill(conn: sqlite3.Connection) -> None:
+    _seed_tasks(conn)
+    task = LeagueTask.by_name(conn, "50 Wintertodt Kills")
+    conn.execute(
+        "INSERT INTO skill_requirements (skill, level) VALUES (?, ?)",
+        (Skill.FIREMAKING.value, 50),
+    )
+    req_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.execute(
+        "INSERT INTO league_task_skill_requirements (league_task_id, skill_requirement_id) VALUES (?, ?)",
+        (task.id, req_id),
+    )
+    conn.commit()
+
+    tasks = LeagueTask.by_skill(conn, Skill.FIREMAKING)
+    assert len(tasks) == 1
+    assert tasks[0].name == "50 Wintertodt Kills"
+
+
+def test_by_skill_with_filters(conn: sqlite3.Connection) -> None:
+    _seed_tasks(conn)
+    conn.execute(
+        "INSERT INTO skill_requirements (skill, level) VALUES (?, ?)",
+        (Skill.ATTACK.value, 10),
+    )
+    req_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    for task_name in ("Kill a Goblin", "50 Wintertodt Kills"):
+        task = LeagueTask.by_name(conn, task_name)
+        conn.execute(
+            "INSERT INTO league_task_skill_requirements (league_task_id, skill_requirement_id) VALUES (?, ?)",
+            (task.id, req_id),
+        )
+    conn.commit()
+
+    # Filter by region
+    tasks = LeagueTask.by_skill(conn, Skill.ATTACK, region=Region.KOUREND)
+    assert len(tasks) == 1
+    assert tasks[0].name == "50 Wintertodt Kills"
+
+    # Filter by difficulty
+    tasks = LeagueTask.by_skill(conn, Skill.ATTACK, difficulty=TaskDifficulty.EASY)
+    assert len(tasks) == 1
+    assert tasks[0].name == "Kill a Goblin"
+
+
 def test_skill_requirements(conn: sqlite3.Connection) -> None:
     _seed_tasks(conn)
     task = LeagueTask.by_name(conn, "50 Wintertodt Kills")
