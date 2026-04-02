@@ -56,6 +56,7 @@ def test_completed_quests_with_chain(conn: sqlite3.Connection) -> None:
     _seed_quests(conn)
     config = LeagueConfig(
         starting_region=Region.VARLAMORE,
+        starting_location="Civitas illa Fortis",
         always_accessible=[],
         unlockable_regions=[],
         max_region_unlocks=0,
@@ -73,6 +74,7 @@ def test_starting_quest_points(conn: sqlite3.Connection) -> None:
     _seed_quests(conn)
     config = LeagueConfig(
         starting_region=Region.VARLAMORE,
+        starting_location="Civitas illa Fortis",
         always_accessible=[],
         unlockable_regions=[],
         max_region_unlocks=0,
@@ -86,6 +88,7 @@ def test_starting_quest_points(conn: sqlite3.Connection) -> None:
 def test_available_regions() -> None:
     config = LeagueConfig(
         starting_region=Region.VARLAMORE,
+        starting_location="Civitas illa Fortis",
         always_accessible=[Region.VARLAMORE, Region.KARAMJA],
         unlockable_regions=[Region.ASGARNIA, Region.KANDARIN, Region.MORYTANIA],
         max_region_unlocks=3,

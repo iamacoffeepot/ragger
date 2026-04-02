@@ -8,6 +8,7 @@ from clogger.quest import Quest
 def _make_config() -> LeagueConfig:
     return LeagueConfig(
         starting_region=Region.VARLAMORE,
+        starting_location="Civitas illa Fortis",
         always_accessible=[Region.VARLAMORE, Region.KARAMJA],
         unlockable_regions=[Region.ASGARNIA, Region.KANDARIN, Region.MORYTANIA],
         max_region_unlocks=3,
