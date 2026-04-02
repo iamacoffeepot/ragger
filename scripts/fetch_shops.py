@@ -156,12 +156,27 @@ def parse_store_lines(wikitext: str) -> list[dict]:
 
 
 def resolve_region(label: str | None) -> int | None:
-    """Try to map a leagueRegion label to a Region enum value."""
+    """Try to map a leagueRegion label to a Region enum value.
+
+    Handles complex formats like "Misthalin&Morytania&Asgarnia, Misthalin&Fremennik"
+    by extracting the first region from the first group.
+    Returns None for "no" or empty values.
+    """
     if not label:
         return None
+    cleaned = re.sub(r"<!--.*?-->", "", label).strip().lower()
+    if cleaned in ("no", "n/a", ""):
+        return None
+
+    # Take the first group (before any comma)
+    first_group = label.split(",")[0].strip()
+    # Take the first region (before any &)
+    first_region = first_group.split("&")[0].strip()
+
     try:
-        return Region.from_label(label).value
+        return Region.from_label(first_region).value
     except KeyError:
+        print(f"  Warning: unhandled leagueRegion value: {label!r}")
         return None
 
 
