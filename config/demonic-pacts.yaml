@@ -1,4 +1,5 @@
 starting_region: Varlamore
+starting_location: Civitas illa Fortis
 
 always_accessible:
   - Varlamore

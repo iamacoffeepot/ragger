@@ -160,6 +160,7 @@ class LeagueTask:
 @dataclass
 class LeagueConfig:
     starting_region: Region
+    starting_location: str
     always_accessible: list[Region]
     unlockable_regions: list[Region]
     max_region_unlocks: int
@@ -177,6 +178,7 @@ class LeagueConfig:
 
         return LeagueConfig(
             starting_region=Region.from_label(data["starting_region"]),
+            starting_location=data.get("starting_location", ""),
             always_accessible=[Region.from_label(r) for r in data["always_accessible"]],
             unlockable_regions=[Region.from_label(r) for r in data["unlockable_regions"]],
             max_region_unlocks=data["max_region_unlocks"],
