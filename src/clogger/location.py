@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections import deque
 from dataclasses import dataclass
 
 from clogger.enums import Region
@@ -75,6 +76,25 @@ class Location:
         for adj in adjs:
             result[adj.direction] = Location.by_name(conn, adj.neighbor)
         return result
+
+    def within(self, conn: sqlite3.Connection, distance: int) -> list[tuple[Location, int]]:
+        """Return all locations reachable within `distance` hops via adjacency graph.
+
+        Returns a list of (Location, distance) tuples sorted by distance then name.
+        """
+        visited: dict[int, tuple[Location, int]] = {self.id: (self, 0)}
+        queue: deque[tuple[Location, int]] = deque([(self, 0)])
+
+        while queue:
+            current, depth = queue.popleft()
+            if depth >= distance:
+                continue
+            for neighbor in current.neighbors(conn).values():
+                if neighbor is not None and neighbor.id not in visited:
+                    visited[neighbor.id] = (neighbor, depth + 1)
+                    queue.append((neighbor, depth + 1))
+
+        return sorted(visited.values(), key=lambda x: (x[1], x[0].name))
 
     def shops(self, conn: sqlite3.Connection) -> list[Shop]:
         """Return all shops at this location."""
