@@ -248,6 +248,20 @@ SCHEMAS: list[str] = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS map_links (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_location TEXT NOT NULL,
+        to_location TEXT NOT NULL,
+        from_x INTEGER,
+        from_y INTEGER,
+        to_x INTEGER,
+        to_y INTEGER,
+        bidirectional INTEGER NOT NULL DEFAULT 1,
+        type TEXT,
+        description TEXT
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS monsters (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
