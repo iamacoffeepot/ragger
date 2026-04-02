@@ -26,7 +26,7 @@ def resolve_region(label: str | None) -> int | None:
     if not label:
         return None
     cleaned = re.sub(r"<!--.*?-->", "", label).strip().lower()
-    if cleaned in ("no", "n/a", ""):
+    if cleaned in ("no", "n/a", "none", ""):
         return None
     first_group = label.split(",")[0].strip()
     first_region = first_group.split("&")[0].strip()
