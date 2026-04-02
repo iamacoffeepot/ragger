@@ -16,7 +16,7 @@ from pathlib import Path
 
 DB_PATH = Path("data/clogger.db")
 VERSION_PATH = Path("VERSION")
-CREDITS_PATH = Path("data/CREDITS.md")
+CREDITS_PATH = Path("CREDITS.md")
 
 
 def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
