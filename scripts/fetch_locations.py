@@ -21,6 +21,47 @@ from clogger.wiki import (
 
 DIRECTIONS = ("north", "south", "east", "west")
 
+POSITIONAL_COORDS_PATTERN = re.compile(r"\|(\d{3,5}),(\d{3,5})")
+
+
+def parse_map_coords(wikitext: str) -> tuple[int | None, int | None]:
+    """Extract x,y tile coordinates from the {{Map}} template."""
+    i = 0
+    map_text = None
+    while i < len(wikitext):
+        if wikitext[i:i + 5] == "{{Map":
+            depth = 0
+            start = i
+            while i < len(wikitext):
+                if wikitext[i:i + 2] == "{{":
+                    depth += 1
+                    i += 2
+                elif wikitext[i:i + 2] == "}}":
+                    depth -= 1
+                    i += 2
+                    if depth == 0:
+                        map_text = wikitext[start:i]
+                        break
+                else:
+                    i += 1
+            break
+        else:
+            i += 1
+
+    if not map_text:
+        return None, None
+
+    x_match = re.search(r"\|x=(\d+)", map_text)
+    y_match = re.search(r"\|y=(\d+)", map_text)
+    if x_match and y_match:
+        return int(x_match.group(1)), int(y_match.group(1))
+
+    pos_match = POSITIONAL_COORDS_PATTERN.search(map_text)
+    if pos_match:
+        return int(pos_match.group(1)), int(pos_match.group(2))
+
+    return None, None
+
 
 def resolve_region(label: str | None) -> int | None:
     if not label:
@@ -60,11 +101,15 @@ def parse_infobox_location(wikitext: str, page: str) -> dict | None:
 
     members = 0 if members_str and members_str.strip().lower() == "no" else 1
 
+    x, y = parse_map_coords(wikitext)
+
     return {
         "name": name,
         "region": region,
         "type": loc_type,
         "members": members,
+        "x": x,
+        "y": y,
     }
 
 
@@ -110,8 +155,8 @@ def ingest(db_path: Path) -> None:
             continue
 
         conn.execute(
-            "INSERT OR IGNORE INTO locations (name, region, type, members) VALUES (?, ?, ?, ?)",
-            (infobox["name"], infobox["region"], infobox["type"], infobox["members"]),
+            "INSERT OR IGNORE INTO locations (name, region, type, members, x, y) VALUES (?, ?, ?, ?, ?, ?)",
+            (infobox["name"], infobox["region"], infobox["type"], infobox["members"], infobox["x"], infobox["y"]),
         )
         loc_row = conn.execute("SELECT id FROM locations WHERE name = ?", (infobox["name"],)).fetchone()
         if not loc_row:

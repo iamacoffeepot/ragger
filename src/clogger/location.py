@@ -23,6 +23,8 @@ class Location:
     region: Region | None
     type: str | None
     members: bool
+    x: int | None = None
+    y: int | None = None
 
     @classmethod
     def all(
@@ -30,7 +32,7 @@ class Location:
         conn: sqlite3.Connection,
         region: Region | None = None,
     ) -> list[Location]:
-        query = "SELECT id, name, region, type, members FROM locations"
+        query = "SELECT id, name, region, type, members, x, y FROM locations"
         params: list = []
 
         if region is not None:
@@ -44,7 +46,7 @@ class Location:
     @classmethod
     def by_name(cls, conn: sqlite3.Connection, name: str) -> Location | None:
         row = conn.execute(
-            "SELECT id, name, region, type, members FROM locations WHERE name = ?",
+            "SELECT id, name, region, type, members, x, y FROM locations WHERE name = ?",
             (name,),
         ).fetchone()
         return cls._from_row(row) if row else None
@@ -57,6 +59,8 @@ class Location:
             region=Region(row[2]) if row[2] is not None else None,
             type=row[3],
             members=bool(row[4]),
+            x=row[5],
+            y=row[6],
         )
 
     def adjacencies(self, conn: sqlite3.Connection) -> list[Adjacency]:
@@ -104,7 +108,7 @@ class Location:
     def for_shop(cls, conn: sqlite3.Connection, shop_id: int) -> Location | None:
         """Find the location for a given shop."""
         row = conn.execute(
-            """SELECT l.id, l.name, l.region, l.type, l.members
+            """SELECT l.id, l.name, l.region, l.type, l.members, l.x, l.y
                FROM locations l
                JOIN shops s ON s.location_id = l.id
                WHERE s.id = ?""",

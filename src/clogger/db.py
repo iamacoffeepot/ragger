@@ -253,7 +253,9 @@ SCHEMAS: list[str] = [
         name TEXT NOT NULL UNIQUE,
         region INTEGER CHECK(region IN ({_region_ids}) OR region IS NULL),
         type TEXT,
-        members INTEGER NOT NULL DEFAULT 1
+        members INTEGER NOT NULL DEFAULT 1,
+        x INTEGER,
+        y INTEGER
     )
     """,
     """
