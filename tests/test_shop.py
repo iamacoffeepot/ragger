@@ -6,12 +6,12 @@ from clogger.shop import Shop, ShopItem
 
 def _seed_shops(conn: sqlite3.Connection) -> None:
     conn.executemany(
-        """INSERT INTO shops (name, location, owner, members, region, shop_type, sell_multiplier, buy_multiplier, delta)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO shops (name, location, location_id, owner, members, region, shop_type, sell_multiplier, buy_multiplier, delta)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         [
-            ("Toci's Gem Store", "Aldarin", "Toci", 1, Region.VARLAMORE.value, ShopType.GEM.value, 1000, 700, 30),
-            ("Sunset Coast General Store", "Sunset Coast", "Shopkeeper", 1, Region.VARLAMORE.value, ShopType.GENERAL.value, 1300, 400, 30),
-            ("Fernahei's Fishing Hut", "Shilo Village", "Fernahei", 1, Region.KARAMJA.value, ShopType.FISHING.value, 1000, 700, 10),
+            ("Toci's Gem Store", "Aldarin", None, "Toci", 1, Region.VARLAMORE.value, ShopType.GEM.value, 1000, 700, 30),
+            ("Sunset Coast General Store", "Sunset Coast", None, "Shopkeeper", 1, Region.VARLAMORE.value, ShopType.GENERAL.value, 1300, 400, 30),
+            ("Fernahei's Fishing Hut", "Shilo Village", None, "Fernahei", 1, Region.KARAMJA.value, ShopType.FISHING.value, 1000, 700, 10),
         ],
     )
     conn.executemany(

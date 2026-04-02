@@ -5,6 +5,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from clogger.enums import Region, ShopType
+from clogger.location import Location
 
 
 @dataclass
@@ -35,6 +36,7 @@ class Shop:
     id: int
     name: str
     location: str
+    location_id: int | None
     owner: str | None
     members: bool
     region: Region | None
@@ -43,7 +45,7 @@ class Shop:
     buy_multiplier: int
     delta: int
 
-    _COLS = "id, name, location, owner, members, region, shop_type, sell_multiplier, buy_multiplier, delta"
+    _COLS = "id, name, location, location_id, owner, members, region, shop_type, sell_multiplier, buy_multiplier, delta"
 
     @classmethod
     def all(
@@ -77,7 +79,7 @@ class Shop:
         ).fetchone()
         return cls._from_row(row) if row else None
 
-    _S_COLS = "s.id, s.name, s.location, s.owner, s.members, s.region, s.shop_type, s.sell_multiplier, s.buy_multiplier, s.delta"
+    _S_COLS = "s.id, s.name, s.location, s.location_id, s.owner, s.members, s.region, s.shop_type, s.sell_multiplier, s.buy_multiplier, s.delta"
 
     @classmethod
     def selling(cls, conn: sqlite3.Connection, item_name: str, region: Region | None = None) -> list[Shop]:
@@ -104,14 +106,24 @@ class Shop:
             id=row[0],
             name=row[1],
             location=row[2],
-            owner=row[3],
-            members=bool(row[4]),
-            region=Region(row[5]) if row[5] is not None else None,
-            shop_type=ShopType(row[6]),
-            sell_multiplier=row[7],
-            buy_multiplier=row[8],
-            delta=row[9],
+            location_id=row[3],
+            owner=row[4],
+            members=bool(row[5]),
+            region=Region(row[6]) if row[6] is not None else None,
+            shop_type=ShopType(row[7]),
+            sell_multiplier=row[8],
+            buy_multiplier=row[9],
+            delta=row[10],
         )
+
+    def get_location(self, conn: sqlite3.Connection) -> Location | None:
+        if self.location_id is None:
+            return None
+        row = conn.execute(
+            "SELECT id, name, region, type, members FROM locations WHERE id = ?",
+            (self.location_id,),
+        ).fetchone()
+        return Location._from_row(row) if row else None
 
     def items(self, conn: sqlite3.Connection) -> list[ShopItem]:
         rows = conn.execute(
