@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 DB_PATH = Path("data/clogger.db")
+VERSION_PATH = Path("VERSION")
 
 
 def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -54,8 +55,9 @@ def release(version: str, notes: str) -> None:
 
 
 if __name__ == "__main__":
+    default_version = "v" + VERSION_PATH.read_text().strip() if VERSION_PATH.exists() else None
     parser = argparse.ArgumentParser(description="Create a GitHub release with the database")
-    parser.add_argument("version", help="Version tag (e.g. v0.1.0)")
+    parser.add_argument("version", nargs="?", default=default_version, help="Version tag (e.g. v0.1.0, defaults to VERSION file)")
     parser.add_argument(
         "--notes",
         default="Database release",
