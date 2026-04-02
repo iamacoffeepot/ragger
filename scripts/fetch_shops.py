@@ -7,77 +7,19 @@ Requires: fetch_items.py to have been run first (for item cross-referencing).
 """
 
 import argparse
-import math
 import re
-import time
 from pathlib import Path
-
-import requests
 
 from clogger.db import create_tables, get_connection
 from clogger.enums import Region, ShopType
-
-WIKI_LINK_RE = re.compile(r"\[\[([^\]|]*?)(?:\|[^\]]*?)?\]\]")
-
-API_URL = "https://oldschool.runescape.wiki/api.php"
-USER_AGENT = "clogger/0.1 - OSRS Leagues planner"
-HEADERS = {"User-Agent": USER_AGENT}
-
-
-def fetch_shop_pages() -> list[str]:
-    """Get all page titles in Category:Shops."""
-    pages: list[str] = []
-    params = {
-        "action": "query",
-        "list": "categorymembers",
-        "cmtitle": "Category:Shops",
-        "cmlimit": "500",
-        "cmtype": "page",
-        "cmnamespace": "0",
-        "format": "json",
-    }
-
-    while True:
-        resp = requests.get(API_URL, params=params, headers=HEADERS)
-        resp.raise_for_status()
-        data = resp.json()
-
-        for member in data["query"]["categorymembers"]:
-            pages.append(member["title"])
-
-        if "continue" in data:
-            params["cmcontinue"] = data["continue"]["cmcontinue"]
-        else:
-            break
-
-    return pages
-
-
-def parse_template_param(wikitext: str, param: str) -> str | None:
-    """Extract a single parameter value from wiki template text."""
-    match = re.search(rf"\|\s*{param}\s*=\s*([^\n|}}]*)", wikitext)
-    return match.group(1).strip() if match else None
-
-
-def extract_template(wikitext: str, template_name: str) -> str | None:
-    """Extract a template block handling nested braces."""
-    start = wikitext.find("{{" + template_name)
-    if start == -1:
-        return None
-    depth = 0
-    i = start
-    while i < len(wikitext):
-        if wikitext[i:i + 2] == "{{":
-            depth += 1
-            i += 2
-        elif wikitext[i:i + 2] == "}}":
-            depth -= 1
-            if depth == 0:
-                return wikitext[start + len("{{" + template_name):i]
-            i += 2
-        else:
-            i += 1
-    return None
+from clogger.wiki import (
+    extract_template,
+    fetch_category_members,
+    fetch_page_wikitext,
+    parse_template_param,
+    strip_wiki_links,
+    throttle,
+)
 
 
 def parse_infobox_shop(wikitext: str) -> dict | None:
@@ -87,7 +29,7 @@ def parse_infobox_shop(wikitext: str) -> dict | None:
         return None
     return {
         "name": parse_template_param(block, "name"),
-        "location": WIKI_LINK_RE.sub(r"\1", parse_template_param(block, "location") or ""),
+        "location": strip_wiki_links(parse_template_param(block, "location") or ""),
         "owner": parse_template_param(block, "owner"),
         "members": parse_template_param(block, "members"),
         "leagueRegion": parse_template_param(block, "leagueRegion"),
@@ -171,9 +113,7 @@ def resolve_region(label: str | None) -> int | None:
     if cleaned in ("no", "n/a", ""):
         return None
 
-    # Take the first group (before any comma)
     first_group = label.split(",")[0].strip()
-    # Take the first region (before any &)
     first_region = first_group.split("&")[0].strip()
 
     try:
@@ -187,20 +127,14 @@ def ingest(db_path: Path) -> None:
     create_tables(db_path)
     conn = get_connection(db_path)
 
-    pages = fetch_shop_pages()
+    pages = fetch_category_members("Shops")
     print(f"Found {len(pages)} pages in Category:Shops")
 
     shop_count = 0
     item_count = 0
 
     for page in pages:
-        resp = requests.get(
-            API_URL,
-            params={"action": "parse", "page": page, "prop": "wikitext", "format": "json"},
-            headers=HEADERS,
-        )
-        resp.raise_for_status()
-        wikitext = resp.json().get("parse", {}).get("wikitext", {}).get("*", "")
+        wikitext = fetch_page_wikitext(page)
 
         if "{{StoreTableHead" not in wikitext:
             continue
@@ -259,7 +193,7 @@ def ingest(db_path: Path) -> None:
             item_count += 1
 
         shop_count += 1
-        time.sleep(0.1)
+        throttle()
 
     conn.commit()
     print(f"Inserted {shop_count} shops with {item_count} items into {db_path}")
