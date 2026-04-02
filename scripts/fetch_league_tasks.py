@@ -6,27 +6,65 @@ Requires: fetch_items.py and fetch_quests.py to have been run first.
 
 import argparse
 import re
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import requests
-
 from clogger.db import create_tables, get_connection
-from clogger.enums import DiaryLocation, DiaryTier, Region, Skill, TaskDifficulty
+from clogger.enums import DiaryLocation, DiaryTier, Region, TaskDifficulty
+from clogger.wiki import (
+    fetch_page_wikitext,
+    link_requirement,
+    parse_skill_requirements,
+    strip_markup,
+)
 
-API_URL = "https://oldschool.runescape.wiki/api.php"
-USER_AGENT = "clogger/0.1 - OSRS Leagues planner"
-HEADERS = {"User-Agent": USER_AGENT}
+QUEST_REQ_PATTERN = re.compile(r"\[\[([^]|]+?)(?:\|[^]]+)?\]\]")
+REGION_REQ_PATTERN = re.compile(r"\{\{RE\|(\w+)\}\}")
+
+DIFFICULTY_MAP = {
+    "easy": TaskDifficulty.EASY,
+    "medium": TaskDifficulty.MEDIUM,
+    "hard": TaskDifficulty.HARD,
+    "elite": TaskDifficulty.ELITE,
+    "master": TaskDifficulty.MASTER,
+}
+
+DIARY_LOCATION_MAP = {
+    "ardougne": DiaryLocation.ARDOUGNE,
+    "desert": DiaryLocation.DESERT,
+    "falador": DiaryLocation.FALADOR,
+    "fremennik": DiaryLocation.FREMENNIK,
+    "kandarin": DiaryLocation.KANDARIN,
+    "karamja": DiaryLocation.KARAMJA,
+    "kourend & kebos": DiaryLocation.KOUREND_KEBOS,
+    "kourend and kebos": DiaryLocation.KOUREND_KEBOS,
+    "lumbridge & draynor": DiaryLocation.LUMBRIDGE_DRAYNOR,
+    "morytania": DiaryLocation.MORYTANIA,
+    "varrock": DiaryLocation.VARROCK,
+    "western provinces": DiaryLocation.WESTERN_PROVINCES,
+    "wilderness": DiaryLocation.WILDERNESS,
+}
+
+DIARY_TIER_MAP = {
+    "easy": DiaryTier.EASY,
+    "medium": DiaryTier.MEDIUM,
+    "hard": DiaryTier.HARD,
+    "elite": DiaryTier.ELITE,
+}
+
+# Pattern: "Complete the Easy Falador Diary" or "Kourend and Kebos Easy Diary Tasks"
+DIARY_TASK_PATTERN = re.compile(
+    r"(?:Complete the (\w+) (.+?) Diary|(.+?) (\w+) Diary Tasks)",
+    re.IGNORECASE,
+)
+
 
 def parse_template_fields(text: str) -> dict[str, str] | None:
     """Parse a RELTaskRow template handling nested [[ ]] and {{ }}."""
     if not text.startswith("{{RELTaskRow|"):
         return None
 
-    # Strip outer {{ }}
     inner = text[2:-2]
-    # Skip "RELTaskRow|"
     inner = inner[len("RELTaskRow|"):]
 
     fields: list[str] = []
@@ -65,51 +103,6 @@ def parse_template_fields(text: str) -> dict[str, str] | None:
 
     return result
 
-SKILL_REQ_PATTERN = re.compile(r"\{\{SCP\|(\w+)\|(\d+)")
-QUEST_REQ_PATTERN = re.compile(r"\[\[([^]|]+?)(?:\|[^]]+)?\]\]")
-REGION_REQ_PATTERN = re.compile(r"\{\{RE\|(\w+)\}\}")
-
-SKILL_NAME_MAP = {s.label.lower(): s for s in Skill}
-
-DIFFICULTY_MAP = {
-    "easy": TaskDifficulty.EASY,
-    "medium": TaskDifficulty.MEDIUM,
-    "hard": TaskDifficulty.HARD,
-    "elite": TaskDifficulty.ELITE,
-    "master": TaskDifficulty.MASTER,
-}
-
-
-
-DIARY_LOCATION_MAP = {
-    "ardougne": DiaryLocation.ARDOUGNE,
-    "desert": DiaryLocation.DESERT,
-    "falador": DiaryLocation.FALADOR,
-    "fremennik": DiaryLocation.FREMENNIK,
-    "kandarin": DiaryLocation.KANDARIN,
-    "karamja": DiaryLocation.KARAMJA,
-    "kourend & kebos": DiaryLocation.KOUREND_KEBOS,
-    "kourend and kebos": DiaryLocation.KOUREND_KEBOS,
-    "lumbridge & draynor": DiaryLocation.LUMBRIDGE_DRAYNOR,
-    "morytania": DiaryLocation.MORYTANIA,
-    "varrock": DiaryLocation.VARROCK,
-    "western provinces": DiaryLocation.WESTERN_PROVINCES,
-    "wilderness": DiaryLocation.WILDERNESS,
-}
-
-DIARY_TIER_MAP = {
-    "easy": DiaryTier.EASY,
-    "medium": DiaryTier.MEDIUM,
-    "hard": DiaryTier.HARD,
-    "elite": DiaryTier.ELITE,
-}
-
-# Pattern: "Complete the Easy Falador Diary" or "Kourend and Kebos Easy Diary Tasks"
-DIARY_TASK_PATTERN = re.compile(
-    r"(?:Complete the (\w+) (.+?) Diary|(.+?) (\w+) Diary Tasks)",
-    re.IGNORECASE,
-)
-
 
 @dataclass
 class LeagueTaskData:
@@ -122,25 +115,7 @@ class LeagueTaskData:
     quest_reqs: list[tuple[str, bool]] = field(default_factory=list)
     item_reqs: list[str] = field(default_factory=list)
     diary_reqs: list[tuple[DiaryLocation, DiaryTier]] = field(default_factory=list)
-    region_reqs: list[tuple[int, bool]] = field(default_factory=list)  # (bitmask, any_region)
-
-
-def strip_markup(text: str) -> str:
-    text = re.sub(r"\[\[([^]|]*\|)?([^]]*)\]\]", r"\2", text)
-    text = re.sub(r"\{\{[^}]*\}\}", "", text)
-    text = re.sub(r"'{2,3}", "", text)
-    return text.strip()
-
-
-def parse_skill_reqs(s_field: str) -> list[tuple[int, int]]:
-    reqs = []
-    for match in SKILL_REQ_PATTERN.finditer(s_field):
-        skill_name = match.group(1).lower()
-        level = int(match.group(2))
-        skill = SKILL_NAME_MAP.get(skill_name)
-        if skill is not None and 1 <= level <= 99:
-            reqs.append((skill.value, level))
-    return reqs
+    region_reqs: list[tuple[int, bool]] = field(default_factory=list)
 
 
 def parse_other_reqs(
@@ -157,7 +132,7 @@ def parse_other_reqs(
             if quest_name.startswith("File:") or quest_name.startswith("Category:"):
                 continue
             pos = match.start()
-            context = other_field[max(0, pos - 80) : pos]
+            context = other_field[max(0, pos - 80):pos]
             if "Completion of" in context or "SCP|Quest" in context:
                 quest_reqs.append((quest_name, False))
 
@@ -177,9 +152,8 @@ def parse_other_reqs(
             continue
         if "#" in name:
             continue
-        # Skip region references {{RE|...}}
         pos = match.start()
-        before = other_field[max(0, pos - 5) : pos]
+        before = other_field[max(0, pos - 5):pos]
         if "RE|" in before or "SCP|" in before:
             continue
         item_reqs.append(name)
@@ -204,29 +178,19 @@ def parse_other_reqs(
     return quest_reqs, item_reqs, region_reqs
 
 
-def fetch_tasks_wikitext(page: str) -> str:
-    resp = requests.get(
-        API_URL,
-        params={"action": "parse", "page": page, "prop": "wikitext", "format": "json"},
-        headers=HEADERS,
-    )
-    resp.raise_for_status()
-    return resp.json()["parse"]["wikitext"]["*"]
-
-
 def extract_templates(wikitext: str) -> list[str]:
     """Extract all {{RELTaskRow|...}} templates from wikitext."""
-    templates = []
+    templates: list[str] = []
     i = 0
     while i < len(wikitext):
-        if wikitext[i : i + 12] == "{{RELTaskRow":
+        if wikitext[i:i + 12] == "{{RELTaskRow":
             depth = 0
             start = i
             while i < len(wikitext):
-                if wikitext[i : i + 2] == "{{":
+                if wikitext[i:i + 2] == "{{":
                     depth += 1
                     i += 2
-                elif wikitext[i : i + 2] == "}}":
+                elif wikitext[i:i + 2] == "}}":
                     depth -= 1
                     i += 2
                     if depth == 0:
@@ -240,7 +204,7 @@ def extract_templates(wikitext: str) -> list[str]:
 
 
 def parse_league_tasks(wikitext: str) -> list[LeagueTaskData]:
-    tasks = []
+    tasks: list[LeagueTaskData] = []
     for template in extract_templates(wikitext):
         fields = parse_template_fields(template)
         if fields is None or "id" not in fields or "tier" not in fields:
@@ -262,15 +226,13 @@ def parse_league_tasks(wikitext: str) -> list[LeagueTaskData]:
         except KeyError:
             raise ValueError(f"Unknown region '{region_str}' for task '{name}' (id={task_id})")
 
-        skill_reqs = parse_skill_reqs(s_field)
+        skill_reqs = parse_skill_requirements(s_field)
         quest_reqs, item_reqs, region_reqs = parse_other_reqs(other_field)
 
         # Detect diary requirements from task name
         diary_reqs: list[tuple[DiaryLocation, DiaryTier]] = []
         diary_match = DIARY_TASK_PATTERN.search(name)
         if diary_match:
-            # "Complete the Easy Falador Diary" -> tier=Easy, location=Falador
-            # "Kourend and Kebos Easy Diary Tasks" -> location=Kourend and Kebos, tier=Easy
             if diary_match.group(1):
                 tier_str = diary_match.group(1).lower()
                 loc_str = diary_match.group(2).lower()
@@ -283,16 +245,9 @@ def parse_league_tasks(wikitext: str) -> list[LeagueTaskData]:
                 diary_reqs.append((diary_loc, diary_tier))
 
         tasks.append(LeagueTaskData(
-            id=task_id,
-            name=name,
-            description=description,
-            difficulty=difficulty,
-            region=region,
-            skill_reqs=skill_reqs,
-            quest_reqs=quest_reqs,
-            item_reqs=item_reqs,
-            diary_reqs=diary_reqs,
-            region_reqs=region_reqs,
+            id=task_id, name=name, description=description, difficulty=difficulty,
+            region=region, skill_reqs=skill_reqs, quest_reqs=quest_reqs,
+            item_reqs=item_reqs, diary_reqs=diary_reqs, region_reqs=region_reqs,
         ))
 
     return tasks
@@ -302,12 +257,11 @@ def ingest(db_path: Path, page: str = "Raging_Echoes_League/Tasks") -> None:
     create_tables(db_path)
     conn = get_connection(db_path)
 
-    # Lookup maps
     quest_ids = dict(conn.execute("SELECT name, id FROM quests").fetchall())
     item_ids = dict(conn.execute("SELECT name, id FROM items").fetchall())
 
     print(f"Fetching tasks from {page}...")
-    wikitext = fetch_tasks_wikitext(page)
+    wikitext = fetch_page_wikitext(page)
     tasks = parse_league_tasks(wikitext)
 
     skill_req_count = 0
@@ -323,92 +277,35 @@ def ingest(db_path: Path, page: str = "Raging_Echoes_League/Tasks") -> None:
         )
         league_task_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
-        # Skill requirements
         for skill_id, level in task.skill_reqs:
-            conn.execute(
-                "INSERT OR IGNORE INTO skill_requirements (skill, level) VALUES (?, ?)",
-                (skill_id, level),
-            )
-            req_id = conn.execute(
-                "SELECT id FROM skill_requirements WHERE skill = ? AND level = ?",
-                (skill_id, level),
-            ).fetchone()[0]
-            conn.execute(
-                "INSERT OR IGNORE INTO league_task_skill_requirements (league_task_id, skill_requirement_id) VALUES (?, ?)",
-                (league_task_id, req_id),
-            )
+            link_requirement(conn, "skill_requirements", {"skill": skill_id, "level": level},
+                             "league_task_skill_requirements", "league_task_id", league_task_id, "skill_requirement_id")
             skill_req_count += 1
 
-        # Quest requirements
         for quest_name, partial in task.quest_reqs:
             req_quest_id = quest_ids.get(quest_name)
             if req_quest_id is None:
                 continue
-            partial_int = 1 if partial else 0
-            conn.execute(
-                "INSERT OR IGNORE INTO quest_requirements (required_quest_id, partial) VALUES (?, ?)",
-                (req_quest_id, partial_int),
-            )
-            req_id = conn.execute(
-                "SELECT id FROM quest_requirements WHERE required_quest_id = ? AND partial = ?",
-                (req_quest_id, partial_int),
-            ).fetchone()[0]
-            conn.execute(
-                "INSERT OR IGNORE INTO league_task_quest_requirements (league_task_id, quest_requirement_id) VALUES (?, ?)",
-                (league_task_id, req_id),
-            )
+            link_requirement(conn, "quest_requirements", {"required_quest_id": req_quest_id, "partial": 1 if partial else 0},
+                             "league_task_quest_requirements", "league_task_id", league_task_id, "quest_requirement_id")
             quest_req_count += 1
 
-        # Item requirements
         for item_name in task.item_reqs:
             item_id = item_ids.get(item_name)
             if item_id is None:
                 continue
-            conn.execute(
-                "INSERT OR IGNORE INTO item_requirements (item_id, quantity) VALUES (?, ?)",
-                (item_id, 1),
-            )
-            req_id = conn.execute(
-                "SELECT id FROM item_requirements WHERE item_id = ? AND quantity = 1",
-                (item_id,),
-            ).fetchone()[0]
-            conn.execute(
-                "INSERT OR IGNORE INTO league_task_item_requirements (league_task_id, item_requirement_id) VALUES (?, ?)",
-                (league_task_id, req_id),
-            )
+            link_requirement(conn, "item_requirements", {"item_id": item_id, "quantity": 1},
+                             "league_task_item_requirements", "league_task_id", league_task_id, "item_requirement_id")
             item_req_count += 1
 
-        # Diary requirements
         for diary_loc, diary_tier in task.diary_reqs:
-            conn.execute(
-                "INSERT OR IGNORE INTO diary_requirements (location, tier) VALUES (?, ?)",
-                (diary_loc.value, diary_tier.value),
-            )
-            req_id = conn.execute(
-                "SELECT id FROM diary_requirements WHERE location = ? AND tier = ?",
-                (diary_loc.value, diary_tier.value),
-            ).fetchone()[0]
-            conn.execute(
-                "INSERT OR IGNORE INTO league_task_diary_requirements (league_task_id, diary_requirement_id) VALUES (?, ?)",
-                (league_task_id, req_id),
-            )
+            link_requirement(conn, "diary_requirements", {"location": diary_loc.value, "tier": diary_tier.value},
+                             "league_task_diary_requirements", "league_task_id", league_task_id, "diary_requirement_id")
             diary_req_count += 1
 
-        # Region requirements
         for mask, is_any in task.region_reqs:
-            any_int = 1 if is_any else 0
-            conn.execute(
-                "INSERT OR IGNORE INTO region_requirements (regions, any_region) VALUES (?, ?)",
-                (mask, any_int),
-            )
-            req_id = conn.execute(
-                "SELECT id FROM region_requirements WHERE regions = ? AND any_region = ?",
-                (mask, any_int),
-            ).fetchone()[0]
-            conn.execute(
-                "INSERT OR IGNORE INTO league_task_region_requirements (league_task_id, region_requirement_id) VALUES (?, ?)",
-                (league_task_id, req_id),
-            )
+            link_requirement(conn, "region_requirements", {"regions": mask, "any_region": 1 if is_any else 0},
+                             "league_task_region_requirements", "league_task_id", league_task_id, "region_requirement_id")
             region_req_count += 1
 
     conn.commit()
