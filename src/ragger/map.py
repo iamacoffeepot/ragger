@@ -218,8 +218,14 @@ _ZERO_COST_TYPES = {
     MapLinkType.EXIT,
     MapLinkType.FAIRY_RING,
     MapLinkType.CHARTER_SHIP,
-    MapLinkType.QUETZAL,
+    MapLinkType.SPIRIT_TREE,
+    MapLinkType.GNOME_GLIDER,
+    MapLinkType.CANOE,
     MapLinkType.TELEPORT,
+    MapLinkType.MINECART,
+    MapLinkType.SHIP,
+    MapLinkType.QUETZAL,
+    MapLinkType.NPC_TRANSPORT,
 }
 
 
