@@ -33,3 +33,9 @@ tasks.register('dumpWater', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'dev.clogger.cachedump.DumpWater'
 }
+
+tasks.register('dumpMapTiles', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'dev.clogger.cachedump.DumpMapTiles'
+    jvmArgs = ['-Xmx2g']
+}
