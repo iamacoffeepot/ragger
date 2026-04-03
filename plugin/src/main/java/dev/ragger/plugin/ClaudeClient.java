@@ -102,9 +102,15 @@ public class ClaudeClient {
             }
         }
 
-        int exitCode = process.waitFor();
-        if (exitCode != 0) {
-            log.warn("Claude CLI exited with code {}", exitCode);
+        boolean finished = process.waitFor(120, java.util.concurrent.TimeUnit.SECONDS);
+        if (!finished) {
+            log.warn("Claude CLI timed out after 120s, killing process");
+            process.destroyForcibly();
+            if (resultText.isEmpty()) {
+                resultText.append("Request timed out. Try again or /reset the session.");
+            }
+        } else if (process.exitValue() != 0) {
+            log.warn("Claude CLI exited with code {}", process.exitValue());
         }
 
         return new ClaudeResponse(resultText.toString(), scripts, toolLog);
@@ -189,22 +195,23 @@ public class ClaudeClient {
         // Strip mcp__ prefix for display
         String displayName = toolName.replaceFirst("^mcp__\\w+__", "");
 
-        if (input == null) return displayName;
+        if (input == null) return displayName + "()";
 
-        // Show a brief summary of the input
+        // Format like Claude Code: Tool(arg1, arg2, ...)
         if (input.has("command")) {
-            return displayName + ": " + truncate(input.get("command").getAsString(), 80);
+            return displayName + "(" + truncate(input.get("command").getAsString(), 60) + ")";
         }
         if (input.has("pattern")) {
-            return displayName + ": " + input.get("pattern").getAsString();
+            return displayName + "(" + input.get("pattern").getAsString() + ")";
         }
         if (input.has("file_path")) {
-            return displayName + ": " + input.get("file_path").getAsString();
+            return displayName + "(" + input.get("file_path").getAsString() + ")";
         }
         if (input.has("script")) {
-            return displayName + ": " + truncate(input.get("script").getAsString(), 60);
+            String name = input.has("name") ? input.get("name").getAsString() : "";
+            return displayName + "(" + name + ", ...)";
         }
-        return displayName;
+        return displayName + "()";
     }
 
     private static String truncate(String s, int maxLen) {
