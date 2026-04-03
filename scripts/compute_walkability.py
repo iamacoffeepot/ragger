@@ -10,17 +10,15 @@ Stores walkable pairs as map links with type "walkable".
 """
 
 import argparse
-import io
 from collections import deque
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 from scipy.spatial import KDTree, Voronoi
 
 from clogger.db import create_tables, get_connection
-from clogger.enums import MapLinkType
-from clogger.map import GAME_TILES_PER_REGION, PIXELS_PER_REGION
+from clogger.enums import MapLinkType, MapSquareType
+from clogger.map import GAME_TILES_PER_REGION, MapSquare, PIXELS_PER_REGION
 
 
 DEFAULT_RESOLUTION = 1  # game tiles per pixel in the flood fill grid
@@ -28,66 +26,59 @@ DEFAULT_AREA_THRESHOLD = 0.6  # proportion of cell walkable area reachable from 
 DEFAULT_EDGE_SAMPLES = 40  # sample points along the shared Voronoi edge
 
 
-def load_canvas(conn) -> tuple[np.ndarray, int, int, int, int]:
-    """Load ground plane tiles from database and stitch into a canvas."""
-    rows = conn.execute(
-        "SELECT region_x, region_y, image FROM map_squares WHERE plane = 0"
-    ).fetchall()
-
-    if not rows:
-        raise ValueError("No map squares in database. Run import_map_squares.py first.")
-
-    tiles = {(r[0], r[1]): r[2] for r in rows}
-    rxs = [t[0] for t in tiles]
-    rys = [t[1] for t in tiles]
-    min_rx, max_rx = min(rxs), max(rxs)
-    min_ry, max_ry = min(rys), max(rys)
-
-    width = (max_rx - min_rx + 1) * PIXELS_PER_REGION
-    height = (max_ry - min_ry + 1) * PIXELS_PER_REGION
-    canvas = np.zeros((height, width, 3), dtype=np.uint8)
-
-    for (rx, ry), data in tiles.items():
-        try:
-            tile = np.array(Image.open(io.BytesIO(data)).convert("RGB"))
-            px = (rx - min_rx) * PIXELS_PER_REGION
-            py = (max_ry - ry) * PIXELS_PER_REGION
-            canvas[py:py + PIXELS_PER_REGION, px:px + PIXELS_PER_REGION] = tile
-        except Exception:
-            pass
-
-    x_min = min_rx * GAME_TILES_PER_REGION
-    x_max = (max_rx + 1) * GAME_TILES_PER_REGION
-    y_min = min_ry * GAME_TILES_PER_REGION
-    y_max = (max_ry + 1) * GAME_TILES_PER_REGION
-
-    return canvas, x_min, x_max, y_min, y_max
+COLLISION_BLOCKED = (255, 0, 0)  # 0xFF0000 — red pixel in collision tiles
+COLLISION_WALKABLE = (255, 255, 255)  # 0xFFFFFF — white pixel in collision tiles
+WATER_BLUE = (0, 102, 204)  # 0x0066CC — blue pixel in water tiles
 
 
-def make_blocked_checker(canvas: np.ndarray, x_min: int, x_max: int, y_min: int, y_max: int):
-    """Return a function that checks if a game coordinate is blocked."""
-    height, width = canvas.shape[:2]
+def load_layers(conn) -> tuple[np.ndarray, np.ndarray, np.ndarray, int, int, int, int]:
+    """Load collision, water, and color canvases from the database.
+
+    Returns (collision, water, color, x_min, x_max, y_min, y_max).
+    Collision and water are 1 px per tile. Color is 4 px per tile.
+    """
+    row = conn.execute(
+        "SELECT MIN(region_x), MAX(region_x), MIN(region_y), MAX(region_y) "
+        "FROM map_squares WHERE plane = 0 AND type = 'collision'"
+    ).fetchone()
+    if row[0] is None:
+        raise ValueError("No collision map squares in database. Run import_map_squares.py first.")
+
+    x_min = row[0] * GAME_TILES_PER_REGION
+    x_max = (row[1] + 1) * GAME_TILES_PER_REGION
+    y_min = row[2] * GAME_TILES_PER_REGION
+    y_max = (row[3] + 1) * GAME_TILES_PER_REGION
+
+    collision, _ = MapSquare.stitch(conn, x_min, x_max, y_min, y_max, type=MapSquareType.COLLISION, region_padding=0)
+    water, _ = MapSquare.stitch(conn, x_min, x_max, y_min, y_max, type=MapSquareType.WATER, region_padding=0)
+    color, _ = MapSquare.stitch(conn, x_min, x_max, y_min, y_max, type=MapSquareType.COLOR, region_padding=0)
+
+    return collision, water, color, x_min, x_max, y_min, y_max
+
+
+def make_blocked_checker(collision: np.ndarray, water: np.ndarray, x_min: int, x_max: int, y_min: int, y_max: int):
+    """Return a function that checks if a game coordinate is blocked.
+
+    Uses collision map (red = blocked) and water map (blue = water) directly.
+    No heuristics — exact color matching against known constants.
+    """
+    height, width = collision.shape[:2]
 
     def is_blocked(gx: float, gy: float) -> bool:
-        px = int((gx - x_min) * 4)
-        py = int((y_max - gy) * 4)
+        px = int(gx - x_min)
+        py = int(y_max - 1 - gy)
         if px < 0 or py < 0 or px >= width or py >= height:
             return True
-        r, g, b = int(canvas[py, px, 0]), int(canvas[py, px, 1]), int(canvas[py, px, 2])
-        # Red = collision flag from map renderer
-        if r > 200 and g < 50 and b < 50:
+        cr, cg, cb = int(collision[py, px, 0]), int(collision[py, px, 1]), int(collision[py, px, 2])
+        # Exact red = blocked
+        if (cr, cg, cb) == COLLISION_BLOCKED:
             return True
-        # Black void (true void only, not dark terrain like Wilderness)
-        if r < 10 and g < 10 and b < 10:
+        # Not exact white = no data / void
+        if (cr, cg, cb) != COLLISION_WALKABLE:
             return True
-        # Map border fill color
-        if r == 32 and g == 47 and b == 61:
-            return True
-        # Ocean blue
-        if b >= 120 and b > r + 20 and b > g:
-            return True
-        # Muted blue-grey water (b dominant but < 120)
-        if b > r and b > g and b > 100 and r < 90:
+        # Exact blue in water map = water
+        wr, wg, wb = int(water[py, px, 0]), int(water[py, px, 1]), int(water[py, px, 2])
+        if (wr, wg, wb) == WATER_BLUE:
             return True
         return False
 
@@ -269,10 +260,10 @@ def ingest(db_path: Path, resolution: int, area_threshold: float, edge_samples: 
     create_tables(db_path)
     conn = get_connection(db_path)
 
-    print("Loading map tiles from database...")
-    canvas, x_min, x_max, y_min, y_max = load_canvas(conn)
-    is_blocked = make_blocked_checker(canvas, x_min, x_max, y_min, y_max)
-    print(f"Canvas: {canvas.shape[1]}x{canvas.shape[0]} px, game coords {x_min}-{x_max} x {y_min}-{y_max}")
+    print("Loading map layers from database...")
+    collision, water, color, x_min, x_max, y_min, y_max = load_layers(conn)
+    is_blocked = make_blocked_checker(collision, water, x_min, x_max, y_min, y_max)
+    print(f"Collision: {collision.shape[1]}x{collision.shape[0]} px, game coords {x_min}-{x_max} x {y_min}-{y_max}")
 
     for world_name, y_op, y_threshold in [("overworld", "<", 5000), ("underworld", ">=", 5000)]:
         rows = conn.execute(
@@ -345,7 +336,7 @@ def ingest(db_path: Path, resolution: int, area_threshold: float, edge_samples: 
 
         if debug and world_name == "overworld":
             render_debug_image(
-                canvas, x_min, x_max, y_min, y_max,
+                color, x_min, x_max, y_min, y_max,
                 vor, points, rows, edge_results,
                 Path("data/walkability_debug.png"),
             )
