@@ -2,9 +2,9 @@ package dev.ragger.plugin;
 
 import com.google.inject.Provides;
 import dev.ragger.plugin.ui.ChatPanel;
-import dev.ragger.plugin.wasm.ScriptManager;
+import dev.ragger.plugin.scripting.ScriptManager;
 import net.runelite.api.Client;
-import net.runelite.api.events.GameTick;
+import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -18,8 +18,8 @@ import java.awt.image.BufferedImage;
 
 @PluginDescriptor(
     name = "Ragger",
-    description = "AI assistant powered by Claude with Wasm scripting",
-    tags = {"ai", "claude", "wasm", "assistant"}
+    description = "AI assistant powered by Claude with Lua scripting",
+    tags = {"ai", "claude", "lua", "assistant"}
 )
 public class RaggerPlugin extends Plugin {
 
@@ -28,6 +28,9 @@ public class RaggerPlugin extends Plugin {
 
     @Inject
     private ClientToolbar clientToolbar;
+
+    @Inject
+    private ChatMessageManager chatMessageManager;
 
     @Inject
     private RaggerConfig config;
@@ -44,7 +47,7 @@ public class RaggerPlugin extends Plugin {
 
     @Override
     protected void startUp() {
-        scriptManager = new ScriptManager(client);
+        scriptManager = new ScriptManager(chatMessageManager);
         claude = new ClaudeClient(config.claudePath(), config.claudeModel());
         chatPanel = new ChatPanel(this::onUserMessage);
 
@@ -62,11 +65,6 @@ public class RaggerPlugin extends Plugin {
     protected void shutDown() {
         clientToolbar.removeNavigation(navButton);
         scriptManager.shutdown();
-    }
-
-    @Subscribe
-    public void onGameTick(GameTick event) {
-        scriptManager.tick();
     }
 
     private void onUserMessage(String message) {
