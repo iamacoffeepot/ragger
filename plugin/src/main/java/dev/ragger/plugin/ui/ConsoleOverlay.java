@@ -44,6 +44,7 @@ public class ConsoleOverlay extends Overlay {
     private final Consumer<String> onMessage;
     private final List<ConsoleLine> lines = new ArrayList<>();
     private StringBuilder inputBuffer = new StringBuilder();
+    private int cursorPos = 0;
     private boolean visible = false;
     private int scrollOffset = 0;
     private boolean cursorBlink = true;
@@ -152,17 +153,20 @@ public class ConsoleOverlay extends Overlay {
 
         char c = e.getKeyChar();
         if (c == KeyEvent.VK_BACK_SPACE) {
-            if (!inputBuffer.isEmpty()) {
-                inputBuffer.deleteCharAt(inputBuffer.length() - 1);
+            if (cursorPos > 0) {
+                inputBuffer.deleteCharAt(cursorPos - 1);
+                cursorPos--;
             }
         } else if (c == '\n' || c == '\r') {
             String text = inputBuffer.toString().trim();
             if (!text.isEmpty()) {
                 inputBuffer.setLength(0);
+                cursorPos = 0;
                 onMessage.accept(text);
             }
         } else if (c != KeyEvent.CHAR_UNDEFINED && c >= 32) {
-            inputBuffer.append(c);
+            inputBuffer.insert(cursorPos, c);
+            cursorPos++;
         }
 
         e.consume();
@@ -178,8 +182,9 @@ public class ConsoleOverlay extends Overlay {
                     .getSystemClipboard()
                     .getData(java.awt.datatransfer.DataFlavor.stringFlavor);
                 if (clip != null) {
-                    // Strip newlines — single line input
-                    inputBuffer.append(clip.replaceAll("[\\r\\n]+", " "));
+                    String cleaned = clip.replaceAll("[\\r\\n]+", " ");
+                    inputBuffer.insert(cursorPos, cleaned);
+                    cursorPos += cleaned.length();
                 }
             } catch (Exception ex) {
                 // clipboard not available or wrong format
@@ -188,7 +193,25 @@ public class ConsoleOverlay extends Overlay {
             return;
         }
 
-        if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+        // Cursor movement
+        if (e.getKeyCode() == KeyEvent.VK_LEFT) {
+            if (cursorPos > 0) cursorPos--;
+            e.consume();
+        } else if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+            if (cursorPos < inputBuffer.length()) cursorPos++;
+            e.consume();
+        } else if (e.getKeyCode() == KeyEvent.VK_HOME || (e.getKeyCode() == KeyEvent.VK_A && (e.isMetaDown() || e.isControlDown()))) {
+            cursorPos = 0;
+            e.consume();
+        } else if (e.getKeyCode() == KeyEvent.VK_END || (e.getKeyCode() == KeyEvent.VK_E && (e.isMetaDown() || e.isControlDown()))) {
+            cursorPos = inputBuffer.length();
+            e.consume();
+        } else if (e.getKeyCode() == KeyEvent.VK_DELETE) {
+            if (cursorPos < inputBuffer.length()) {
+                inputBuffer.deleteCharAt(cursorPos);
+            }
+            e.consume();
+        } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
             visible = false;
             e.consume();
         }
@@ -223,30 +246,49 @@ public class ConsoleOverlay extends Overlay {
         g.setFont(FONT);
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-        // Input area
-        int inputY = consoleHeight - LINE_HEIGHT - PADDING;
-        g.setColor(INPUT_BG);
-        g.fillRect(PADDING, inputY - 2, width - PADDING * 2, LINE_HEIGHT + 4);
-        g.setColor(INPUT_BORDER);
-        g.drawRect(PADDING, inputY - 2, width - PADDING * 2, LINE_HEIGHT + 4);
-
-        // Input text with cursor
-        g.setColor(SENDER_COLOR);
-        g.drawString("\u25B6", PADDING + 4, inputY + 12);
-        g.setColor(TEXT_COLOR);
+        // Input area — wraps if text exceeds width
+        g.setFont(FONT);
+        FontMetrics fm = g.getFontMetrics();
         String inputText = inputBuffer.toString();
-        g.drawString(inputText, PADDING + 18, inputY + 12);
+        int promptWidth = fm.stringWidth("\u25B6") + 8;
+        int inputTextWidth = width - PADDING * 2 - promptWidth - 4;
+        List<String> inputLines = wrapText(inputText.isEmpty() ? " " : inputText, fm, inputTextWidth);
+        int inputLineCount = Math.max(1, inputLines.size());
+        int inputAreaHeight = inputLineCount * LINE_HEIGHT + 4;
+        int inputY = consoleHeight - inputAreaHeight - PADDING;
 
-        // Blinking cursor
+        g.setColor(INPUT_BG);
+        g.fillRect(PADDING, inputY, width - PADDING * 2, inputAreaHeight);
+        g.setColor(INPUT_BORDER);
+        g.drawRect(PADDING, inputY, width - PADDING * 2, inputAreaHeight);
+
+        // Prompt arrow
+        g.setColor(SENDER_COLOR);
+        g.drawString("\u25B6", PADDING + 4, inputY + LINE_HEIGHT - 2);
+
+        // Input text lines
+        g.setColor(TEXT_COLOR);
+        int textX = PADDING + promptWidth;
+        for (int il = 0; il < inputLines.size(); il++) {
+            g.drawString(inputLines.get(il), textX, inputY + (il + 1) * LINE_HEIGHT - 2);
+        }
+
+        // Blinking cursor at cursorPos
         long now = System.currentTimeMillis();
         if (now - lastBlink > 500) {
             cursorBlink = !cursorBlink;
             lastBlink = now;
         }
         if (cursorBlink) {
-            int cursorX = PADDING + 18 + g.getFontMetrics().stringWidth(inputText);
+            // Find which wrapped line the cursor is on
+            String beforeCursor = inputText.substring(0, cursorPos);
+            List<String> cursorLines = wrapText(beforeCursor.isEmpty() ? " " : beforeCursor, fm, inputTextWidth);
+            int cursorLine = cursorLines.size() - 1;
+            String lastCursorLine = cursorLines.get(cursorLine);
+            int cursorX = textX + fm.stringWidth(lastCursorLine.equals(" ") ? "" : lastCursorLine);
+            int cursorDrawY = inputY + cursorLine * LINE_HEIGHT + 2;
             g.setColor(CURSOR_COLOR);
-            g.fillRect(cursorX, inputY + 1, 2, LINE_HEIGHT - 2);
+            g.fillRect(cursorX, cursorDrawY, 2, LINE_HEIGHT - 2);
         }
 
         // Chat lines — render bottom-up above input
