@@ -438,7 +438,7 @@ throttle()                                                                 # rat
 
 ## RuneLite Plugin
 
-Java plugin in `plugin/` that embeds an AI assistant into the RuneLite client. Chat panel in the sidebar talks to Claude CLI, with a Wasm scripting engine (Chicory) for dynamic client modifications.
+Java plugin in `plugin/` that embeds an AI assistant into the RuneLite client. In-game console overlay (toggle with backtick) talks to Claude CLI. Lua scripting engine (luajava/LuaJ) for dynamic client modifications. HTTP bridge server for MCP tool communication.
 
 Requires JDK 21+. Run from `plugin/`:
 
@@ -454,21 +454,51 @@ JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home" ./grad
 
 ### Plugin structure
 
-- `RaggerPlugin.java` — main plugin entry, sidebar panel registration, game tick dispatch
-- `RaggerConfig.java` — plugin config (Claude CLI path)
-- `ClaudeClient.java` — spawns Claude CLI with behavior prompts, returns responses
-- `ui/ChatPanel.java` — Swing chat sidebar panel
-- `wasm/ScriptManager.java` — Wasm script lifecycle manager
-- `wasm/WasmScript.java` — single Wasm script instance (Chicory, stubbed)
+- `RaggerPlugin.java` — main plugin entry, overlay registration, game tick dispatch, input handling
+- `RaggerConfig.java` — plugin config (Claude CLI path, model, bridge port)
+- `ClaudeClient.java` — spawns Claude CLI with behavior prompts, parses stream-json responses
+- `ClaudeResponse.java` — parsed response with text, scripts, and tool log
+- `BridgeServer.java` — HTTP server on localhost for MCP tool bridge (eval/run endpoints)
+- `ui/ChatPanel.java` — minimal sidebar panel (hint label)
+- `ui/ConsoleOverlay.java` — in-game console overlay with markdown rendering
+- `scripting/ScriptManager.java` — Lua script lifecycle manager
+- `scripting/LuaScript.java` — single Lua script instance with API bindings and lifecycle hooks
+- `scripting/ScriptOverlay.java` — overlay that dispatches render calls to active scripts
+- `scripting/ChatApi.java` — Lua `chat` API (game messages, console messages)
+- `scripting/CameraApi.java` — Lua `camera` API (position, angles, controls)
+- `scripting/ClientApi.java` — Lua `client` API (world, state, viewport, FPS)
+- `scripting/PlayerApi.java` — Lua `player` API (stats, position, HP, prayer)
+- `scripting/SkillApi.java` — Lua `skill` enum constants
+- `scripting/SceneApi.java` — Lua `scene` API (NPCs, players, ground items)
+- `scripting/CoordsApi.java` — Lua `coords` API (world/local/canvas coordinate projection)
+- `scripting/ItemsApi.java` — Lua `items` API (GE prices, HA values, item lookups)
+- `scripting/OverlayApi.java` — Lua overlay drawing context (text, shapes, fonts)
+
+### MCP Server
+
+Python MCP server at `src/ragger/mcp_server.py` exposes two tools:
+
+- `RaggerRun(name, script)` — submit a persistent Lua script to the plugin
+- `RaggerEval(script)` — evaluate a Lua expression and return the result
+
+Both bridge through the plugin's HTTP server on localhost (default port 7919). Per-session auth token prevents unauthorized access.
 
 ### Behaviors
 
 System prompts are embedded as classpath resources in `src/main/resources/dev/ragger/plugin/`:
 
-- `BASE.md` — core identity and rules
+- `BASE.md` — core identity, rules, and full Lua API reference
 - `ASSISTANT.md` — OSRS Q&A mode
 
-Behaviors are composable — the plugin concatenates multiple behavior files when constructing the system prompt for Claude.
+Behaviors are appended to every Claude CLI invocation via `--append-system-prompt`.
+
+### Console Commands
+
+- `/reset` — reset Claude session and clear console
+- `/clear` — clear console output (keep session)
+- `/stop` — stop all running scripts
+- `/stop <name>` — stop a specific script
+- `/scripts` — list active scripts
 
 ## Tests
 
