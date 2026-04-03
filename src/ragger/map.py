@@ -255,18 +255,33 @@ def _edge_cost(link: MapLink) -> float:
     return DistanceMetric.CHEBYSHEV.compute(dx, dy)
 
 
-def _heuristic(loc_coords: dict[str, tuple[int, int]], current: str, goal: str) -> float:
-    """A* heuristic: Chebyshev distance between coordinates."""
+def _heuristic(
+    loc_coords: dict[str, tuple[int, int]], current: str, goal: str,
+    admissible: bool = False,
+) -> float:
+    """A* heuristic. When zero-cost links are present (admissible=False),
+    returns 0 (Dijkstra's). When walking only (admissible=True), uses
+    Chebyshev distance."""
+    if not admissible:
+        return 0
     c = loc_coords.get(current)
     g = loc_coords.get(goal)
     if c is None or g is None:
         return 0
-    # If either is underground (y > 5000), heuristic is unreliable
     if c[1] > 5000 or g[1] > 5000:
         return 0
     dx = abs(c[0] - g[0])
     dy = abs(c[1] - g[1])
     return DistanceMetric.CHEBYSHEV.compute(dx, dy)
+
+
+def _has_zero_cost_links(adj: dict[str, list[MapLink]]) -> bool:
+    """Check if the adjacency graph contains any zero-cost link types."""
+    for links in adj.values():
+        for link in links:
+            if link.link_type in _ZERO_COST_TYPES:
+                return True
+    return False
 
 
 def _astar(
@@ -275,9 +290,12 @@ def _astar(
     start: str,
     goal: str,
 ) -> list[MapLink] | None:
-    """Run A* from start to goal. Returns list of MapLinks or None if unreachable."""
+    """Run A* from start to goal. Falls back to Dijkstra's when zero-cost
+    links are present (Chebyshev heuristic is inadmissible with instant travel)."""
     if start == goal:
         return []
+
+    admissible = not _has_zero_cost_links(adj)
 
     # Priority queue: (f_score, counter, node, path)
     counter = 0
@@ -299,7 +317,7 @@ def _astar(
 
             if new_g < g_scores.get(link.dst_location, float("inf")):
                 g_scores[link.dst_location] = new_g
-                h = _heuristic(loc_coords, link.dst_location, goal)
+                h = _heuristic(loc_coords, link.dst_location, goal, admissible)
                 counter += 1
                 heapq.heappush(open_set, (new_g + h, counter, link.dst_location, path + [link]))
 
