@@ -1,18 +1,20 @@
 package dev.ragger.plugin;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Parsed response from Claude CLI containing chat text, tool usage log,
- * and any scripts submitted via the ragger_run tool.
+ * and any scripts submitted via the RaggerRun tool.
  */
 public class ClaudeResponse {
 
     private final String text;
-    private final List<String> scripts;
+    private final Map<String, String> scripts;
     private final List<String> toolLog;
 
-    public ClaudeResponse(String text, List<String> scripts, List<String> toolLog) {
+    public ClaudeResponse(String text, Map<String, String> scripts, List<String> toolLog) {
         this.text = text;
         this.scripts = scripts;
         this.toolLog = toolLog;
@@ -22,7 +24,7 @@ public class ClaudeResponse {
         return text;
     }
 
-    public List<String> getScripts() {
+    public Map<String, String> getScripts() {
         return scripts;
     }
 

@@ -12,7 +12,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -41,7 +43,7 @@ public class ClaudeClient {
                 return execute(message, behaviors);
             } catch (Exception e) {
                 log.error("Claude CLI error", e);
-                return new ClaudeResponse("Error: " + e.getMessage(), List.of(), List.of());
+                return new ClaudeResponse("Error: " + e.getMessage(), Map.of(), List.of());
             }
         });
     }
@@ -89,7 +91,7 @@ public class ClaudeClient {
         Process process = pb.start();
 
         StringBuilder resultText = new StringBuilder();
-        List<String> scripts = new ArrayList<>();
+        Map<String, String> scripts = new LinkedHashMap<>();
         List<String> toolLog = new ArrayList<>();
 
         try (BufferedReader reader = new BufferedReader(
@@ -108,7 +110,7 @@ public class ClaudeClient {
         return new ClaudeResponse(resultText.toString(), scripts, toolLog);
     }
 
-    private void processStreamLine(String line, StringBuilder resultText, List<String> scripts, List<String> toolLog) {
+    private void processStreamLine(String line, StringBuilder resultText, Map<String, String> scripts, List<String> toolLog) {
         if (line.isBlank()) return;
 
         try {
@@ -137,7 +139,7 @@ public class ClaudeClient {
         }
     }
 
-    private void processToolUse(JsonObject event, List<String> scripts, List<String> toolLog) {
+    private void processToolUse(JsonObject event, Map<String, String> scripts, List<String> toolLog) {
         try {
             // Check for tool_use content blocks
             if (event.has("content")) {
@@ -151,10 +153,11 @@ public class ClaudeClient {
                     // Log all tool usage
                     toolLog.add(formatToolLog(toolName, input));
 
-                    // Extract scripts from ragger_run
+                    // Extract scripts from RaggerRun
                     if (isRaggerRun(toolName) && input != null && input.has("script")) {
-                        scripts.add(input.get("script").getAsString());
-                        log.info("Script captured from ragger_run: {} chars", input.get("script").getAsString().length());
+                        String scriptName = input.has("name") ? input.get("name").getAsString() : "unnamed";
+                        scripts.put(scriptName, input.get("script").getAsString());
+                        log.info("Script '{}' captured: {} chars", scriptName, input.get("script").getAsString().length());
                     }
                 }
             }
@@ -167,8 +170,9 @@ public class ClaudeClient {
                 toolLog.add(formatToolLog(toolName, input));
 
                 if (isRaggerRun(toolName) && input != null && input.has("script")) {
-                    scripts.add(input.get("script").getAsString());
-                    log.info("Script captured from ragger_run: {} chars", input.get("script").getAsString().length());
+                    String scriptName = input.has("name") ? input.get("name").getAsString() : "unnamed";
+                    scripts.put(scriptName, input.get("script").getAsString());
+                    log.info("Script '{}' captured: {} chars", scriptName, input.get("script").getAsString().length());
                 }
             }
         } catch (Exception e) {
