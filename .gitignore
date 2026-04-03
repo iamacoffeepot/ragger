@@ -12,6 +12,9 @@ wheels/
 # Data directory
 data/
 
+# macOS
+.DS_Store
+
 # IDE
 .idea/
 
