@@ -25,9 +25,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import java.awt.image.BufferedImage;
-import java.util.AbstractMap;
-import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 @PluginDescriptor(
     name = "Ragger",
@@ -74,7 +71,6 @@ public class RaggerPlugin extends Plugin {
     private ConsoleOverlay consoleOverlay;
     private BridgeServer bridgeServer;
     private ClaudeClient claude;
-    private final ConcurrentLinkedQueue<Map.Entry<String, String>> pendingScripts = new ConcurrentLinkedQueue<>();
     private net.runelite.client.input.KeyListener consoleKeyListener;
     private net.runelite.client.input.MouseWheelListener consoleMouseWheelListener;
 
@@ -149,11 +145,6 @@ public class RaggerPlugin extends Plugin {
 
     @Subscribe
     public void onGameTick(GameTick event) {
-        Map.Entry<String, String> pending;
-        while ((pending = pendingScripts.poll()) != null) {
-            scriptManager.load(pending.getKey(), pending.getValue());
-            consoleOverlay.addToolMessage("Loaded script: " + pending.getKey());
-        }
         bridgeServer.tick();
         scriptManager.tick();
     }
@@ -201,12 +192,6 @@ public class RaggerPlugin extends Plugin {
 
             for (String toolEntry : response.getToolLog()) {
                 consoleOverlay.addToolMessage(toolEntry);
-            }
-
-            if (response.hasScripts()) {
-                response.getScripts().forEach((name, source) -> {
-                    pendingScripts.add(new AbstractMap.SimpleEntry<>(name, source));
-                });
             }
 
             if (!response.getText().isEmpty()) {

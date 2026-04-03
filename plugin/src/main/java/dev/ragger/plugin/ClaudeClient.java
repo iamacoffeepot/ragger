@@ -12,9 +12,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -47,7 +45,7 @@ public class ClaudeClient {
                 return execute(message, behaviors);
             } catch (Exception e) {
                 log.error("Claude CLI error", e);
-                return new ClaudeResponse("Error: " + e.getMessage(), Map.of(), List.of());
+                return new ClaudeResponse("Error: " + e.getMessage(), List.of());
             }
         });
     }
@@ -97,14 +95,13 @@ public class ClaudeClient {
         Process process = pb.start();
 
         StringBuilder resultText = new StringBuilder();
-        Map<String, String> scripts = new LinkedHashMap<>();
         List<String> toolLog = new ArrayList<>();
 
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                processStreamLine(line, resultText, scripts, toolLog);
+                processStreamLine(line, resultText, toolLog);
             }
         }
 
@@ -119,10 +116,10 @@ public class ClaudeClient {
             log.warn("Claude CLI exited with code {}", process.exitValue());
         }
 
-        return new ClaudeResponse(resultText.toString(), scripts, toolLog);
+        return new ClaudeResponse(resultText.toString(), toolLog);
     }
 
-    private void processStreamLine(String line, StringBuilder resultText, Map<String, String> scripts, List<String> toolLog) {
+    private void processStreamLine(String line, StringBuilder resultText, List<String> toolLog) {
         if (line.isBlank()) return;
 
         try {
@@ -142,7 +139,7 @@ public class ClaudeClient {
             // Process assistant messages for tool use
             if (event.has("type") && "assistant".equals(event.get("type").getAsString())) {
                 if (event.has("message")) {
-                    processToolUse(event.getAsJsonObject("message"), scripts, toolLog);
+                    processToolUse(event.getAsJsonObject("message"), toolLog);
                 }
             }
         } catch (Exception e) {
@@ -151,9 +148,8 @@ public class ClaudeClient {
         }
     }
 
-    private void processToolUse(JsonObject event, Map<String, String> scripts, List<String> toolLog) {
+    private void processToolUse(JsonObject event, List<String> toolLog) {
         try {
-            // Check for tool_use content blocks
             if (event.has("content")) {
                 for (JsonElement element : event.getAsJsonArray("content")) {
                     JsonObject block = element.getAsJsonObject();
@@ -161,40 +157,18 @@ public class ClaudeClient {
 
                     String toolName = block.get("name").getAsString();
                     JsonObject input = block.has("input") ? block.getAsJsonObject("input") : null;
-
-                    // Log all tool usage
                     toolLog.add(formatToolLog(toolName, input));
-
-                    // Extract scripts from RaggerRun
-                    if (isRaggerRun(toolName) && input != null && input.has("script")) {
-                        String scriptName = input.has("name") ? input.get("name").getAsString() : "unnamed";
-                        String uid = scriptName + "-" + Integer.toHexString((int)(Math.random() * 0xFFFF));
-                        scripts.put(uid, input.get("script").getAsString());
-                        log.info("Script '{}' captured: {} chars", uid, input.get("script").getAsString().length());
-                    }
                 }
             }
 
-            // Also check top-level tool_use events
             if (event.has("name")) {
                 String toolName = event.get("name").getAsString();
                 JsonObject input = event.has("input") ? event.getAsJsonObject("input") : null;
-
                 toolLog.add(formatToolLog(toolName, input));
-
-                if (isRaggerRun(toolName) && input != null && input.has("script")) {
-                    String scriptName = input.has("name") ? input.get("name").getAsString() : "unnamed";
-                    scripts.put(scriptName, input.get("script").getAsString());
-                    log.info("Script '{}' captured: {} chars", scriptName, input.get("script").getAsString().length());
-                }
             }
         } catch (Exception e) {
             log.debug("Error processing tool use event", e);
         }
-    }
-
-    private boolean isRaggerRun(String toolName) {
-        return toolName.endsWith("RaggerRun");
     }
 
     private String formatToolLog(String toolName, JsonObject input) {
