@@ -45,7 +45,7 @@ public class RaggerPlugin extends Plugin {
     @Override
     protected void startUp() {
         scriptManager = new ScriptManager(client);
-        claude = new ClaudeClient(config.claudePath());
+        claude = new ClaudeClient(config.claudePath(), config.claudeModel());
         chatPanel = new ChatPanel(this::onUserMessage);
 
         BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");

@@ -16,4 +16,14 @@ public interface RaggerConfig extends Config {
     default String claudePath() {
         return "claude";
     }
+
+    @ConfigItem(
+        keyName = "claudeModel",
+        name = "Claude Model",
+        description = "Model to use (e.g. claude-opus-4-6, claude-sonnet-4-6)",
+        position = 1
+    )
+    default String claudeModel() {
+        return "claude-opus-4-6";
+    }
 }

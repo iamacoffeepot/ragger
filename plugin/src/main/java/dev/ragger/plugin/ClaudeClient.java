@@ -22,10 +22,12 @@ public class ClaudeClient {
     private static final Logger log = LoggerFactory.getLogger(ClaudeClient.class);
 
     private final String claudePath;
+    private final String model;
     private String sessionId;
 
-    public ClaudeClient(String claudePath) {
+    public ClaudeClient(String claudePath, String model) {
         this.claudePath = claudePath;
+        this.model = model;
     }
 
     /**
@@ -49,12 +51,19 @@ public class ClaudeClient {
         command.add(message);
         command.add("--output-format");
         command.add("json");
+        command.add("--model");
+        command.add(model);
+        command.add("--allowedTools");
+        command.add("Bash");
+        command.add("Read");
+        command.add("Glob");
+        command.add("Grep");
 
         // Only set system prompt on the first message (new session)
         if (sessionId == null) {
             String systemPrompt = loadBehaviors(behaviors);
             if (!systemPrompt.isEmpty()) {
-                command.add("--system-prompt");
+                command.add("--append-system-prompt");
                 command.add(systemPrompt);
             }
         } else {
@@ -63,6 +72,10 @@ public class ClaudeClient {
         }
 
         ProcessBuilder pb = new ProcessBuilder(command);
+        String projectRoot = System.getenv("RAGGER_PROJECT_ROOT");
+        if (projectRoot != null) {
+            pb.directory(new java.io.File(projectRoot));
+        }
         pb.redirectErrorStream(true);
         pb.redirectInput(ProcessBuilder.Redirect.from(new java.io.File("/dev/null")));
         Process process = pb.start();

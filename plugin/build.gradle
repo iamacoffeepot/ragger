@@ -44,4 +44,5 @@ tasks.register('run', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'dev.ragger.plugin.RaggerPluginTest'
     jvmArgs = ['-ea', '--add-exports', 'java.desktop/com.apple.eawt=ALL-UNNAMED']
+    environment System.getenv()
 }
