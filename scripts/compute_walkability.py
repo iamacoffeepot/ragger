@@ -84,7 +84,10 @@ def make_blocked_checker(canvas: np.ndarray, x_min: int, x_max: int, y_min: int,
         if r == 32 and g == 47 and b == 61:
             return True
         # Ocean blue
-        if b > 120 and b > r + 20 and b > g:
+        if b >= 120 and b > r + 20 and b > g:
+            return True
+        # Muted blue-grey water (b dominant but < 120)
+        if b > r and b > g and b > 100 and r < 90:
             return True
         return False
 
