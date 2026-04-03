@@ -26,10 +26,12 @@ public class DumpCollision {
     public static void main(String[] args) throws Exception {
         String cachePath = null;
         Path outputDir = Path.of("../../data/cache-dump/collision");
+        int plane = 0;
 
         for (int i = 0; i < args.length - 1; i++) {
             if ("--cache".equals(args[i])) cachePath = args[i + 1];
             if ("--output".equals(args[i])) outputDir = Path.of(args[i + 1]);
+            if ("--plane".equals(args[i])) plane = Integer.parseInt(args[i + 1]);
         }
 
         File cacheDir = CacheLoader.resolveCache(cachePath, Path.of("../../data"));
@@ -43,7 +45,7 @@ public class DumpCollision {
 
             int count = 0;
             for (Region region : regions) {
-                dumpRegion(region, outputDir);
+                dumpRegion(region, outputDir, plane);
                 count++;
                 if (count % 500 == 0) {
                     System.out.println("  " + count + "/" + regions.size() + "...");
@@ -54,23 +56,23 @@ public class DumpCollision {
         }
     }
 
-    private static void dumpRegion(Region region, Path outputDir) throws Exception {
+    private static void dumpRegion(Region region, Path outputDir, int plane) throws Exception {
         BufferedImage img = new BufferedImage(REGION_SIZE, REGION_SIZE, BufferedImage.TYPE_INT_ARGB);
 
         for (int x = 0; x < REGION_SIZE; x++) {
             for (int y = 0; y < REGION_SIZE; y++) {
-                // Bridge flag on plane 1 — use that plane's collision instead
-                int plane = 0;
-                if ((region.getTileSetting(1, x, y) & 0x2) != 0) {
-                    plane = 1;
+                // Bridge flag on plane above — use that plane's collision instead
+                int effectivePlane = plane;
+                if (plane < 3 && (region.getTileSetting(plane + 1, x, y) & 0x2) != 0) {
+                    effectivePlane = plane + 1;
                 }
 
-                boolean blocked = (region.getTileSetting(plane, x, y) & 0x1) != 0;
+                boolean blocked = (region.getTileSetting(effectivePlane, x, y) & 0x1) != 0;
                 img.setRGB(x, REGION_SIZE - 1 - y, blocked ? 0xFFFF0000 : 0xFFFFFFFF);
             }
         }
 
-        String filename = region.getRegionX() + "_" + region.getRegionY() + ".png";
+        String filename = plane + "_" + region.getRegionX() + "_" + region.getRegionY() + ".png";
         ImageIO.write(img, "PNG", outputDir.resolve(filename).toFile());
     }
 }

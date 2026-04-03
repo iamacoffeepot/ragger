@@ -83,29 +83,31 @@ public class DumpWater {
         return b > 100 && b > r + 30 && b > g;
     }
 
-    public void dumpRegion(Region region, Path outputDir) throws IOException {
+    public void dumpRegion(Region region, Path outputDir, int plane) throws IOException {
         BufferedImage img = new BufferedImage(REGION_SIZE, REGION_SIZE, BufferedImage.TYPE_INT_ARGB);
 
         for (int x = 0; x < REGION_SIZE; x++) {
             for (int y = 0; y < REGION_SIZE; y++) {
-                int underlayId = region.getUnderlayId(0, x, y);
-                int overlayId = region.getOverlayId(0, x, y);
+                int underlayId = region.getUnderlayId(plane, x, y);
+                int overlayId = region.getOverlayId(plane, x, y);
                 boolean isWater = isWaterUnderlay(underlayId) || isWaterOverlay(overlayId);
                 img.setRGB(x, REGION_SIZE - 1 - y, isWater ? 0xFF0066CC : 0x00000000);
             }
         }
 
-        String filename = region.getRegionX() + "_" + region.getRegionY() + ".png";
+        String filename = plane + "_" + region.getRegionX() + "_" + region.getRegionY() + ".png";
         ImageIO.write(img, "PNG", outputDir.resolve(filename).toFile());
     }
 
     public static void main(String[] args) throws Exception {
         String cachePath = null;
         Path outputDir = Path.of("../../data/cache-dump/water");
+        int plane = 0;
 
         for (int i = 0; i < args.length - 1; i++) {
             if ("--cache".equals(args[i])) cachePath = args[i + 1];
             if ("--output".equals(args[i])) outputDir = Path.of(args[i + 1]);
+            if ("--plane".equals(args[i])) plane = Integer.parseInt(args[i + 1]);
         }
 
         File cacheDir = CacheLoader.resolveCache(cachePath, Path.of("../../data"));
@@ -120,7 +122,7 @@ public class DumpWater {
 
             int count = 0;
             for (Region region : regions) {
-                dumper.dumpRegion(region, outputDir);
+                dumper.dumpRegion(region, outputDir, plane);
                 count++;
                 if (count % 500 == 0) {
                     System.out.println("  " + count + "/" + regions.size() + "...");
