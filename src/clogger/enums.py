@@ -281,6 +281,7 @@ class MapLinkType(str, Enum):
     SHIP = "ship"
     QUETZAL = "quetzal"
     WALKABLE = "walkable"
+    NPC_TRANSPORT = "npc_transport"
 
 
 class ShopType(str, Enum):
