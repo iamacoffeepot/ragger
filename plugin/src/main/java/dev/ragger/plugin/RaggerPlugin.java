@@ -5,6 +5,7 @@ import dev.ragger.plugin.ui.ChatPanel;
 import dev.ragger.plugin.scripting.ScriptManager;
 import net.runelite.api.Client;
 import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.api.events.GameTick;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -47,7 +48,7 @@ public class RaggerPlugin extends Plugin {
 
     @Override
     protected void startUp() {
-        scriptManager = new ScriptManager(chatMessageManager);
+        scriptManager = new ScriptManager(client, chatMessageManager);
         claude = new ClaudeClient(config.claudePath(), config.claudeModel());
         chatPanel = new ChatPanel(this::onUserMessage);
 
@@ -67,11 +68,39 @@ public class RaggerPlugin extends Plugin {
         scriptManager.shutdown();
     }
 
+    @Subscribe
+    public void onGameTick(GameTick event) {
+        scriptManager.tick();
+    }
+
     private void onUserMessage(String message) {
         if (message.equalsIgnoreCase("/reset")) {
             claude.resetSession();
             chatPanel.clear();
             chatPanel.addMessage("Claude", "Session reset.");
+            return;
+        }
+
+        if (message.equalsIgnoreCase("/stop")) {
+            scriptManager.shutdown();
+            chatPanel.addToolMessage("All scripts stopped.");
+            return;
+        }
+
+        if (message.startsWith("/stop ")) {
+            String name = message.substring(6).trim();
+            scriptManager.unload(name);
+            chatPanel.addToolMessage("Stopped: " + name);
+            return;
+        }
+
+        if (message.equalsIgnoreCase("/scripts")) {
+            var names = scriptManager.list();
+            if (names.isEmpty()) {
+                chatPanel.addToolMessage("No active scripts.");
+            } else {
+                chatPanel.addToolMessage("Active scripts: " + String.join(", ", names));
+            }
             return;
         }
 
@@ -83,13 +112,12 @@ public class RaggerPlugin extends Plugin {
                 chatPanel.addToolMessage(toolEntry);
             }
 
-            // Load any scripts Claude submitted via ragger_run
+            // Load any scripts Claude submitted via RaggerRun
             if (response.hasScripts()) {
-                for (int i = 0; i < response.getScripts().size(); i++) {
-                    String script = response.getScripts().get(i);
-                    String name = "script_" + System.currentTimeMillis() + "_" + i;
-                    scriptManager.load(name, script);
-                }
+                response.getScripts().forEach((name, source) -> {
+                    scriptManager.load(name, source);
+                    chatPanel.addToolMessage("Loaded script: " + name);
+                });
             }
 
             // Display Claude's chat response

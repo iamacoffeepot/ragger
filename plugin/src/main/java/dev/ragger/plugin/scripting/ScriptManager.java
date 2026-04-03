@@ -1,5 +1,6 @@
 package dev.ragger.plugin.scripting;
 
+import net.runelite.api.Client;
 import net.runelite.client.chat.ChatMessageManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,10 +15,12 @@ public class ScriptManager {
 
     private static final Logger log = LoggerFactory.getLogger(ScriptManager.class);
 
+    private final Client client;
     private final ChatMessageManager chatMessageManager;
     private final ConcurrentHashMap<String, LuaScript> scripts = new ConcurrentHashMap<>();
 
-    public ScriptManager(ChatMessageManager chatMessageManager) {
+    public ScriptManager(Client client, ChatMessageManager chatMessageManager) {
+        this.client = client;
         this.chatMessageManager = chatMessageManager;
     }
 
@@ -30,11 +33,20 @@ public class ScriptManager {
             existing.stop();
         }
 
-        LuaScript script = new LuaScript(name, source, chatMessageManager);
+        LuaScript script = new LuaScript(name, source, client, chatMessageManager);
         scripts.put(name, script);
         script.start();
         log.info("Loaded script: {}", name);
         return name;
+    }
+
+    /**
+     * Called every game tick — dispatches to all active scripts with hooks.
+     */
+    public void tick() {
+        for (LuaScript script : scripts.values()) {
+            script.tick();
+        }
     }
 
     /**
@@ -46,6 +58,13 @@ public class ScriptManager {
             script.stop();
             log.info("Unloaded script: {}", name);
         }
+    }
+
+    /**
+     * List all active script names.
+     */
+    public java.util.List<String> list() {
+        return new java.util.ArrayList<>(scripts.keySet());
     }
 
     /**

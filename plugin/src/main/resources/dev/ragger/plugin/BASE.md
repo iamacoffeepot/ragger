@@ -51,6 +51,78 @@ chat.WELCOME                  chat.LEVELUPMESSAGE
 chat.SPAM                     chat.AUTOTYPER
 ```
 
+### API: `camera`
+
+Read and control the game camera.
+
+```lua
+-- Read position
+camera:x()                    -- camera X position
+camera:y()                    -- camera Y position
+camera:z()                    -- camera Z position
+
+-- Read angles
+camera:yaw()                  -- camera yaw angle
+camera:pitch()                -- camera pitch angle
+
+-- Set targets
+camera:set_yaw(1024)          -- set yaw target
+camera:set_pitch(200)         -- set pitch target
+camera:set_speed(2.0)         -- set camera speed
+
+-- Camera mode
+camera:mode()                 -- get current mode
+camera:set_mode(1)            -- set camera mode
+
+-- Focal point
+camera:focal_x()              -- get focal X
+camera:focal_y()              -- get focal Y
+camera:focal_z()              -- get focal Z
+camera:set_focal_x(3200.0)   -- set focal X
+camera:set_focal_y(3200.0)   -- set focal Y
+camera:set_focal_z(0.0)      -- set focal Z
+
+-- Shake
+camera:shake_disabled()       -- is shake disabled?
+camera:set_shake_disabled(true)
+```
+
+### API: `client`
+
+Read client and game state information.
+
+```lua
+-- World info
+client:world()                -- current world number
+client:plane()                -- current plane/level
+client:tick_count()           -- game tick count
+client:fps()                  -- current FPS
+
+-- Player state
+client:energy()               -- run energy
+client:weight()               -- carried weight
+
+-- Game state
+client:state()                -- GameState enum value
+client:logged_in()            -- true if logged in
+
+-- Idle tracking
+client:mouse_idle_ticks()     -- ticks since last mouse input
+client:keyboard_idle_ticks()  -- ticks since last keyboard input
+```
+
+#### GameState Constants
+
+Access via `client.NAME`:
+
+```
+client.UNKNOWN                client.STARTING
+client.LOGIN_SCREEN           client.LOGIN_SCREEN_AUTHENTICATOR
+client.LOGGING_IN             client.LOADING
+client.LOGGED_IN              client.CONNECTION_LOST
+client.HOPPING
+```
+
 ### Examples
 
 Simple game message:
@@ -63,14 +135,43 @@ Broadcast message:
 chat:send(chat.BROADCAST, "Important announcement!")
 ```
 
-Formatted message:
+Print camera position:
 ```lua
-chat:game("Your quest points: " .. tostring(42))
+chat:game("Camera: " .. camera:x() .. ", " .. camera:y() .. ", " .. camera:z())
 ```
+
+### Lifecycle Hooks
+
+Scripts can return a table with lifecycle hooks for persistent behavior:
+
+```lua
+local counter = 0
+
+return {
+    on_start = function()
+        chat:game("Script started!")
+    end,
+
+    on_tick = function()
+        counter = counter + 1
+        chat:game("Tick " .. counter)
+    end,
+
+    on_stop = function()
+        chat:game("Script stopped after " .. counter .. " ticks")
+    end
+}
+```
+
+- `on_start` — called once when the script is loaded
+- `on_tick` — called every game tick (600ms)
+- `on_stop` — called when the script is unloaded
+
+If a script does not return a table, it runs once top-to-bottom (one-shot mode). Locals defined in the script body are captured by hook closures and persist for the script's lifetime.
 
 ### Script Rules
 
-- Scripts run once when loaded — they execute top-to-bottom immediately.
-- Keep scripts short and focused on a single action.
-- Do not use infinite loops or blocking operations.
-- Lifecycle hooks (on_start, on_tick, on_stop) are not yet implemented.
+- One-shot scripts run top-to-bottom immediately.
+- Persistent scripts return a hooks table and run until unloaded.
+- Keep scripts focused on a single task.
+- Do not use infinite loops — use `on_tick` for recurring work.
