@@ -31,8 +31,8 @@ dependencies {
     implementation 'org.commonmark:commonmark-ext-gfm-tables:0.28.0'
     implementation 'org.commonmark:commonmark-ext-gfm-strikethrough:0.28.0'
 
-    // Wasm runtime
-    implementation 'com.dylibso.chicory:runtime:1.1.1'
+    // Lua scripting
+    implementation 'party.iroiro.luajava:luaj:4.1.0'
 
     // Test harness — launches RuneLite with the plugin loaded
     testImplementation "net.runelite:client:${runeLiteVersion}"
