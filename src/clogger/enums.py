@@ -268,6 +268,12 @@ IMMUNITY_LABELS: dict["Immunity", str] = {
 MAP_LINK_ANYWHERE = "ANYWHERE"
 
 
+class MapSquareType(str, Enum):
+    COLOR = "color"
+    COLLISION = "collision"
+    WATER = "water"
+
+
 class MapLinkType(str, Enum):
     ENTRANCE = "entrance"
     EXIT = "exit"

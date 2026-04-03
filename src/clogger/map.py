@@ -5,7 +5,7 @@ import sqlite3
 from collections import defaultdict
 from dataclasses import dataclass
 
-from clogger.enums import MAP_LINK_ANYWHERE, MapLinkType
+from clogger.enums import MAP_LINK_ANYWHERE, MapLinkType, MapSquareType
 from clogger.location import DistanceMetric
 
 GAME_TILES_PER_REGION = 64
@@ -18,6 +18,7 @@ class MapSquare:
     plane: int
     region_x: int
     region_y: int
+    type: MapSquareType
     image: bytes
 
     @property
@@ -29,30 +30,104 @@ class MapSquare:
         return self.region_y * GAME_TILES_PER_REGION
 
     @classmethod
-    def get(cls, conn: sqlite3.Connection, plane: int, region_x: int, region_y: int) -> MapSquare | None:
+    def _from_row(cls, row: tuple) -> MapSquare:
+        return cls(
+            id=row[0],
+            plane=row[1],
+            region_x=row[2],
+            region_y=row[3],
+            type=MapSquareType(row[4]),
+            image=row[5],
+        )
+
+    @classmethod
+    def get(
+        cls, conn: sqlite3.Connection, plane: int, region_x: int, region_y: int,
+        type: MapSquareType = MapSquareType.COLOR,
+    ) -> MapSquare | None:
         row = conn.execute(
-            "SELECT id, plane, region_x, region_y, image FROM map_squares WHERE plane = ? AND region_x = ? AND region_y = ?",
-            (plane, region_x, region_y),
+            "SELECT id, plane, region_x, region_y, type, image FROM map_squares WHERE plane = ? AND region_x = ? AND region_y = ? AND type = ?",
+            (plane, region_x, region_y, type.value),
         ).fetchone()
-        return cls(*row) if row else None
+        return cls._from_row(row) if row else None
 
     @classmethod
-    def all(cls, conn: sqlite3.Connection, plane: int = 0) -> list[MapSquare]:
+    def all(
+        cls, conn: sqlite3.Connection, plane: int = 0,
+        type: MapSquareType = MapSquareType.COLOR,
+    ) -> list[MapSquare]:
         rows = conn.execute(
-            "SELECT id, plane, region_x, region_y, image FROM map_squares WHERE plane = ? ORDER BY region_x, region_y",
-            (plane,),
+            "SELECT id, plane, region_x, region_y, type, image FROM map_squares WHERE plane = ? AND type = ? ORDER BY region_x, region_y",
+            (plane, type.value),
         ).fetchall()
-        return [cls(*row) for row in rows]
+        return [cls._from_row(row) for row in rows]
 
     @classmethod
-    def at_game_coord(cls, conn: sqlite3.Connection, x: int, y: int, plane: int = 0) -> MapSquare | None:
+    def at_game_coord(
+        cls, conn: sqlite3.Connection, x: int, y: int, plane: int = 0,
+        type: MapSquareType = MapSquareType.COLOR,
+    ) -> MapSquare | None:
         rx = x // GAME_TILES_PER_REGION
         ry = y // GAME_TILES_PER_REGION
-        return cls.get(conn, plane, rx, ry)
+        return cls.get(conn, plane, rx, ry, type)
 
     @classmethod
-    def count(cls, conn: sqlite3.Connection, plane: int = 0) -> int:
+    def count(cls, conn: sqlite3.Connection, plane: int = 0, type: MapSquareType | None = None) -> int:
+        if type is not None:
+            return conn.execute("SELECT COUNT(*) FROM map_squares WHERE plane = ? AND type = ?", (plane, type.value)).fetchone()[0]
         return conn.execute("SELECT COUNT(*) FROM map_squares WHERE plane = ?", (plane,)).fetchone()[0]
+
+    @classmethod
+    def stitch(
+        cls, conn: sqlite3.Connection,
+        x_min: int, x_max: int, y_min: int, y_max: int,
+        plane: int = 0,
+        type: MapSquareType = MapSquareType.COLOR,
+        region_padding: int = 1,
+    ) -> tuple:
+        """Stitch map tiles for a game coordinate bounding box.
+
+        Returns (numpy.ndarray, extent) where extent is [x_min, x_max, y_min, y_max]
+        in game coordinates, suitable for matplotlib imshow.
+
+        region_padding adds extra regions around the bounding box (default 1).
+        """
+        import io
+
+        import numpy as np
+        from PIL import Image
+
+        rx_min = max(0, x_min // GAME_TILES_PER_REGION - region_padding)
+        rx_max = (x_max - 1) // GAME_TILES_PER_REGION + region_padding
+        ry_min = max(0, y_min // GAME_TILES_PER_REGION - region_padding)
+        ry_max = (y_max - 1) // GAME_TILES_PER_REGION + region_padding
+
+        pixels_per = PIXELS_PER_REGION if type == MapSquareType.COLOR else GAME_TILES_PER_REGION
+        canvas_w = (rx_max - rx_min + 1) * pixels_per
+        canvas_h = (ry_max - ry_min + 1) * pixels_per
+        canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
+
+        rows = conn.execute(
+            "SELECT region_x, region_y, image FROM map_squares WHERE plane = ? AND type = ? "
+            "AND region_x >= ? AND region_x <= ? AND region_y >= ? AND region_y <= ?",
+            (plane, type.value, rx_min, rx_max, ry_min, ry_max),
+        ).fetchall()
+        for rx, ry, img_data in rows:
+            try:
+                tile = np.array(Image.open(io.BytesIO(img_data)).convert("RGB"))
+                px = (rx - rx_min) * pixels_per
+                py = (ry_max - ry) * pixels_per
+                canvas[py:py + pixels_per, px:px + pixels_per] = tile
+            except Exception:
+                pass
+
+        extent = [
+            rx_min * GAME_TILES_PER_REGION,
+            (rx_max + 1) * GAME_TILES_PER_REGION,
+            ry_min * GAME_TILES_PER_REGION,
+            (ry_max + 1) * GAME_TILES_PER_REGION,
+        ]
+        return canvas, extent
 
 
 @dataclass
@@ -280,42 +355,8 @@ def find_path(
 
 
 def _stitch_canvas(conn: sqlite3.Connection, x_min: int, x_max: int, y_min: int, y_max: int):
-    """Stitch map tiles for a game coordinate region. Returns (canvas, extent)."""
-    import io
-
-    import numpy as np
-    from PIL import Image
-
-    rx_min = max(0, x_min // GAME_TILES_PER_REGION - 1)
-    rx_max = x_max // GAME_TILES_PER_REGION + 1
-    ry_min = max(0, y_min // GAME_TILES_PER_REGION - 1)
-    ry_max = y_max // GAME_TILES_PER_REGION + 1
-
-    canvas_w = (rx_max - rx_min + 1) * PIXELS_PER_REGION
-    canvas_h = (ry_max - ry_min + 1) * PIXELS_PER_REGION
-    canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
-
-    rows = conn.execute(
-        "SELECT region_x, region_y, image FROM map_squares WHERE plane = 0 "
-        "AND region_x >= ? AND region_x <= ? AND region_y >= ? AND region_y <= ?",
-        (rx_min, rx_max, ry_min, ry_max),
-    ).fetchall()
-    for rx, ry, img_data in rows:
-        try:
-            tile = np.array(Image.open(io.BytesIO(img_data)).convert("RGB"))
-            px = (rx - rx_min) * PIXELS_PER_REGION
-            py = (ry_max - ry) * PIXELS_PER_REGION
-            canvas[py:py + PIXELS_PER_REGION, px:px + PIXELS_PER_REGION] = tile
-        except Exception:
-            pass
-
-    extent = [
-        rx_min * GAME_TILES_PER_REGION,
-        (rx_max + 1) * GAME_TILES_PER_REGION,
-        ry_min * GAME_TILES_PER_REGION,
-        (ry_max + 1) * GAME_TILES_PER_REGION,
-    ]
-    return canvas, extent
+    """Stitch color map tiles for a game coordinate region. Returns (canvas, extent)."""
+    return MapSquare.stitch(conn, x_min, x_max, y_min, y_max)
 
 
 def render_path(

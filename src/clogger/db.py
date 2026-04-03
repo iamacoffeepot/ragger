@@ -266,8 +266,9 @@ SCHEMAS: list[str] = [
         plane INTEGER NOT NULL,
         region_x INTEGER NOT NULL,
         region_y INTEGER NOT NULL,
+        type TEXT NOT NULL DEFAULT 'color',
         image BLOB NOT NULL,
-        UNIQUE(plane, region_x, region_y)
+        UNIQUE(plane, region_x, region_y, type)
     )
     """,
     """
