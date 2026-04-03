@@ -67,6 +67,25 @@ public class OverlayApi {
         });
     }
 
+    /**
+     * Set font: g:font("Arial", "bold", 14)
+     * Style: "plain", "bold", "italic", "bold_italic"
+     */
+    public void font(String family, String style, int size) {
+        int fontStyle = switch (style.toLowerCase()) {
+            case "bold" -> Font.BOLD;
+            case "italic" -> Font.ITALIC;
+            case "bold_italic" -> Font.BOLD | Font.ITALIC;
+            default -> Font.PLAIN;
+        };
+        Font f = new Font(family, fontStyle, size);
+        commands.add(g -> g.setFont(f));
+    }
+
+    public void font(String family, int size) {
+        font(family, "plain", size);
+    }
+
     public void clear() {
         commands.clear();
     }

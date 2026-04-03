@@ -109,6 +109,11 @@ on_render = function(g)
     -- Circles
     g:circle(x, y, radius, 0x00FFFF)        -- circle outline
     g:fill_circle(x, y, radius, 0xFF00FF)   -- filled circle
+
+    -- Font
+    g:font("Arial", "bold", 14)             -- set font (family, style, size)
+    g:font("Monospaced", 12)                -- style defaults to "plain"
+    -- Styles: "plain", "bold", "italic", "bold_italic"
 end
 ```
 
