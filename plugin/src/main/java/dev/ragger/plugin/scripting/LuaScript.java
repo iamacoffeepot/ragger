@@ -52,6 +52,7 @@ public class LuaScript {
             lua.set("player", new PlayerApi(client));
             lua.set("skill", new SkillApi());
             new SceneApi(client).register(lua);
+            new CoordsApi(client).register(lua);
 
             lua.run(source);
 
