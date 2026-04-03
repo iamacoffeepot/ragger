@@ -168,25 +168,37 @@ public class ConsoleOverlay extends Overlay {
         e.consume();
     }
 
+    public void handleKeyPressed(KeyEvent e) {
+        if (!visible) return;
+
+        // Paste support (Cmd+V / Ctrl+V)
+        if (e.getKeyCode() == KeyEvent.VK_V && (e.isMetaDown() || e.isControlDown())) {
+            try {
+                String clip = (String) java.awt.Toolkit.getDefaultToolkit()
+                    .getSystemClipboard()
+                    .getData(java.awt.datatransfer.DataFlavor.stringFlavor);
+                if (clip != null) {
+                    // Strip newlines — single line input
+                    inputBuffer.append(clip.replaceAll("[\\r\\n]+", " "));
+                }
+            } catch (Exception ex) {
+                // clipboard not available or wrong format
+            }
+            e.consume();
+            return;
+        }
+
+        if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+            visible = false;
+            e.consume();
+        }
+    }
+
     public void handleScroll(int rotation) {
         if (!visible) return;
         scrollOffset = Math.max(0, Math.min(scrollOffset + rotation, Math.max(0, lines.size() - 1)));
     }
 
-    public void handleKeyPressed(KeyEvent e) {
-        if (!visible) return;
-
-        if (e.getKeyCode() == KeyEvent.VK_UP) {
-            scrollOffset = Math.min(scrollOffset + 1, Math.max(0, lines.size() - 1));
-            e.consume();
-        } else if (e.getKeyCode() == KeyEvent.VK_DOWN) {
-            scrollOffset = Math.max(scrollOffset - 1, 0);
-            e.consume();
-        } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-            visible = false;
-            e.consume();
-        }
-    }
 
     private void scrollToBottom() {
         scrollOffset = 0;
