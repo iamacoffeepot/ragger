@@ -54,7 +54,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--db",
         type=Path,
-        default=Path("data/clogger.db"),
+        default=Path("data/ragger.db"),
         help="Path to the SQLite database",
     )
     parser.add_argument(

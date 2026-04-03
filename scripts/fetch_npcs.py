@@ -9,8 +9,8 @@ Excludes monsters (those are in fetch_monsters.py).
 import argparse
 from pathlib import Path
 
-from clogger.db import create_tables, get_connection
-from clogger.wiki import (
+from ragger.db import create_tables, get_connection
+from ragger.wiki import (
     extract_coords,
     extract_template,
     fetch_category_members,
@@ -129,6 +129,6 @@ def ingest(db_path: Path) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch OSRS NPC data")
-    parser.add_argument("--db", type=Path, default=Path("data/clogger.db"))
+    parser.add_argument("--db", type=Path, default=Path("data/ragger.db"))
     args = parser.parse_args()
     ingest(args.db)

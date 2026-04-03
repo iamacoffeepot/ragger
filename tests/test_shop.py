@@ -1,7 +1,7 @@
 import sqlite3
 
-from clogger.enums import Region, ShopType
-from clogger.shop import Shop, ShopItem
+from ragger.enums import Region, ShopType
+from ragger.shop import Shop, ShopItem
 
 
 def _seed_shops(conn: sqlite3.Connection) -> None:

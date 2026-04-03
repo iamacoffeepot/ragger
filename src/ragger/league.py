@@ -6,10 +6,10 @@ from pathlib import Path
 
 import yaml
 
-from clogger.enums import Region, Skill, TaskDifficulty
-from clogger.experience import level_for_xp, xp_for_level
-from clogger.quest import Quest
-from clogger.requirements import DiaryRequirement, ItemRequirement, QuestRequirement, RegionRequirement, SkillRequirement
+from ragger.enums import Region, Skill, TaskDifficulty
+from ragger.experience import level_for_xp, xp_for_level
+from ragger.quest import Quest
+from ragger.requirements import DiaryRequirement, ItemRequirement, QuestRequirement, RegionRequirement, SkillRequirement
 
 
 @dataclass

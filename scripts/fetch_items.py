@@ -3,8 +3,8 @@
 import argparse
 from pathlib import Path
 
-from clogger.db import create_tables, get_connection
-from clogger.wiki import fetch_category_members, record_attribution
+from ragger.db import create_tables, get_connection
+from ragger.wiki import fetch_category_members, record_attribution
 
 
 def ingest(db_path: Path) -> None:
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--db",
         type=Path,
-        default=Path("data/clogger.db"),
+        default=Path("data/ragger.db"),
         help="Path to the SQLite database",
     )
     args = parser.parse_args()

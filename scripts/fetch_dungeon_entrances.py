@@ -10,9 +10,9 @@ import argparse
 import re
 from pathlib import Path
 
-from clogger.db import create_tables, get_connection
-from clogger.enums import MapLinkType
-from clogger.wiki import extract_coords, fetch_pages_wikitext_batch, record_attributions_batch
+from ragger.db import create_tables, get_connection
+from ragger.enums import MapLinkType
+from ragger.wiki import extract_coords, fetch_pages_wikitext_batch, record_attributions_batch
 
 
 def extract_all_maps(wikitext: str) -> list[dict]:
@@ -143,7 +143,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--db",
         type=Path,
-        default=Path("data/clogger.db"),
+        default=Path("data/ragger.db"),
         help="Path to the SQLite database",
     )
     args = parser.parse_args()

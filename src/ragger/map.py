@@ -5,8 +5,8 @@ import sqlite3
 from collections import defaultdict
 from dataclasses import dataclass
 
-from clogger.enums import MAP_LINK_ANYWHERE, MapLinkType, MapSquareType
-from clogger.location import DistanceMetric
+from ragger.enums import MAP_LINK_ANYWHERE, MapLinkType, MapSquareType
+from ragger.location import DistanceMetric
 
 GAME_TILES_PER_REGION = 64
 PIXELS_PER_REGION = 256

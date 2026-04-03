@@ -1,8 +1,8 @@
 import sqlite3
 
-from clogger.enums import Region, Skill, TaskDifficulty
-from clogger.league import Account, LeagueConfig, LeagueTask
-from clogger.quest import Quest
+from ragger.enums import Region, Skill, TaskDifficulty
+from ragger.league import Account, LeagueConfig, LeagueTask
+from ragger.quest import Quest
 
 
 def _make_config() -> LeagueConfig:

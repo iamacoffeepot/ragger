@@ -1,4 +1,4 @@
-package dev.clogger.cachedump;
+package dev.ragger.cachedump;
 
 import net.runelite.cache.fs.Store;
 import net.runelite.cache.region.Region;

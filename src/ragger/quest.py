@@ -3,9 +3,9 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from clogger.enums import Region
-from clogger.requirements import QuestPointRequirement, QuestRequirement, RegionRequirement, SkillRequirement
-from clogger.rewards import ExperienceReward, ItemReward
+from ragger.enums import Region
+from ragger.requirements import QuestPointRequirement, QuestRequirement, RegionRequirement, SkillRequirement
+from ragger.rewards import ExperienceReward, ItemReward
 
 
 @dataclass

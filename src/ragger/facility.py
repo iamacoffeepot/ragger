@@ -3,8 +3,8 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from clogger.enums import Facility as FacilityType, Region
-from clogger.location import DistanceMetric
+from ragger.enums import Facility as FacilityType, Region
+from ragger.location import DistanceMetric
 
 
 @dataclass

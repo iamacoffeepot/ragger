@@ -4,7 +4,7 @@ import math
 import sqlite3
 from dataclasses import dataclass
 
-from clogger.enums import Region, ShopType
+from ragger.enums import Region, ShopType
 
 
 @dataclass

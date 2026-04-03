@@ -6,8 +6,8 @@ from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 
-from clogger.enums import Facility, Region
-from clogger.shop import Shop
+from ragger.enums import Facility, Region
+from ragger.shop import Shop
 
 
 class DistanceMetric(str, Enum):

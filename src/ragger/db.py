@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from clogger.enums import ALL_REGIONS_MASK, ALL_SKILLS_MASK, DiaryLocation, DiaryTier, Region, ShopType, Skill, TaskDifficulty
+from ragger.enums import ALL_REGIONS_MASK, ALL_SKILLS_MASK, DiaryLocation, DiaryTier, Region, ShopType, Skill, TaskDifficulty
 
 _skill_ids = ", ".join(str(s.value) for s in Skill)
 _region_ids = ", ".join(str(r.value) for r in Region)

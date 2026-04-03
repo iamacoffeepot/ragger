@@ -7,8 +7,8 @@ for adjacency data.
 import argparse
 from pathlib import Path
 
-from clogger.db import create_tables, get_connection
-from clogger.wiki import (
+from ragger.db import create_tables, get_connection
+from ragger.wiki import (
     extract_coords,
     extract_template,
     fetch_category_members,
@@ -167,7 +167,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--db",
         type=Path,
-        default=Path("data/clogger.db"),
+        default=Path("data/ragger.db"),
         help="Path to the SQLite database",
     )
     args = parser.parse_args()

@@ -1,5 +1,5 @@
 [project]
-name = "clogger"
+name = "ragger"
 version = "0.1.0"
 description = "OSRS Leagues knowledge base for route planning"
 readme = "README.md"

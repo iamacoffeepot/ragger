@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from clogger.enums import DiaryLocation, DiaryTier, Region, Skill
+from ragger.enums import DiaryLocation, DiaryTier, Region, Skill
 
 
 @dataclass

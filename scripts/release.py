@@ -1,6 +1,6 @@
 """Create a GitHub release with the database attached.
 
-Tags the current commit and uploads data/clogger.db as a release asset.
+Tags the current commit and uploads data/ragger.db as a release asset.
 Generates attribution credits from the attributions table in the database.
 
 Usage:
@@ -14,7 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-DB_PATH = Path("data/clogger.db")
+DB_PATH = Path("data/ragger.db")
 VERSION_PATH = Path("VERSION")
 CREDITS_PATH = Path("CREDITS.md")
 

@@ -7,9 +7,9 @@ import argparse
 import re
 from pathlib import Path
 
-from clogger.db import create_tables, get_connection
-from clogger.enums import Facility
-from clogger.wiki import extract_coords, fetch_page_wikitext_with_attribution
+from ragger.db import create_tables, get_connection
+from ragger.enums import Facility
+from ragger.wiki import extract_coords, fetch_page_wikitext_with_attribution
 
 FACILITY_PAGES = {
     Facility.BANK: "List_of_banks",
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--db",
         type=Path,
-        default=Path("data/clogger.db"),
+        default=Path("data/ragger.db"),
         help="Path to the SQLite database",
     )
     args = parser.parse_args()

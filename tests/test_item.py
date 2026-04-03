@@ -1,6 +1,6 @@
 import sqlite3
 
-from clogger.item import Item
+from ragger.item import Item
 
 
 def _seed_items(conn: sqlite3.Connection) -> None:

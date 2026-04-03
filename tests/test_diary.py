@@ -1,7 +1,7 @@
 import sqlite3
 
-from clogger.diary import DiaryTask
-from clogger.enums import DiaryLocation, DiaryTier
+from ragger.diary import DiaryTask
+from ragger.enums import DiaryLocation, DiaryTier
 
 
 def _seed_diary_tasks(conn: sqlite3.Connection) -> None:

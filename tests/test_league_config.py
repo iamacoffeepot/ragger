@@ -1,8 +1,8 @@
 import sqlite3
 from pathlib import Path
 
-from clogger.enums import Region
-from clogger.league import LeagueConfig
+from ragger.enums import Region
+from ragger.league import LeagueConfig
 
 
 def _seed_quests(conn: sqlite3.Connection) -> None:

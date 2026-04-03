@@ -1,8 +1,8 @@
 import sqlite3
 
-from clogger.enums import DiaryLocation, DiaryTier, Region, Skill, TaskDifficulty
-from clogger.league import LeagueTask
-from clogger.requirements import DiaryRequirement, ItemRequirement, QuestRequirement, SkillRequirement
+from ragger.enums import DiaryLocation, DiaryTier, Region, Skill, TaskDifficulty
+from ragger.league import LeagueTask
+from ragger.requirements import DiaryRequirement, ItemRequirement, QuestRequirement, SkillRequirement
 
 
 def _seed_tasks(conn: sqlite3.Connection) -> None:

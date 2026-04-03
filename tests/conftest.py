@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from clogger.db import create_tables
+from ragger.db import create_tables
 
 
 @pytest.fixture

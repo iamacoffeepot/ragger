@@ -8,12 +8,12 @@ import time
 import requests
 
 DEFAULT_THROTTLE = 1.0
-THROTTLE_DELAY = float(os.environ.get("CLOGGER_THROTTLE", DEFAULT_THROTTLE))
+THROTTLE_DELAY = float(os.environ.get("RAGGER_THROTTLE", DEFAULT_THROTTLE))
 
-from clogger.enums import Region, Skill
+from ragger.enums import Region, Skill
 
 API_URL = "https://oldschool.runescape.wiki/api.php"
-USER_AGENT = "clogger/0.2 (https://github.com/iamacoffeepot/clogger) OSRS Leagues planner"
+USER_AGENT = "ragger/0.2 (https://github.com/iamacoffeepot/ragger) OSRS Leagues planner"
 HEADERS = {"User-Agent": USER_AGENT}
 
 SKILL_NAME_MAP: dict[str, Skill] = {s.label.lower(): s for s in Skill}
@@ -372,6 +372,6 @@ def fetch_page_wikitext_with_attribution(
 def throttle() -> None:
     """Sleep to avoid hammering the wiki API.
 
-    Default 1 second. Override with CLOGGER_THROTTLE env var.
+    Default 1 second. Override with RAGGER_THROTTLE env var.
     """
     time.sleep(THROTTLE_DELAY)

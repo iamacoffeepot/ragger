@@ -1,4 +1,4 @@
-package dev.clogger.cachedump;
+package dev.ragger.cachedump;
 
 import net.runelite.cache.ConfigType;
 import net.runelite.cache.IndexType;

@@ -1,8 +1,8 @@
 import sqlite3
 
-from clogger.enums import Facility
-from clogger.facility import FacilityEntry
-from clogger.location import DistanceMetric
+from ragger.enums import Facility
+from ragger.facility import FacilityEntry
+from ragger.location import DistanceMetric
 
 
 def _seed_facilities(conn: sqlite3.Connection) -> None:

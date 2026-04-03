@@ -5,7 +5,7 @@ Supports two sources:
   - Legacy zip file (data/map-squares.zip) with {plane}_{rx}_{ry}.png files
 
 Usage:
-    uv run python scripts/import_map_squares.py [--db data/clogger.db]
+    uv run python scripts/import_map_squares.py [--db data/ragger.db]
     uv run python scripts/import_map_squares.py --zip data/map-squares.zip
 """
 
@@ -14,8 +14,8 @@ import re
 import zipfile
 from pathlib import Path
 
-from clogger.db import create_tables, get_connection
-from clogger.enums import MapSquareType
+from ragger.db import create_tables, get_connection
+from ragger.enums import MapSquareType
 
 TILE_PATTERN = re.compile(r"(\d+)_(\d+)_(\d+)\.png")
 
@@ -93,7 +93,7 @@ def import_from_zip(db_path: Path, zip_path: Path) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Import map squares into database")
-    parser.add_argument("--db", type=Path, default=Path("data/clogger.db"))
+    parser.add_argument("--db", type=Path, default=Path("data/ragger.db"))
     parser.add_argument("--zip", type=Path, default=None, help="Legacy zip file path")
     parser.add_argument("--dump-dir", type=Path, default=Path("data/cache-dump"), help="Cache dump directory")
     args = parser.parse_args()

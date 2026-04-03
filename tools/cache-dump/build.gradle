@@ -2,7 +2,7 @@ plugins {
     id 'java'
 }
 
-group = 'dev.clogger'
+group = 'dev.ragger'
 version = '0.1.0'
 
 java {
@@ -26,16 +26,16 @@ dependencies {
 
 tasks.register('dumpCollision', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'dev.clogger.cachedump.DumpCollision'
+    mainClass = 'dev.ragger.cachedump.DumpCollision'
 }
 
 tasks.register('dumpWater', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'dev.clogger.cachedump.DumpWater'
+    mainClass = 'dev.ragger.cachedump.DumpWater'
 }
 
 tasks.register('dumpMapTiles', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'dev.clogger.cachedump.DumpMapTiles'
+    mainClass = 'dev.ragger.cachedump.DumpMapTiles'
     jvmArgs = ['-Xmx2g']
 }

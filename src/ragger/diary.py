@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from clogger.enums import DiaryLocation, DiaryTier
+from ragger.enums import DiaryLocation, DiaryTier
 
 
 @dataclass

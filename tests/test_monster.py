@@ -1,7 +1,7 @@
 import sqlite3
 
-from clogger.enums import Immunity, Region
-from clogger.monster import Monster, MonsterDrop, MonsterLocation
+from ragger.enums import Immunity, Region
+from ragger.monster import Monster, MonsterDrop, MonsterLocation
 
 
 def _seed_monsters(conn: sqlite3.Connection) -> None:

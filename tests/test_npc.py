@@ -1,7 +1,7 @@
 import sqlite3
 
-from clogger.enums import Region
-from clogger.npc import Npc
+from ragger.enums import Region
+from ragger.npc import Npc
 
 
 def _seed_npcs(conn: sqlite3.Connection) -> None:

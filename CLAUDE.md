@@ -1,10 +1,10 @@
-# Clogger
+# Ragger
 
-OSRS Leagues knowledge base for route planning.
+OSRS knowledge base powered by retrieval-augmented generation.
 
 ## Project Structure
 
-- `src/clogger/` — Python package with data models and database module
+- `src/ragger/` — Python package with data models and database module
 - `scripts/` — Data ingestion scripts that pull from the OSRS wiki API
 - `tools/cache-dump/` — Java tool for extracting map data from the OSRS game cache
 - `data/` — SQLite database and cache dump output (gitignored)
@@ -19,7 +19,7 @@ All scripts require the package to be installed: `uv pip install -e .`
 Runs all ingestion scripts in the correct order. Items must be populated first since other scripts reference the items table.
 
 ```sh
-uv run python scripts/fetch_all.py [--db data/clogger.db] [--league Raging_Echoes_League/Tasks]
+uv run python scripts/fetch_all.py [--db data/ragger.db] [--league Raging_Echoes_League/Tasks]
 ```
 
 ### Individual scripts
@@ -93,7 +93,7 @@ uv run python scripts/release.py [version] [--notes "..."]
 
 Version defaults to the `VERSION` file.
 
-All fetch scripts share utilities from `src/clogger/wiki.py` (API constants, category enumeration, wikitext fetching, template parsing, requirement linking, attribution).
+All fetch scripts share utilities from `src/ragger/wiki.py` (API constants, category enumeration, wikitext fetching, template parsing, requirement linking, attribution).
 
 ### Attribution
 
@@ -101,14 +101,14 @@ All scripts that fetch wiki data **must** record attributions. Use `record_attri
 
 ### API etiquette
 
-- Default throttle is 1 request/second (override locally via `CLOGGER_THROTTLE` in `.env`)
+- Default throttle is 1 request/second (override locally via `RAGGER_THROTTLE` in `.env`)
 - Prefer batched API calls where possible — `fetch_contributors_batch()` handles up to 50 pages per call
 - User-Agent includes project URL per wiki API policy
 - Wikitext must be fetched one page at a time (`action=parse`), but contributor lookups support batching (`action=query`)
 
 ## Database
 
-Default path: `data/clogger.db`. All scripts accept `--db` to override.
+Default path: `data/ragger.db`. All scripts accept `--db` to override.
 
 Tables are created automatically when any script runs. Only `fetch_items.py` writes to the items table — all other scripts reference it.
 
@@ -116,10 +116,10 @@ Tables are created automatically when any script runs. Only `fetch_items.py` wri
 
 All API methods accept a `sqlite3.Connection` so connections can be reused.
 
-### Quest (`src/clogger/quest.py`)
+### Quest (`src/ragger/quest.py`)
 
 ```python
-from clogger.quest import Quest
+from ragger.quest import Quest
 
 Quest.all(conn) -> list[Quest]
 Quest.by_name(conn, name) -> Quest | None
@@ -132,29 +132,29 @@ quest.requirement_chain(conn) -> list[Quest]       # flat list, bottom-up order
 quest.requirement_tree(conn) -> str                 # indented tree string
 ```
 
-### Item (`src/clogger/item.py`)
+### Item (`src/ragger/item.py`)
 
 ```python
-from clogger.item import Item
+from ragger.item import Item
 
 Item.all(conn) -> list[Item]
 Item.by_name(conn, name) -> Item | None
 ```
 
-### DiaryTask (`src/clogger/diary.py`)
+### DiaryTask (`src/ragger/diary.py`)
 
 ```python
-from clogger.diary import DiaryTask
+from ragger.diary import DiaryTask
 
 DiaryTask.all(conn, location?, tier?) -> list[DiaryTask]
 ```
 
 Diary XP rewards are on the enum: `DiaryLocation.xp_reward(tier)` and `DiaryLocation.min_level(tier)`.
 
-### LeagueTask (`src/clogger/league.py`)
+### LeagueTask (`src/ragger/league.py`)
 
 ```python
-from clogger.league import LeagueTask
+from ragger.league import LeagueTask
 
 LeagueTask.all(conn, difficulty?, region?) -> list[LeagueTask]
 LeagueTask.by_name(conn, name) -> LeagueTask | None
@@ -167,10 +167,10 @@ task.diary_requirements(conn) -> list[DiaryRequirement]
 task.region_requirements(conn) -> list[RegionRequirement]
 ```
 
-### LeagueConfig (`src/clogger/league.py`)
+### LeagueConfig (`src/ragger/league.py`)
 
 ```python
-from clogger.league import LeagueConfig
+from ragger.league import LeagueConfig
 
 config = LeagueConfig.from_yaml(Path("config/demonic-pacts.yaml"))
 config.starting_region -> Region
@@ -185,12 +185,12 @@ config.starting_quest_points(conn) -> int
 config.available_regions(unlocked?) -> list[Region]
 ```
 
-### Account (`src/clogger/league.py`)
+### Account (`src/ragger/league.py`)
 
 Simulates league account progression — tracks XP, completed quests/tasks, and unlocked regions.
 
 ```python
-from clogger.league import Account, LeagueConfig
+from ragger.league import Account, LeagueConfig
 
 config = LeagueConfig.from_yaml(Path("config/demonic-pacts.yaml"))
 account = Account(config, conn)
@@ -220,10 +220,10 @@ account.completed_quests() -> list[Quest]
 account.completed_tasks() -> list[LeagueTask]
 ```
 
-### Shop (`src/clogger/shop.py`)
+### Shop (`src/ragger/shop.py`)
 
 ```python
-from clogger.shop import Shop, ShopItem
+from ragger.shop import Shop, ShopItem
 
 Shop.all(conn, region?, shop_type?) -> list[Shop]
 Shop.by_name(conn, name) -> Shop | None
@@ -240,10 +240,10 @@ item.effective_sell_price(sell_multiplier, base_value) -> int
 item.effective_buy_price(buy_multiplier, base_value) -> int
 ```
 
-### Location (`src/clogger/location.py`)
+### Location (`src/ragger/location.py`)
 
 ```python
-from clogger.location import Location, DistanceMetric
+from ragger.location import Location, DistanceMetric
 
 Location.all(conn, region?) -> list[Location]
 Location.by_name(conn, name) -> Location | None
@@ -264,13 +264,13 @@ location.facilities -> int                             # bitmask
 
 Distance metrics for `nearby()` and `nearest()`: `DistanceMetric.CHEBYSHEV` (default, matches OSRS diagonal movement), `DistanceMetric.MANHATTAN`, `DistanceMetric.EUCLIDEAN`. Distance computation is on the enum: `metric.compute(dx, dy)`.
 
-### FacilityEntry (`src/clogger/facility.py`)
+### FacilityEntry (`src/ragger/facility.py`)
 
 Raw facility coordinate data (banks, furnaces, anvils, altars, spinning wheels, looms).
 
 ```python
-from clogger.facility import FacilityEntry
-from clogger.enums import Facility
+from ragger.facility import FacilityEntry
+from ragger.enums import Facility
 
 FacilityEntry.all(conn, facility_type?, region?) -> list[FacilityEntry]
 FacilityEntry.nearest(conn, x, y, facility_type?, metric?) -> FacilityEntry | None
@@ -282,10 +282,10 @@ entry.name -> str | None
 entry.region -> Region | None                          # derived from nearest location
 ```
 
-### MapLink (`src/clogger/map.py`)
+### MapLink (`src/ragger/map.py`)
 
 ```python
-from clogger.map import MapLink
+from ragger.map import MapLink
 
 MapLink.all(conn, link_type?) -> list[MapLink]
 MapLink.departing(conn, location, link_type?) -> list[MapLink]   # links FROM a location
@@ -302,12 +302,12 @@ link.link_type -> MapLinkType
 link.description -> str | None
 ```
 
-### MapSquare (`src/clogger/map.py`)
+### MapSquare (`src/ragger/map.py`)
 
 Map tile images with collision data from the OSRS game cache.
 
 ```python
-from clogger.map import MapSquare
+from ragger.map import MapSquare
 
 MapSquare.get(conn, plane, region_x, region_y) -> MapSquare | None
 MapSquare.all(conn, plane=0) -> list[MapSquare]
@@ -318,11 +318,11 @@ square.game_y -> int
 square.image -> bytes                                   # PNG image data
 ```
 
-### Pathfinding (`src/clogger/map.py`)
+### Pathfinding (`src/ragger/map.py`)
 
 ```python
-from clogger.map import find_path, render_path
-from clogger.enums import MapLinkType
+from ragger.map import find_path, render_path
+from ragger.enums import MapLinkType
 
 # Find shortest path (considers ANYWHERE teleports as starting candidates)
 find_path(conn, src, dst) -> list[MapLink] | None
@@ -338,10 +338,10 @@ render_path(conn, path, "output.png", padding=200, dpi=200)
 
 Pathfinding uses A* with Chebyshev heuristic. Zero cost for instant transitions (teleports, fairy rings, entrances). Walkable edges cost Chebyshev distance. Path rendering chains arrows end-to-end, snaps same-location coords, and splits into panels when jumps exceed 384 tiles (6 regions) with departure/arrival markers.
 
-### Npc (`src/clogger/npc.py`)
+### Npc (`src/ragger/npc.py`)
 
 ```python
-from clogger.npc import Npc
+from ragger.npc import Npc
 
 Npc.all(conn, region?) -> list[Npc]
 Npc.by_name(conn, name) -> list[Npc]              # multiple versions possible
@@ -352,10 +352,10 @@ npc.has_option(option) -> bool
 npc.option_list() -> list[str]
 ```
 
-### Monster (`src/clogger/monster.py`)
+### Monster (`src/ragger/monster.py`)
 
 ```python
-from clogger.monster import Monster, MonsterLocation, MonsterDrop
+from ragger.monster import Monster, MonsterLocation, MonsterDrop
 
 Monster.all(conn, region?) -> list[Monster]
 Monster.by_name(conn, name, version?) -> Monster | None
@@ -376,10 +376,10 @@ monster.elemental_weakness_percent -> int | None
 # Full defensive bonuses: stab/slash/crush/magic/light/standard/heavy ranged
 ```
 
-### Wiki utilities (`src/clogger/wiki.py`)
+### Wiki utilities (`src/ragger/wiki.py`)
 
 ```python
-from clogger.wiki import (
+from ragger.wiki import (
     fetch_category_members,
     fetch_page_wikitext,
     fetch_pages_wikitext_batch,
@@ -421,7 +421,7 @@ link_requirement(conn, table, columns, junction_table, ...)                # ins
 throttle()                                                                 # rate limit (default 1s)
 ```
 
-## Enums (`src/clogger/enums.py`)
+## Enums (`src/ragger/enums.py`)
 
 - `Skill(int, Enum)` — 23 OSRS skills, int-based with `label`, `mask` properties
 - `Region(int, Enum)` — 12 regions (including GENERAL), int-based with `label`, `mask`, `from_label` properties

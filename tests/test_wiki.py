@@ -1,4 +1,4 @@
-from clogger.wiki import (
+from ragger.wiki import (
     extract_coords,
     extract_section,
     extract_template,

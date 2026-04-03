@@ -1,4 +1,4 @@
-package dev.clogger.cachedump;
+package dev.ragger.cachedump;
 
 import net.runelite.cache.MapImageDumper;
 import net.runelite.cache.fs.Store;

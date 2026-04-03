@@ -8,9 +8,9 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from clogger.db import create_tables, get_connection
-from clogger.enums import ALL_SKILLS_MASK, Skill
-from clogger.wiki import (
+from ragger.db import create_tables, get_connection
+from ragger.enums import ALL_SKILLS_MASK, Skill
+from ragger.wiki import (
     SKILL_NAME_MAP,
     extract_section,
     fetch_category_members,
@@ -277,7 +277,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--db",
         type=Path,
-        default=Path("data/clogger.db"),
+        default=Path("data/ragger.db"),
         help="Path to the SQLite database",
     )
     args = parser.parse_args()

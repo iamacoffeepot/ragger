@@ -16,9 +16,9 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial import KDTree, Voronoi
 
-from clogger.db import create_tables, get_connection
-from clogger.enums import MapLinkType, MapSquareType
-from clogger.map import GAME_TILES_PER_REGION, MapSquare, PIXELS_PER_REGION
+from ragger.db import create_tables, get_connection
+from ragger.enums import MapLinkType, MapSquareType
+from ragger.map import GAME_TILES_PER_REGION, MapSquare, PIXELS_PER_REGION
 
 
 DEFAULT_RESOLUTION = 1  # game tiles per pixel in the flood fill grid
@@ -348,7 +348,7 @@ def ingest(db_path: Path, resolution: int, area_threshold: float, edge_samples: 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compute walkability from map tiles")
-    parser.add_argument("--db", type=Path, default=Path("data/clogger.db"))
+    parser.add_argument("--db", type=Path, default=Path("data/ragger.db"))
     parser.add_argument("--resolution", type=int, default=DEFAULT_RESOLUTION)
     parser.add_argument("--area-threshold", type=float, default=DEFAULT_AREA_THRESHOLD)
     parser.add_argument("--edge-samples", type=int, default=DEFAULT_EDGE_SAMPLES)

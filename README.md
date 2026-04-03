@@ -1,8 +1,8 @@
-# Clogger
+# Ragger
 
-OSRS Leagues knowledge base for route planning. Built with [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+OSRS knowledge base powered by retrieval-augmented generation. Built with [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-Pulls data from the [OSRS Wiki](https://oldschool.runescape.wiki/) into a SQLite database and provides a Python API for querying quests, items, diary tasks, league tasks, shops, locations, and facilities — everything you need to plan a league route without writing SQL.
+Pulls data from the [OSRS Wiki](https://oldschool.runescape.wiki/) and the game cache into a SQLite database and provides a Python API for querying quests, items, diary tasks, league tasks, shops, locations, monsters, NPCs, and map data — everything you need to plan, pathfind, and theorycraft without writing SQL.
 
 ## Prerequisites
 
@@ -16,18 +16,18 @@ Pulls data from the [OSRS Wiki](https://oldschool.runescape.wiki/) into a SQLite
 ### 1. Clone and install
 
 ```sh
-git clone https://github.com/iamacoffeepot/clogger.git
-cd clogger
+git clone https://github.com/iamacoffeepot/ragger.git
+cd ragger
 uv pip install -e .
 ```
 
 ### 2. Get the database
 
-Download `clogger.db` from the [latest release](https://github.com/iamacoffeepot/clogger/releases) and place it in `data/`:
+Download `ragger.db` from the [latest release](https://github.com/iamacoffeepot/ragger/releases) and place it in `data/`:
 
 ```sh
 mkdir -p data
-gh release download --pattern "clogger.db" --dir data
+gh release download --pattern "ragger.db" --dir data
 ```
 
 Or populate it yourself from the wiki (takes a while due to API rate limiting):

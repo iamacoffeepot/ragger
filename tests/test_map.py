@@ -1,7 +1,7 @@
 import sqlite3
 
-from clogger.enums import MapLinkType
-from clogger.map import MapLink
+from ragger.enums import MapLinkType
+from ragger.map import MapLink
 
 
 def _seed_links(conn: sqlite3.Connection) -> None:
