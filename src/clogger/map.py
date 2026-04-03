@@ -356,19 +356,35 @@ def render_path(
     for i, link in enumerate(path):
         if i > 0:
             prev = chained[-1]
-            # If there's a gap, insert an implicit walk to bridge it
+            # If there's a gap between consecutive links
             if prev.dst_x != link.src_x or prev.dst_y != link.src_y:
-                chained.append(MapLink(
-                    id=-1,
-                    src_location=prev.dst_location,
-                    dst_location=link.src_location,
-                    src_x=prev.dst_x,
-                    src_y=prev.dst_y,
-                    dst_x=link.src_x,
-                    dst_y=link.src_y,
-                    link_type=MapLinkType.WALKABLE,
-                    description=f"Walk to {link.src_location}",
-                ))
+                if prev.dst_location == link.src_location:
+                    # Same location, different coords — snap the previous link's
+                    # destination to the next link's source (walk directly to it)
+                    chained[-1] = MapLink(
+                        id=prev.id,
+                        src_location=prev.src_location,
+                        dst_location=prev.dst_location,
+                        src_x=prev.src_x,
+                        src_y=prev.src_y,
+                        dst_x=link.src_x,
+                        dst_y=link.src_y,
+                        link_type=prev.link_type,
+                        description=prev.description,
+                    )
+                else:
+                    # Different locations — insert an implicit walk to bridge
+                    chained.append(MapLink(
+                        id=-1,
+                        src_location=prev.dst_location,
+                        dst_location=link.src_location,
+                        src_x=prev.dst_x,
+                        src_y=prev.dst_y,
+                        dst_x=link.src_x,
+                        dst_y=link.src_y,
+                        link_type=MapLinkType.WALKABLE,
+                        description=f"Walk to {link.src_location}",
+                    ))
         chained.append(link)
     path = chained
 
