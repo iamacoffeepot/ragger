@@ -199,7 +199,7 @@ public class ServiceManager {
             }
 
             templateSources.put(template, source);
-            scriptManager.defineTemplate(template, source);
+            scriptManager.defineTemplate("svc-" + template, source);
         }
     }
 
