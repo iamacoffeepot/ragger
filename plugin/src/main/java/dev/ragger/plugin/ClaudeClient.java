@@ -107,7 +107,7 @@ public class ClaudeClient {
         command.add("Read");
         command.add("Glob");
         command.add("Grep");
-        command.add("mcp__ragger__RaggerSpawn");
+        command.add("mcp__ragger__RaggerActorSpawn");
         command.add("mcp__ragger__RaggerEval");
         command.add("mcp__ragger__RaggerActorList");
         command.add("mcp__ragger__RaggerActorSource");

@@ -13,7 +13,7 @@ BRIDGE_TOKEN = os.environ.get("RAGGER_BRIDGE_TOKEN", "")
 BRIDGE_HEADERS = {"Authorization": f"Bearer {BRIDGE_TOKEN}"}
 
 
-@mcp.tool(name="RaggerSpawn")
+@mcp.tool(name="RaggerActorSpawn")
 def ragger_spawn(name: str, script: str) -> str:
     """Spawn a Lua actor in the RuneLite client.
 

@@ -488,7 +488,7 @@ JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home" ./grad
 
 Python MCP server at `src/ragger/mcp_server.py` exposes the following tools:
 
-- `RaggerSpawn(name, script)` — submit a persistent Lua actor to the plugin
+- `RaggerActorSpawn(name, script)` — submit a persistent Lua actor to the plugin
 - `RaggerEval(script)` — evaluate a Lua expression and return the result
 - `RaggerActorList()` — list active actors
 - `RaggerActorSource(name)` — retrieve a running actor's source code
