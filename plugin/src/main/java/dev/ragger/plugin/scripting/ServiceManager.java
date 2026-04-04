@@ -171,8 +171,14 @@ public class ServiceManager {
 
     private void spawnService(ServiceEntry entry) {
         String fullName = SERVICE_PREFIX + entry.name;
+        String templateName = "svc-" + entry.template;
+        // Resolve from template registry so hot-reloaded templates take effect
+        String source = scriptManager.getTemplate(templateName);
+        if (source == null) {
+            source = entry.source; // fallback to initial source
+        }
         try {
-            scriptManager.load(fullName, entry.source);
+            scriptManager.load(fullName, source);
             entry.respawnAttempts++;
             log.info("Spawned service: {}", fullName);
         } catch (Exception e) {
