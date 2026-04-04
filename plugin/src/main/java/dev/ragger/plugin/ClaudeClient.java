@@ -31,6 +31,8 @@ public class ClaudeClient {
     private final boolean devMode;
     private final String extraTools;
     private String sessionId;
+    private volatile Process currentProcess;
+    private volatile boolean cancelled;
 
     public ClaudeClient(String claudePath, String model, int bridgePort, String bridgeToken, boolean devMode, String extraTools) {
         this.claudePath = claudePath;
@@ -49,6 +51,23 @@ public class ClaudeClient {
         void onToolUse(String toolLog);
         void onComplete(String finalText);
         void onError(String error);
+        void onCancelled();
+    }
+
+    /**
+     * Cancel the current request, killing the Claude CLI process.
+     */
+    public void cancel() {
+        cancelled = true;
+        Process p = currentProcess;
+        if (p != null) {
+            p.destroyForcibly();
+            log.info("Claude CLI process cancelled");
+        }
+    }
+
+    public boolean isBusy() {
+        return currentProcess != null;
     }
 
     /**
@@ -82,6 +101,8 @@ public class ClaudeClient {
         command.add("Grep");
         command.add("mcp__ragger__RaggerRun");
         command.add("mcp__ragger__RaggerEval");
+        command.add("mcp__ragger__RaggerSource");
+        command.add("mcp__ragger__RaggerList");
 
         if (devMode) {
             command.add("Edit(/**/*)");
@@ -120,7 +141,9 @@ public class ClaudeClient {
         pb.environment().put("RAGGER_BRIDGE_TOKEN", bridgeToken);
         pb.redirectErrorStream(true);
         pb.redirectInput(ProcessBuilder.Redirect.from(new java.io.File("/dev/null")));
+        cancelled = false;
         Process process = pb.start();
+        currentProcess = process;
 
         // Track the last text we've seen to detect new content
         StringBuilder lastSeenText = new StringBuilder();
@@ -164,11 +187,8 @@ public class ClaudeClient {
                                     } else if ("tool_use".equals(blockType)) {
                                         String toolName = block.get("name").getAsString();
                                         JsonObject input = block.has("input") ? block.getAsJsonObject("input") : null;
-                                        // Finalize current stream before tool message
-                                        if (!lastSeenText.isEmpty()) {
-                                            listener.onComplete(lastSeenText.toString());
-                                            lastSeenText.setLength(0);
-                                        }
+                                        // Reset text tracking — onToolUse handles ending the stream
+                                        lastSeenText.setLength(0);
                                         listener.onToolUse(formatToolLog(toolName, input));
                                     }
                                 }
@@ -179,6 +199,13 @@ public class ClaudeClient {
                     log.debug("Non-JSON stream line: {}", line);
                 }
             }
+        }
+
+        currentProcess = null;
+
+        if (cancelled) {
+            listener.onCancelled();
+            return;
         }
 
         boolean finished = process.waitFor(120, java.util.concurrent.TimeUnit.SECONDS);

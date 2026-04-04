@@ -90,6 +90,7 @@ public class RaggerPlugin extends Plugin {
 
         claude = new ClaudeClient(config.claudePath(), config.claudeModel(), config.bridgePort(), bridgeServer.getToken(), config.devMode(), config.extraTools());
         chatPanel = new ChatPanel();
+        chatPanel.setScriptManager(scriptManager);
         consoleOverlay = new ConsoleOverlay(client, this::onUserMessage);
         overlayManager.add(consoleOverlay);
 
@@ -187,6 +188,11 @@ public class RaggerPlugin extends Plugin {
             return;
         }
 
+        if (message.equalsIgnoreCase("/cancel")) {
+            claude.cancel();
+            return;
+        }
+
         if (message.equalsIgnoreCase("/stop")) {
             scriptManager.shutdown();
             consoleOverlay.addToolMessage("All scripts stopped.");
@@ -212,6 +218,7 @@ public class RaggerPlugin extends Plugin {
 
         consoleOverlay.addMessage("You", message);
         consoleOverlay.addThinking();
+        consoleOverlay.setBusy(true);
         claude.send(message, new ClaudeClient.StreamListener() {
             private boolean streaming = false;
             private boolean senderShown = false;
@@ -248,6 +255,11 @@ public class RaggerPlugin extends Plugin {
                     consoleOverlay.endStream();
                     streaming = false;
                 }
+                consoleOverlay.setBusy(false);
+                String queued = consoleOverlay.pollQueue();
+                if (queued != null) {
+                    onUserMessage(queued);
+                }
             }
 
             @Override
@@ -258,6 +270,21 @@ public class RaggerPlugin extends Plugin {
                     streaming = false;
                 }
                 consoleOverlay.addMessage("Claude", error);
+                consoleOverlay.setBusy(false);
+                String queued = consoleOverlay.pollQueue();
+                if (queued != null) {
+                    onUserMessage(queued);
+                }
+            }
+            @Override
+            public void onCancelled() {
+                consoleOverlay.removeThinking();
+                if (streaming) {
+                    consoleOverlay.endStream();
+                    streaming = false;
+                }
+                consoleOverlay.addToolMessage("Request cancelled.");
+                consoleOverlay.setBusy(false);
             }
         }, "BASE", "ASSISTANT");
     }
