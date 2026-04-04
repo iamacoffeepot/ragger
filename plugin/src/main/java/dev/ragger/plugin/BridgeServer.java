@@ -143,6 +143,7 @@ public class BridgeServer {
         while ((run = pendingRuns.poll()) != null) {
             try {
                 scriptManager.load(run.name, run.script);
+                scriptManager.defineTemplate(run.name, run.script);
                 run.future.complete("{\"status\":\"loaded\",\"name\":\"" + run.name + "\"}");
             } catch (Exception e) {
                 run.future.complete("{\"error\":\"" + e.getMessage().replace("\"", "'") + "\"}");
@@ -377,19 +378,65 @@ public class BridgeServer {
         for (var msg : messages) {
             JsonObject entry = new JsonObject();
             entry.addProperty("from", msg.from());
-            JsonObject data = new JsonObject();
-            for (var kv : msg.data().entrySet()) {
-                Object val = kv.getValue();
-                if (val instanceof Boolean) data.addProperty(kv.getKey(), (Boolean) val);
-                else if (val instanceof Number) data.addProperty(kv.getKey(), (Number) val);
-                else data.addProperty(kv.getKey(), String.valueOf(val));
-            }
-            entry.add("data", data);
+            entry.add("data", toJsonElement(msg.data()));
             arr.add(entry);
         }
         JsonObject result = new JsonObject();
         result.add("messages", arr);
         return result.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static com.google.gson.JsonElement toJsonElement(Object value) {
+        if (value instanceof java.util.Map) {
+            JsonObject obj = new JsonObject();
+            for (var kv : ((java.util.Map<String, Object>) value).entrySet()) {
+                obj.add(kv.getKey(), toJsonElement(kv.getValue()));
+            }
+            return obj;
+        } else if (value instanceof java.util.List) {
+            var arr = new com.google.gson.JsonArray();
+            for (Object item : (java.util.List<Object>) value) {
+                arr.add(toJsonElement(item));
+            }
+            return arr;
+        } else if (value instanceof Boolean) {
+            return new com.google.gson.JsonPrimitive((Boolean) value);
+        } else if (value instanceof Number) {
+            return new com.google.gson.JsonPrimitive((Number) value);
+        } else if (value instanceof String) {
+            return new com.google.gson.JsonPrimitive((String) value);
+        } else {
+            return new com.google.gson.JsonPrimitive(String.valueOf(value));
+        }
+    }
+
+    private static Object fromJsonElement(com.google.gson.JsonElement element) {
+        if (element.isJsonObject()) {
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            for (var kv : element.getAsJsonObject().entrySet()) {
+                map.put(kv.getKey(), fromJsonElement(kv.getValue()));
+            }
+            return map;
+        } else if (element.isJsonArray()) {
+            java.util.List<Object> list = new ArrayList<>();
+            for (var item : element.getAsJsonArray()) {
+                list.add(fromJsonElement(item));
+            }
+            return list;
+        } else if (element.isJsonPrimitive()) {
+            var prim = element.getAsJsonPrimitive();
+            if (prim.isBoolean()) return prim.getAsBoolean();
+            if (prim.isNumber()) {
+                double num = prim.getAsDouble();
+                if (num == Math.floor(num) && !Double.isInfinite(num)) {
+                    return (int) num;
+                }
+                return num;
+            }
+            return prim.getAsString();
+        }
+        return null;
     }
 
     private void handleMail(HttpExchange exchange) throws IOException {
@@ -404,25 +451,8 @@ public class BridgeServer {
             String target = json.get("target").getAsString();
             JsonObject data = json.getAsJsonObject("data");
 
-            // Convert JsonObject to Map<String, Object>
-            java.util.Map<String, Object> map = new java.util.HashMap<>();
-            for (String key : data.keySet()) {
-                var element = data.get(key);
-                if (element.isJsonPrimitive()) {
-                    var prim = element.getAsJsonPrimitive();
-                    if (prim.isBoolean()) map.put(key, prim.getAsBoolean());
-                    else if (prim.isNumber()) {
-                        double num = prim.getAsDouble();
-                        if (num == Math.floor(num) && !Double.isInfinite(num)) {
-                            map.put(key, (int) num);
-                        } else {
-                            map.put(key, num);
-                        }
-                    } else map.put(key, prim.getAsString());
-                } else {
-                    map.put(key, element.toString());
-                }
-            }
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> map = (java.util.Map<String, Object>) fromJsonElement(data);
 
             scriptManager.enqueueMail("claude", target, map);
             respond(exchange, 200, "{\"status\":\"queued\",\"target\":\"" + target + "\"}");

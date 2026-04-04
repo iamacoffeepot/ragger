@@ -632,7 +632,7 @@ return {
 - `on_mail` can call `mail:send()` safely — those messages queue for the next tick
 - If the target script doesn't exist or has no `on_mail` hook, the message is silently dropped
 - Self-send is allowed (delivered next tick)
-- Data is flat tables only (string, number, boolean values). Nested tables are not supported.
+- Data tables support string, number, boolean values and nested tables (maps and arrays up to 8 levels deep).
 
 ### API: `scripts`
 
