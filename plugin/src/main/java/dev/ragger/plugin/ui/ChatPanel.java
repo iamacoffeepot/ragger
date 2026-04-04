@@ -26,6 +26,7 @@ public class ChatPanel extends PluginPanel {
     private final JEditorPane templatesPane;
 
     private ScriptManager scriptManager;
+    private final Set<String> collapsed = new HashSet<>();
 
     public ChatPanel() {
         super(false);
@@ -96,36 +97,47 @@ public class ChatPanel extends PluginPanel {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style='padding:4px 0;'>");
         for (TreeNode child : root.children.values()) {
-            renderTree(sb, child, 0);
+            renderTree(sb, child, child.name, 0);
         }
         sb.append("</div>");
         scriptsPane.setText(html(sb.toString()));
     }
 
-    private void renderTree(StringBuilder sb, TreeNode node, int depth) {
+    private void renderTree(StringBuilder sb, TreeNode node, String path, int depth) {
         int indent = depth * 16;
-        String bullet = node.children.isEmpty() ? "&#9656;" : "&#9662;"; // ▸ or ▾
+        boolean hasChildren = !node.children.isEmpty();
+        boolean isCollapsed = collapsed.contains(path);
+        String bullet = hasChildren ? (isCollapsed ? "&#9656;" : "&#9662;") : "&#9656;"; // ▸ or ▾
         String nameColor = depth == 0
             ? RaggerTheme.hex(RaggerTheme.ACCENT)
             : RaggerTheme.hex(RaggerTheme.TEXT);
         String dimColor = RaggerTheme.hex(RaggerTheme.TEXT_DIM);
 
         sb.append("<div style='padding:3px 0 3px ").append(indent).append("px;'>");
-        sb.append("<span style='color:").append(dimColor).append(";'>").append(bullet).append(" </span>");
-        sb.append("<span style='color:").append(nameColor).append("; font-size:11px;'>").append(esc(node.name)).append("</span>");
+
+        if (hasChildren) {
+            sb.append("<a href='toggle:").append(esc(path)).append("' style='color:")
+              .append(dimColor).append("; text-decoration:none;'>").append(bullet).append(" </a>");
+        } else {
+            sb.append("<span style='color:").append(dimColor).append(";'>").append(bullet).append(" </span>");
+        }
+
+        sb.append("<span style='color:").append(nameColor).append("; font-size:9px;'>").append(esc(node.name)).append("</span>");
 
         // Copy source link (only for leaf scripts that are actually loaded)
         if (node.fullName != null) {
             sb.append(" <a href='copy-source:").append(esc(node.fullName)).append("' style='color:")
-              .append(RaggerTheme.hex(RaggerTheme.CODE)).append("; font-size:9px; text-decoration:none;'>[copy]</a>");
+              .append(RaggerTheme.hex(RaggerTheme.CODE)).append("; font-size:8px; text-decoration:none;'>[copy]</a>");
             sb.append(" <a href='stop-script:").append(esc(node.fullName)).append("' style='color:")
-              .append(RaggerTheme.hex(RaggerTheme.TEXT_DIM)).append("; font-size:9px; text-decoration:none;'>[stop]</a>");
+              .append(RaggerTheme.hex(RaggerTheme.TEXT_DIM)).append("; font-size:8px; text-decoration:none;'>[stop]</a>");
         }
 
         sb.append("</div>");
 
-        for (TreeNode child : node.children.values()) {
-            renderTree(sb, child, depth + 1);
+        if (!isCollapsed) {
+            for (TreeNode child : node.children.values()) {
+                renderTree(sb, child, path + "/" + child.name, depth + 1);
+            }
         }
     }
 
@@ -150,7 +162,7 @@ public class ChatPanel extends PluginPanel {
             sb.append("<span style='color:").append(RaggerTheme.hex(RaggerTheme.TEXT)).append(";'>")
               .append(esc(name)).append("</span>");
             sb.append(" <a href='copy-template:").append(esc(name)).append("' style='color:")
-              .append(linkHex).append("; font-size:9px; text-decoration:none;'>[copy]</a>");
+              .append(linkHex).append("; font-size:8px; text-decoration:none;'>[copy]</a>");
             sb.append("</div>");
         }
         sb.append("</div>");
@@ -164,8 +176,12 @@ public class ChatPanel extends PluginPanel {
         pane.setContentType("text/html");
         pane.setEditable(false);
         pane.setOpaque(false);
+        pane.setCaret(new javax.swing.text.DefaultCaret() {
+            @Override public boolean isVisible() { return false; }
+            @Override public boolean isSelectionVisible() { return false; }
+        });
         pane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
-        pane.setFont(RaggerTheme.FONT);
+        pane.setFont(RaggerTheme.FONT_SMALL);
         pane.setForeground(RaggerTheme.TEXT);
         pane.setBorder(new EmptyBorder(4, 8, 4, 8));
 
@@ -181,6 +197,15 @@ public class ChatPanel extends PluginPanel {
 
     private void handleLink(String href) {
         if (scriptManager == null) return;
+
+        if (href.startsWith("toggle:")) {
+            String path = href.substring("toggle:".length());
+            if (!collapsed.remove(path)) {
+                collapsed.add(path);
+            }
+            refreshScripts();
+            return;
+        }
 
         if (href.startsWith("copy-source:")) {
             String name = href.substring("copy-source:".length());
@@ -231,7 +256,7 @@ public class ChatPanel extends PluginPanel {
         String fontFamily = RaggerTheme.FONT.getFamily();
         return "<html><body style='"
             + "font-family:" + fontFamily + ",monospace;"
-            + "font-size:12px;"
+            + "font-size:9px;"
             + "color:" + RaggerTheme.hex(RaggerTheme.TEXT) + ";"
             + "background:" + RaggerTheme.hex(RaggerTheme.BG) + ";"
             + "margin:0; padding:0;"
