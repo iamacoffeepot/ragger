@@ -27,3 +27,6 @@ gradle.properties
 
 # Plans (personal routing notes)
 plans/
+
+# Scratch space (plugin Claude workspace)
+scratch/

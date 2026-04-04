@@ -398,6 +398,16 @@ return {
 
 If a script does not return a table, it runs once top-to-bottom (one-shot mode). Locals defined in the script body are captured by hook closures and persist for the script's lifetime.
 
+### Scratch Directory
+
+The `scratch/` folder at the project root is your workspace for temporary artifacts. Use it for downloads, generated files, intermediate data, or anything you'd normally put in `/tmp`. This is the only directory you have write access to — `Edit` and `Write` tools are scoped to `scratch/` exclusively.
+
+```
+scratch/
+├── .gitkeep
+├── (your files here)
+```
+
 ### Script Rules
 
 - One-shot scripts run top-to-bottom immediately.

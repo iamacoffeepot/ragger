@@ -10,6 +10,7 @@ import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.game.ItemManager;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.input.KeyManager;
 import net.runelite.client.input.MouseManager;
@@ -147,6 +148,30 @@ public class RaggerPlugin extends Plugin {
     public void onGameTick(GameTick event) {
         bridgeServer.tick();
         scriptManager.tick();
+    }
+
+    @Subscribe
+    public void onConfigChanged(ConfigChanged event) {
+        if (!"ragger".equals(event.getGroup())) {
+            return;
+        }
+
+        String key = event.getKey();
+
+        if ("bridgePort".equals(key)) {
+            bridgeServer.stop();
+            try {
+                bridgeServer.start(config.bridgePort());
+            } catch (java.io.IOException e) {
+                log.error("Failed to restart bridge server on new port", e);
+            }
+            // Recreate claude client with new bridge port
+            claude = new ClaudeClient(config.claudePath(), config.claudeModel(), config.bridgePort(), bridgeServer.getToken(), config.devMode(), config.extraTools());
+            log.info("Bridge server restarted on port {}", config.bridgePort());
+        } else if ("claudePath".equals(key) || "claudeModel".equals(key) || "devMode".equals(key) || "extraTools".equals(key)) {
+            claude = new ClaudeClient(config.claudePath(), config.claudeModel(), config.bridgePort(), bridgeServer.getToken(), config.devMode(), config.extraTools());
+            log.info("Claude client recreated with updated config");
+        }
     }
 
     private void onUserMessage(String message) {
