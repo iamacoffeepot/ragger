@@ -1,10 +1,10 @@
 -- tile-marker: highlight world tiles with colored outlines and optional labels
 --
 -- Mail API:
---   {action="add", x=N, y=N, color=0xRRGGBB, label="text"}
+--   {action="add", x=N, y=N, color=0xRRGGBB, label="text", label_color=0xRRGGBB}
 --   {action="remove", x=N, y=N}
 --   {action="clear"}
---   {action="list"}  -> mails back {tiles={{x,y,color,label},...}}
+--   {action="list"}  -> mails back {tiles={{x,y,color,label,label_color},...}}
 
 local tiles = {}
 
@@ -16,7 +16,8 @@ return {
             tiles[key(data.x, data.y)] = {
                 x = data.x, y = data.y,
                 color = data.color or 0xFFFFFF,
-                label = data.label
+                label = data.label,
+                label_color = data.label_color
             }
         elseif data.action == "remove" and data.x and data.y then
             tiles[key(data.x, data.y)] = nil
@@ -44,7 +45,7 @@ return {
                 if t.label then
                     local tx, ty = coords:world_text_pos(t.x, t.y, 150)
                     if tx then
-                        g:text(tx, ty, t.label, t.color)
+                        g:text(tx, ty, t.label, t.label_color or t.color)
                     end
                 end
             end

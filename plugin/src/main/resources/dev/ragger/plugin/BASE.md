@@ -36,7 +36,7 @@ The plugin starts managed services automatically on login. These run under the `
 
 | Service | Address | Mail API |
 |---------|---------|----------|
-| **tiles** | `svc/tiles` | `{action="add", x=N, y=N, color=0xRRGGBB, label="text"}`, `{action="remove", x=N, y=N}`, `{action="clear"}`, `{action="list"}` (replies with tiles) |
+| **tiles** | `svc/tiles` | `{action="add", x=N, y=N, color=0xRRGGBB, label="text", label_color=0xRRGGBB}`, `{action="remove", x=N, y=N}`, `{action="clear"}`, `{action="list"}` (replies with tiles) |
 | **npcs** | `svc/npcs` | `{action="add", name="Name", color=0xRRGGBB}`, `{action="remove", name="Name"}`, `{action="clear"}`, `{action="list"}` (replies with targets) |
 | **timers** | `svc/timers` | `{action="set", seconds=N, label="text"}`, `{action="cancel", label="text"}`, `{action="clear"}`. Replies `{event="done", label="text"}` on expiry. |
 | **loot** | `svc/loot` | `{action="start"}`, `{action="stop"}`, `{action="report"}` (replies with loot/total), `{action="reset"}` |
