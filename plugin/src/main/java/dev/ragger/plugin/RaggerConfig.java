@@ -36,4 +36,24 @@ public interface RaggerConfig extends Config {
     default int bridgePort() {
         return 7919;
     }
+
+    @ConfigItem(
+        keyName = "devMode",
+        name = "Developer Mode",
+        description = "Enable write tools (Edit, Write, Bash) for in-plugin Claude",
+        position = 3
+    )
+    default boolean devMode() {
+        return false;
+    }
+
+    @ConfigItem(
+        keyName = "extraTools",
+        name = "Extra Tools",
+        description = "Comma-separated additional tools to allow (e.g. Edit,Write,Agent)",
+        position = 4
+    )
+    default String extraTools() {
+        return "";
+    }
 }
