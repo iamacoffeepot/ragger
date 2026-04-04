@@ -143,7 +143,7 @@ public class ScriptsApi {
 
         Map<String, Object> args = null;
         if (lua.type(4) == Lua.LuaType.TABLE) {
-            args = tableToMap(lua, 4);
+            args = LuaUtils.tableToMap(lua, 4);
         }
 
         String source = manager.getTemplate(templateName);
@@ -171,38 +171,4 @@ public class ScriptsApi {
         return 1;
     }
 
-    /**
-     * Convert a Lua table at the given stack index to a Java Map.
-     * Handles string keys with string, number, and boolean values.
-     */
-    private Map<String, Object> tableToMap(Lua lua, int index) {
-        Map<String, Object> map = new HashMap<>();
-        lua.pushNil();
-        while (lua.next(index) != 0) {
-            String key = lua.toString(-2);
-            Object value;
-            switch (lua.type(-1)) {
-                case STRING:
-                    value = lua.toString(-1);
-                    break;
-                case NUMBER:
-                    double num = lua.toNumber(-1);
-                    if (num == Math.floor(num) && !Double.isInfinite(num)) {
-                        value = (int) num;
-                    } else {
-                        value = num;
-                    }
-                    break;
-                case BOOLEAN:
-                    value = lua.toBoolean(-1);
-                    break;
-                default:
-                    value = lua.toString(-1);
-                    break;
-            }
-            map.put(key, value);
-            lua.pop(1);
-        }
-        return map;
-    }
 }
