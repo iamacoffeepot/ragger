@@ -161,6 +161,8 @@ public class ChatPanel extends PluginPanel {
             sb.append("<span style='color:").append(accentHex).append(";'>&#9670; </span>");
             sb.append("<span style='color:").append(RaggerTheme.hex(RaggerTheme.TEXT)).append(";'>")
               .append(esc(name)).append("</span>");
+            sb.append(" <a href='run-template:").append(esc(name)).append("' style='color:")
+              .append(linkHex).append("; font-size:8px; text-decoration:none;'>[run]</a>");
             sb.append(" <a href='copy-template:").append(esc(name)).append("' style='color:")
               .append(linkHex).append("; font-size:8px; text-decoration:none;'>[copy]</a>");
             sb.append("</div>");
@@ -218,6 +220,12 @@ public class ChatPanel extends PluginPanel {
             String source = scriptManager.getTemplate(name);
             if (source != null) {
                 copyToClipboard(source);
+            }
+        } else if (href.startsWith("run-template:")) {
+            String name = href.substring("run-template:".length());
+            String source = scriptManager.getTemplate(name);
+            if (source != null) {
+                scriptManager.load(name, source);
             }
         } else if (href.startsWith("stop-script:")) {
             String name = href.substring("stop-script:".length());
