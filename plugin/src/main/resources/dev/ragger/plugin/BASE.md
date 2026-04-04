@@ -41,7 +41,7 @@ The plugin starts managed services automatically on login. These run under the `
 | **timers** | `svc/timers` | `{action="set", seconds=N, label="text"}`, `{action="cancel", label="text"}`, `{action="clear"}`. Replies `{event="done", label="text"}` on expiry. |
 | **loot** | `svc/loot` | `{action="start"}`, `{action="stop"}`, `{action="report"}` (replies with loot/total), `{action="reset"}` |
 | **stats** | `svc/stats` | `{action="watch", skill="mining"}`, `{action="unwatch", skill="mining"}`, `{action="clear"}`, `{action="report"}` (replies with gains) |
-| **radar** | `svc/radar` | `{action="report"}` (replies with npcs/players/items), `{action="report", filter="npcs"}` (just one category) |
+| **radar** | `svc/radar` | `{action="report"}` (replies with npcs/players/items), `{action="report", filter="npcs"}` (filter: `"npcs"`, `"players"`, or `"items"`) |
 
 Prefer sending mail to these services over writing new scripts when the task fits. For example, "highlight goblins in red" → send one mail to `svc/npcs`. "Set a 5 minute herb timer" → send one mail to `svc/timers`.
 

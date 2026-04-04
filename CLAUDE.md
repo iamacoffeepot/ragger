@@ -472,16 +472,33 @@ JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home" ./grad
 - `scripting/SceneApi.java` — Lua `scene` API (NPCs, players, ground items)
 - `scripting/CoordsApi.java` — Lua `coords` API (world/local/canvas coordinate projection)
 - `scripting/ItemsApi.java` — Lua `items` API (GE prices, HA values, item lookups)
+- `scripting/InventoryApi.java` — Lua `inventory` API (inventory items, equipment)
+- `scripting/CombatApi.java` — Lua `combat` API (spec, prayers, attack style, target)
+- `scripting/PrayerApi.java` — Lua `prayer` enum constants
 - `scripting/OverlayApi.java` — Lua overlay drawing context (text, shapes, fonts)
+- `scripting/MailApi.java` — Lua `mail` API (inter-script messaging)
+- `scripting/MailMessage.java` — mail message data object
+- `scripting/ScriptsApi.java` — Lua `scripts` API (child script management, templates)
+- `scripting/JsonApi.java` — Lua `json` API (encode/decode)
+- `scripting/Base64Api.java` — Lua `base64` API (encode/decode)
+- `scripting/LuaUtils.java` — shared Lua conversion utilities
+- `scripting/ServiceManager.java` — managed service lifecycle and watchdog
 
 ### MCP Server
 
-Python MCP server at `src/ragger/mcp_server.py` exposes two tools:
+Python MCP server at `src/ragger/mcp_server.py` exposes the following tools:
 
 - `RaggerRun(name, script)` — submit a persistent Lua script to the plugin
 - `RaggerEval(script)` — evaluate a Lua expression and return the result
+- `RaggerScriptList()` — list active scripts
+- `RaggerScriptSource(name)` — retrieve a running script's source code
+- `RaggerTemplateList()` — list registered script templates
+- `RaggerTemplateSource(name)` — retrieve a template's source code
+- `RaggerMailSend(target, data)` — send a message to a script's `on_mail` hook
+- `RaggerMailRecvAsync(limit?, from_script?)` — non-blocking read of messages sent to Claude
+- `RaggerMailRecvSync(count?, from_script?, timeout?)` — blocking read, waits for messages
 
-Both bridge through the plugin's HTTP server on localhost (default port 7919). Per-session auth token prevents unauthorized access.
+All tools bridge through the plugin's HTTP server on localhost (default port 7919). Per-session auth token prevents unauthorized access.
 
 ### Behaviors
 
@@ -499,6 +516,8 @@ Behaviors are appended to every Claude CLI invocation via `--append-system-promp
 - `/stop` — stop all running scripts
 - `/stop <name>` — stop a specific script
 - `/scripts` — list active scripts
+- `/services` — list service status
+- `/revive <name>` — reset a dead service
 
 ## Tests
 
