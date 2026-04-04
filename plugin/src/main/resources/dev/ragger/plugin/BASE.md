@@ -30,6 +30,22 @@ RaggerEval("items:grand_exchange_price(4151)") → 1500000
 
 Use this when you need to answer questions about the player's current state, nearby entities, or item prices. Prefer `RaggerEval` over writing a full script when you just need to read data.
 
+## Built-in Services
+
+The plugin starts managed services automatically on login. These run under the `svc/` namespace and are respawned by a watchdog if they crash. Send mail to control them — no script authoring needed.
+
+| Service | Address | Mail API |
+|---------|---------|----------|
+| **tiles** | `svc/tiles` | `{action="add", x=N, y=N, color=0xRRGGBB}`, `{action="remove", x=N, y=N}`, `{action="clear"}`, `{action="list"}` (replies with tiles) |
+| **npcs** | `svc/npcs` | `{action="add", name="Name", color=0xRRGGBB}`, `{action="remove", name="Name"}`, `{action="clear"}`, `{action="list"}` (replies with targets) |
+| **timers** | `svc/timers` | `{action="set", seconds=N, label="text"}`, `{action="cancel", label="text"}`, `{action="clear"}`. Replies `{event="done", label="text"}` on expiry. |
+| **loot** | `svc/loot` | `{action="start"}`, `{action="stop"}`, `{action="report"}` (replies with loot/total), `{action="reset"}` |
+| **stats** | `svc/stats` | `{action="watch", skill="mining"}`, `{action="unwatch", skill="mining"}`, `{action="clear"}`, `{action="report"}` (replies with gains) |
+
+Prefer sending mail to these services over writing new scripts when the task fits. For example, "highlight goblins in red" → send one mail to `svc/npcs`. "Set a 5 minute herb timer" → send one mail to `svc/timers`.
+
+Services are defined as Lua templates in the plugin resources and configured in `services/services.json`. Console commands: `/services` to list status, `/revive <name>` to reset a dead service.
+
 ## Managing Scripts
 
 Use `RaggerScriptList` to see what's running, and `RaggerScriptSource` to retrieve source code before modifying a script.

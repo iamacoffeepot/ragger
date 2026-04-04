@@ -5,6 +5,7 @@ import dev.ragger.plugin.ui.ChatPanel;
 import dev.ragger.plugin.ui.ConsoleOverlay;
 import dev.ragger.plugin.scripting.ScriptManager;
 import dev.ragger.plugin.scripting.ScriptOverlay;
+import dev.ragger.plugin.scripting.ServiceManager;
 import net.runelite.api.Client;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.game.ItemManager;
@@ -68,6 +69,7 @@ public class RaggerPlugin extends Plugin {
     private ChatPanel chatPanel;
     private NavigationButton navButton;
     private ScriptManager scriptManager;
+    private ServiceManager serviceManager;
     private ScriptOverlay scriptOverlay;
     private ConsoleOverlay consoleOverlay;
     private BridgeServer bridgeServer;
@@ -79,6 +81,7 @@ public class RaggerPlugin extends Plugin {
     protected void startUp() {
         scriptManager = new ScriptManager(client, chatMessageManager, itemManager);
         scriptManager.setLimits(config.scriptMaxDepth(), config.scriptMaxChildren());
+        serviceManager = new ServiceManager(scriptManager);
         scriptOverlay = new ScriptOverlay(scriptManager);
         overlayManager.add(scriptOverlay);
 
@@ -143,13 +146,17 @@ public class RaggerPlugin extends Plugin {
         keyManager.unregisterKeyListener(consoleKeyListener);
         mouseManager.unregisterMouseWheelListener(consoleMouseWheelListener);
         bridgeServer.stop();
+        serviceManager.shutdown();
         scriptManager.shutdown();
     }
 
     @Subscribe
     public void onGameTick(GameTick event) {
+        serviceManager.start(); // no-op after first call
         bridgeServer.tick();
+        scriptManager.drainMail();
         scriptManager.tick();
+        serviceManager.tick();
     }
 
     @Subscribe
@@ -195,8 +202,40 @@ public class RaggerPlugin extends Plugin {
         }
 
         if (message.equalsIgnoreCase("/stop")) {
+            serviceManager.shutdown();
             scriptManager.shutdown();
-            consoleOverlay.addToolMessage("All scripts stopped.");
+            consoleOverlay.addToolMessage("All scripts and services stopped.");
+            return;
+        }
+
+        if (message.equalsIgnoreCase("/services")) {
+            var statuses = serviceManager.status();
+            if (statuses.isEmpty()) {
+                consoleOverlay.addToolMessage("No managed services.");
+            } else {
+                StringBuilder sb = new StringBuilder("Services:");
+                for (var s : statuses) {
+                    sb.append("\n  ").append(s.name()).append(" (").append(s.template()).append(") — ");
+                    if (s.dead()) {
+                        sb.append("dead (").append(s.respawnAttempts()).append(" attempts)");
+                    } else if (s.running()) {
+                        sb.append("running");
+                    } else {
+                        sb.append("restarting...");
+                    }
+                }
+                consoleOverlay.addToolMessage(sb.toString());
+            }
+            return;
+        }
+
+        if (message.startsWith("/revive ")) {
+            String name = message.substring(8).trim();
+            if (serviceManager.revive(name)) {
+                consoleOverlay.addToolMessage("Reviving service: " + name);
+            } else {
+                consoleOverlay.addToolMessage("Unknown service: " + name);
+            }
             return;
         }
 

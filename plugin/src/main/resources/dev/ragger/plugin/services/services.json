@@ -1,0 +1,9 @@
+{
+  "services": [
+    { "name": "tiles",  "template": "tile-marker" },
+    { "name": "npcs",   "template": "npc-highlighter" },
+    { "name": "timers", "template": "timer" },
+    { "name": "loot",   "template": "loot-tracker" },
+    { "name": "stats",  "template": "stat-monitor" }
+  ]
+}
