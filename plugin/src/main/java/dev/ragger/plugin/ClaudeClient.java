@@ -109,8 +109,8 @@ public class ClaudeClient {
         command.add("Grep");
         command.add("mcp__ragger__RaggerRun");
         command.add("mcp__ragger__RaggerEval");
-        command.add("mcp__ragger__RaggerScriptList");
-        command.add("mcp__ragger__RaggerScriptSource");
+        command.add("mcp__ragger__RaggerActorList");
+        command.add("mcp__ragger__RaggerActorSource");
         command.add("mcp__ragger__RaggerTemplateList");
         command.add("mcp__ragger__RaggerTemplateSource");
         command.add("mcp__ragger__RaggerMailSend");

@@ -9,7 +9,7 @@ import java.util.function.Consumer;
  * Lua binding for drawing overlays on the game screen.
  * Exposed as the global "overlay" table in Lua scripts.
  *
- * Draw commands are queued during on_render and executed by ScriptOverlay.
+ * Draw commands are queued during on_render and executed by ActorOverlay.
  */
 public class OverlayApi {
 
@@ -92,7 +92,7 @@ public class OverlayApi {
 
     /**
      * Execute all queued draw commands and clear the queue.
-     * Called by ScriptOverlay during render.
+     * Called by ActorOverlay during render.
      */
     public void flush(Graphics2D g) {
         for (Consumer<Graphics2D> cmd : commands) {

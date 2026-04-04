@@ -5,18 +5,18 @@ import party.iroiro.luajava.Lua;
 import java.util.Map;
 
 /**
- * Lua binding for inter-script messaging.
- * Exposed as the global "mail" table in Lua scripts.
+ * Lua binding for inter-actor messaging.
+ * Exposed as the global "mail" table in Lua actors.
  *
  * Usage in Lua:
- *   mail:send("target-script", { key = "value" })
+ *   mail:send("target-actor", { key = "value" })
  */
 public class MailApi {
 
     private final String senderName;
-    private final ScriptManager manager;
+    private final ActorManager manager;
 
-    public MailApi(String senderName, ScriptManager manager) {
+    public MailApi(String senderName, ActorManager manager) {
         this.senderName = senderName;
         this.manager = manager;
     }
@@ -32,7 +32,7 @@ public class MailApi {
 
     /**
      * mail:send(target, data)
-     * arg 2 = target script name (string)
+     * arg 2 = target actor name (string)
      * arg 3 = data table
      */
     private int send(Lua lua) {

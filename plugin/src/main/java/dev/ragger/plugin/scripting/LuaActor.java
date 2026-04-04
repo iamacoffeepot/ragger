@@ -11,21 +11,21 @@ import party.iroiro.luajava.luaj.LuaJ;
 import java.util.Map;
 
 /**
- * A single Lua script instance executed via LuaJ.
+ * A single Lua actor instance executed via LuaJ.
  *
- * Scripts can be one-shot (just runs top-to-bottom) or persistent
+ * Actors can be one-shot (just runs top-to-bottom) or persistent
  * (returns a table with lifecycle hooks: on_start, on_tick, on_stop).
  */
-public class LuaScript {
+public class LuaActor {
 
-    private static final Logger log = LoggerFactory.getLogger(LuaScript.class);
+    private static final Logger log = LoggerFactory.getLogger(LuaActor.class);
 
     private final String name;
     private final String source;
     private final Client client;
     private final ChatMessageManager chatMessageManager;
     private final ItemManager itemManager;
-    private final ScriptManager scriptManager;
+    private final ActorManager actorManager;
     private final Map<String, Object> args;
     private final OverlayApi overlayApi = new OverlayApi();
     private Lua lua;
@@ -33,13 +33,13 @@ public class LuaScript {
     private boolean hasHooks = false;
     private boolean requestStop = false;
 
-    public LuaScript(String name, String source, Client client, ChatMessageManager chatMessageManager, ItemManager itemManager, ScriptManager scriptManager, Map<String, Object> args) {
+    public LuaActor(String name, String source, Client client, ChatMessageManager chatMessageManager, ItemManager itemManager, ActorManager actorManager, Map<String, Object> args) {
         this.name = name;
         this.source = source;
         this.client = client;
         this.chatMessageManager = chatMessageManager;
         this.itemManager = itemManager;
-        this.scriptManager = scriptManager;
+        this.actorManager = actorManager;
         this.args = args;
     }
 
@@ -63,8 +63,8 @@ public class LuaScript {
         new InventoryApi(client, itemManager).register(lua);
         new CombatApi(client).register(lua);
         lua.set("prayer", new PrayerApi());
-        new ScriptsApi(name, scriptManager).register(lua);
-        new MailApi(name, scriptManager).register(lua);
+        new ActorsApi(name, actorManager).register(lua);
+        new MailApi(name, actorManager).register(lua);
         new JsonApi().register(lua);
         new Base64Api().register(lua);
 
@@ -83,7 +83,7 @@ public class LuaScript {
 
             lua.run(source);
 
-            // Check if the script returned a hooks table
+            // Check if the actor returned a hooks table
             if (lua.type(-1) == Lua.LuaType.TABLE) {
                 lua.setGlobal("__hooks");
                 hasHooks = true;
@@ -91,9 +91,9 @@ public class LuaScript {
             }
 
             running = true;
-            log.info("Script started: {} (hooks={})", name, hasHooks);
+            log.info("Actor started: {} (hooks={})", name, hasHooks);
         } catch (Exception e) {
-            log.error("Failed to start script: {}", name, e);
+            log.error("Failed to start actor: {}", name, e);
             stop();
         }
     }
@@ -172,7 +172,7 @@ public class LuaScript {
         }
         running = false;
         hasHooks = false;
-        log.info("Script stopped: {}", name);
+        log.info("Actor stopped: {}", name);
     }
 
     /**
@@ -195,7 +195,7 @@ public class LuaScript {
                 return true;
             }
         } catch (Exception e) {
-            log.error("Script '{}' hook '{}' error: {}", name, hookName, e.getMessage());
+            log.error("Actor '{}' hook '{}' error: {}", name, hookName, e.getMessage());
             return true;
         }
     }
@@ -214,7 +214,7 @@ public class LuaScript {
             }
             lua.pop(1); // pop __hooks
         } catch (Exception e) {
-            log.error("Script '{}' hook '{}' error: {}", name, hookName, e.getMessage());
+            log.error("Actor '{}' hook '{}' error: {}", name, hookName, e.getMessage());
         }
     }
 
@@ -235,11 +235,11 @@ public class LuaScript {
     }
 
     /**
-     * Deliver a mail message to this script's on_mail hook.
-     * Called by ScriptManager.drainMail() on the game tick thread.
+     * Deliver a mail message to this actor's on_mail hook.
+     * Called by ActorManager.drainMail() on the game tick thread.
      */
     /**
-     * Deliver a mail message to this script's on_mail hook.
+     * Deliver a mail message to this actor's on_mail hook.
      * Returns false if the hook returned false (request stop).
      */
     public boolean deliverMail(String from, Map<String, Object> data) {
@@ -260,7 +260,7 @@ public class LuaScript {
                 return true;
             }
         } catch (Exception e) {
-            log.error("Script '{}' on_mail error: {}", name, e.getMessage());
+            log.error("Actor '{}' on_mail error: {}", name, e.getMessage());
             return true;
         }
     }

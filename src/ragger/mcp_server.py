@@ -15,7 +15,7 @@ BRIDGE_HEADERS = {"Authorization": f"Bearer {BRIDGE_TOKEN}"}
 
 @mcp.tool(name="RaggerRun")
 def ragger_run(name: str, script: str) -> str:
-    """Execute a persistent Lua script in the RuneLite client.
+    """Execute a persistent Lua actor in the RuneLite client.
 
     Args:
         name: Short descriptive name in kebab-case (e.g. "tick-counter", "npc-highlighter")
@@ -55,9 +55,9 @@ def ragger_eval(script: str) -> str:
         return json.dumps({"error": "Bridge server not running"})
 
 
-@mcp.tool(name="RaggerScriptList")
-def ragger_script_list() -> str:
-    """List all currently running Lua scripts by name."""
+@mcp.tool(name="RaggerActorList")
+def ragger_actor_list() -> str:
+    """List all currently running Lua actors by name."""
     try:
         resp = requests.get(
             f"{BRIDGE_URL}/list",
@@ -69,12 +69,12 @@ def ragger_script_list() -> str:
         return json.dumps({"error": "Bridge server not running"})
 
 
-@mcp.tool(name="RaggerScriptSource")
-def ragger_script_source(name: str) -> str:
-    """Retrieve the Lua source code of a running script by name.
+@mcp.tool(name="RaggerActorSource")
+def ragger_actor_source(name: str) -> str:
+    """Retrieve the Lua source code of a running actor by name.
 
     Args:
-        name: The script name (e.g. "tick-counter", "npc-highlighter")
+        name: The actor name (e.g. "tick-counter", "npc-highlighter")
     """
     try:
         resp = requests.post(
@@ -90,7 +90,7 @@ def ragger_script_source(name: str) -> str:
 
 @mcp.tool(name="RaggerTemplateList")
 def ragger_template_list() -> str:
-    """List all registered Lua script templates by name."""
+    """List all registered Lua actor templates by name."""
     try:
         resp = requests.get(
             f"{BRIDGE_URL}/templates",
@@ -122,22 +122,22 @@ def ragger_template_source(name: str) -> str:
 
 
 @mcp.tool(name="RaggerMailRecvAsync")
-def ragger_recv_async(limit: int = 0, from_script: str = "") -> str:
+def ragger_recv_async(limit: int = 0, from_actor: str = "") -> str:
     """Pop messages from the claude mailbox without blocking.
 
     Returns immediately with up to `limit` messages (0 = all available).
-    Optionally filter by sender script name.
+    Optionally filter by sender actor name.
 
     Args:
         limit: Max messages to return. 0 returns all available.
-        from_script: Regex pattern to match sender script names (e.g. "loot-.*", "quest-guide/.*"). Empty string = any script.
+        from_actor: Regex pattern to match sender actor names (e.g. "loot-.*", "quest-guide/.*"). Empty string = any actor.
     """
     try:
         params = {}
         if limit > 0:
             params["limit"] = limit
-        if from_script:
-            params["from"] = from_script
+        if from_actor:
+            params["from"] = from_actor
         resp = requests.get(
             f"{BRIDGE_URL}/mail-recv",
             params=params,
@@ -150,7 +150,7 @@ def ragger_recv_async(limit: int = 0, from_script: str = "") -> str:
 
 
 @mcp.tool(name="RaggerMailRecvSync")
-def ragger_recv_sync(count: int = 1, from_script: str = "", timeout: int = 30) -> str:
+def ragger_recv_sync(count: int = 1, from_actor: str = "", timeout: int = 30) -> str:
     """Block until exactly `count` messages arrive, then return them.
 
     Waits for the specified number of messages to accumulate in the claude
@@ -159,13 +159,13 @@ def ragger_recv_sync(count: int = 1, from_script: str = "", timeout: int = 30) -
 
     Args:
         count: Exact number of messages to wait for (minimum 1).
-        from_script: Regex pattern to match sender script names (e.g. "loot-.*", "quest-guide/.*"). Empty string = any script.
+        from_actor: Regex pattern to match sender actor names (e.g. "loot-.*", "quest-guide/.*"). Empty string = any actor.
         timeout: Max seconds to wait (1-300, default 30).
     """
     try:
         params = {"count": max(1, count), "timeout": min(300, max(1, timeout))}
-        if from_script:
-            params["from"] = from_script
+        if from_actor:
+            params["from"] = from_actor
         resp = requests.get(
             f"{BRIDGE_URL}/mail-recv-block",
             params=params,
@@ -179,13 +179,13 @@ def ragger_recv_sync(count: int = 1, from_script: str = "", timeout: int = 30) -
 
 @mcp.tool(name="RaggerMailSend")
 def ragger_mail(target: str, data: dict) -> str:
-    """Send a message to a running Lua script's on_mail hook.
+    """Send a message to a running Lua actor's on_mail hook.
 
-    The script receives on_mail(from, data) where from is "claude"
+    The actor receives on_mail(from, data) where from is "claude"
     and data is the table you provide here.
 
     Args:
-        target: The script name to send to (e.g. "tile-marker", "npc-highlighter")
+        target: The actor name to send to (e.g. "tile-marker", "npc-highlighter")
         data: Key-value table to deliver (string/number/boolean values)
     """
     try:

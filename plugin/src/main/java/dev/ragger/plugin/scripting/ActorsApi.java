@@ -7,29 +7,29 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Lua binding for managing child scripts.
- * Exposed as the global "scripts" table in Lua scripts.
+ * Lua binding for managing child actors.
+ * Exposed as the global "actors" table in Lua actors.
  *
- * All operations are scoped to the caller's namespace — a script can only
+ * All operations are scoped to the caller's namespace — an actor can only
  * manage its own children, not siblings or parents.
  *
  * Usage in Lua:
- *   scripts:run("child-name", source)
- *   scripts:stop("child-name")
- *   scripts:list()
- *   scripts:source("child-name")
- *   scripts:is_running("child-name")
- *   scripts:define("template-name", source)
- *   scripts:create("child-name", "template-name")
- *   scripts:create("child-name", "template-name", { key = value })
- *   scripts:templates()
+ *   actors:run("child-name", source)
+ *   actors:stop("child-name")
+ *   actors:list()
+ *   actors:source("child-name")
+ *   actors:is_running("child-name")
+ *   actors:define("template-name", source)
+ *   actors:create("child-name", "template-name")
+ *   actors:create("child-name", "template-name", { key = value })
+ *   actors:templates()
  */
-public class ScriptsApi {
+public class ActorsApi {
 
     private final String parentName;
-    private final ScriptManager manager;
+    private final ActorManager manager;
 
-    public ScriptsApi(String parentName, ScriptManager manager) {
+    public ActorsApi(String parentName, ActorManager manager) {
         this.parentName = parentName;
         this.manager = manager;
     }
@@ -61,11 +61,11 @@ public class ScriptsApi {
         lua.push(this::templates);
         lua.setField(-2, "templates");
 
-        lua.setGlobal("scripts");
+        lua.setGlobal("actors");
     }
 
     /**
-     * scripts:run("child-name", source) -> name, or throws on limit
+     * actors:run("child-name", source) -> name, or throws on limit
      */
     private int run(Lua lua) {
         String childName = lua.toString(2);
@@ -77,7 +77,7 @@ public class ScriptsApi {
     }
 
     /**
-     * scripts:stop("child-name")
+     * actors:stop("child-name")
      */
     private int stop(Lua lua) {
         String childName = lua.toString(2);
@@ -87,7 +87,7 @@ public class ScriptsApi {
     }
 
     /**
-     * scripts:list() -> array of child names
+     * actors:list() -> array of child names
      */
     private int list(Lua lua) {
         List<String> children = manager.listChildren(parentName);
@@ -100,7 +100,7 @@ public class ScriptsApi {
     }
 
     /**
-     * scripts:source("child-name") -> source string or nil
+     * actors:source("child-name") -> source string or nil
      */
     private int source(Lua lua) {
         String childName = lua.toString(2);
@@ -115,7 +115,7 @@ public class ScriptsApi {
     }
 
     /**
-     * scripts:is_running("child-name") -> boolean
+     * actors:is_running("child-name") -> boolean
      */
     private int is_running(Lua lua) {
         String childName = lua.toString(2);
@@ -125,7 +125,7 @@ public class ScriptsApi {
     }
 
     /**
-     * scripts:define("template-name", source)
+     * actors:define("template-name", source)
      */
     private int define(Lua lua) {
         String templateName = lua.toString(2);
@@ -135,7 +135,7 @@ public class ScriptsApi {
     }
 
     /**
-     * scripts:create("child-name", "template-name" [, args_table]) -> name, or throws on limit
+     * actors:create("child-name", "template-name" [, args_table]) -> name, or throws on limit
      */
     private int create(Lua lua) {
         String childName = lua.toString(2);
@@ -159,7 +159,7 @@ public class ScriptsApi {
     }
 
     /**
-     * scripts:templates() -> array of template names
+     * actors:templates() -> array of template names
      */
     private int templates(Lua lua) {
         List<String> names = manager.listTemplates();

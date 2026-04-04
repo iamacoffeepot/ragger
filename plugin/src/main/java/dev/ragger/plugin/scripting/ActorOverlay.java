@@ -7,21 +7,21 @@ import net.runelite.client.ui.overlay.OverlayPosition;
 import java.awt.*;
 
 /**
- * Renders draw commands queued by Lua scripts via OverlayApi.
+ * Renders draw commands queued by Lua actors via OverlayApi.
  */
-public class ScriptOverlay extends Overlay {
+public class ActorOverlay extends Overlay {
 
-    private final ScriptManager scriptManager;
+    private final ActorManager actorManager;
 
-    public ScriptOverlay(ScriptManager scriptManager) {
-        this.scriptManager = scriptManager;
+    public ActorOverlay(ActorManager actorManager) {
+        this.actorManager = actorManager;
         setPosition(OverlayPosition.DYNAMIC);
         setLayer(OverlayLayer.ABOVE_SCENE);
     }
 
     @Override
     public Dimension render(Graphics2D graphics) {
-        scriptManager.render(graphics);
+        actorManager.render(graphics);
         return null;
     }
 }

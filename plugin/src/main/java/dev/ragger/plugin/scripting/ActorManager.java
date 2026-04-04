@@ -14,21 +14,21 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Manages Lua script lifecycles. Each script gets its own LuaJ runtime
+ * Manages Lua actor lifecycles. Each script gets its own LuaJ runtime
  * with API bindings injected.
  *
  * Scripts are stored in a flat map with "/" namespacing for parent-child
  * relationships. A script "foo" that spawns "bar" creates "foo/bar".
  * Stopping a parent cascade-stops all children.
  */
-public class ScriptManager {
+public class ActorManager {
 
-    private static final Logger log = LoggerFactory.getLogger(ScriptManager.class);
+    private static final Logger log = LoggerFactory.getLogger(ActorManager.class);
 
     private final Client client;
     private final ChatMessageManager chatMessageManager;
     private final ItemManager itemManager;
-    private final ConcurrentHashMap<String, LuaScript> scripts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, LuaActor> scripts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String> templates = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<Runnable> changeListeners = new CopyOnWriteArrayList<>();
 
@@ -38,7 +38,7 @@ public class ScriptManager {
     private int maxDepth = 3;
     private int maxChildren = 50;
 
-    public ScriptManager(Client client, ChatMessageManager chatMessageManager, ItemManager itemManager) {
+    public ActorManager(Client client, ChatMessageManager chatMessageManager, ItemManager itemManager) {
         this.client = client;
         this.chatMessageManager = chatMessageManager;
         this.itemManager = itemManager;
@@ -80,10 +80,10 @@ public class ScriptManager {
      * Load and start a Lua script from source with optional args table.
      */
     /**
-     * Thrown when a script cannot be loaded due to a limit violation.
+     * Thrown when an actor cannot be loaded due to a limit violation.
      */
-    public static class ScriptLimitException extends RuntimeException {
-        public ScriptLimitException(String message) {
+    public static class ActorLimitException extends RuntimeException {
+        public ActorLimitException(String message) {
             super(message);
         }
     }
@@ -92,7 +92,7 @@ public class ScriptManager {
         // Check depth limit
         long depth = name.chars().filter(c -> c == '/').count();
         if (depth >= maxDepth) {
-            throw new ScriptLimitException("depth limit reached (max " + maxDepth + ")");
+            throw new ActorLimitException("depth limit reached (max " + maxDepth + ")");
         }
 
         // Check children limit for the parent
@@ -105,19 +105,19 @@ public class ScriptManager {
                 .filter(k -> !k.equals(name)) // don't count replacement
                 .count();
             if (childCount >= maxChildren) {
-                throw new ScriptLimitException("child limit reached for " + parent + " (max " + maxChildren + ")");
+                throw new ActorLimitException("child limit reached for " + parent + " (max " + maxChildren + ")");
             }
         }
 
-        LuaScript existing = scripts.get(name);
+        LuaActor existing = scripts.get(name);
         if (existing != null) {
             existing.stop();
         }
 
-        LuaScript script = new LuaScript(name, source, client, chatMessageManager, itemManager, this, args);
+        LuaActor script = new LuaActor(name, source, client, chatMessageManager, itemManager, this, args);
         scripts.put(name, script);
         script.start();
-        log.info("Loaded script: {}", name);
+        log.info("Loaded actor: {}", name);
         fireChange();
         return name;
     }
@@ -148,7 +148,7 @@ public class ScriptManager {
                 claudeMailbox.add(m);
                 continue;
             }
-            LuaScript target = scripts.get(m.to());
+            LuaActor target = scripts.get(m.to());
             if (target == null || !target.isRunning()) {
                 log.debug("Mail dropped: target '{}' not found or not running", m.to());
                 continue;
@@ -156,7 +156,7 @@ public class ScriptManager {
             if (!target.deliverMail(m.from(), m.data())) {
                 target.stop();
                 scripts.remove(m.to());
-                log.info("Script '{}' self-stopped via on_mail", m.to());
+                log.info("Actor '{}' self-stopped via on_mail", m.to());
                 fireChange();
             }
         }
@@ -235,7 +235,7 @@ public class ScriptManager {
         var it = scripts.entrySet().iterator();
         while (it.hasNext()) {
             var entry = it.next();
-            LuaScript script = entry.getValue();
+            LuaActor script = entry.getValue();
             script.tick();
             if (script.shouldStop()) {
                 script.stop();
@@ -251,7 +251,7 @@ public class ScriptManager {
      * Runs in a temporary LuaJ runtime with all API bindings.
      */
     public String eval(String script) {
-        LuaScript temp = new LuaScript("__eval", "return " + script, client, chatMessageManager, itemManager, this, null);
+        LuaActor temp = new LuaActor("__eval", "return " + script, client, chatMessageManager, itemManager, this, null);
         try {
             return temp.evalAndReturn();
         } finally {
@@ -271,15 +271,15 @@ public class ScriptManager {
             if (entry.getKey().startsWith(prefix)) {
                 entry.getValue().stop();
                 it.remove();
-                log.info("Cascade-unloaded script: {}", entry.getKey());
+                log.info("Cascade-unloaded actor: {}", entry.getKey());
             }
         }
 
         // Stop the script itself
-        LuaScript script = scripts.remove(name);
+        LuaActor script = scripts.remove(name);
         if (script != null) {
             script.stop();
-            log.info("Unloaded script: {}", name);
+            log.info("Unloaded actor: {}", name);
         }
         fireChange();
     }
@@ -340,7 +340,7 @@ public class ScriptManager {
      * Called during overlay render — dispatches to all active scripts with hooks.
      */
     public void render(java.awt.Graphics2D graphics) {
-        for (LuaScript script : scripts.values()) {
+        for (LuaActor script : scripts.values()) {
             script.render(graphics);
         }
     }
@@ -356,7 +356,7 @@ public class ScriptManager {
      * Get the source code of a running script by name.
      */
     public String getSource(String name) {
-        LuaScript script = scripts.get(name);
+        LuaActor script = scripts.get(name);
         return script != null ? script.getSource() : null;
     }
 
@@ -364,7 +364,7 @@ public class ScriptManager {
      * Check if a script is running.
      */
     public boolean isRunning(String name) {
-        LuaScript script = scripts.get(name);
+        LuaActor script = scripts.get(name);
         return script != null && script.isRunning();
     }
 
@@ -372,7 +372,7 @@ public class ScriptManager {
      * Shut down all scripts and clear templates.
      */
     public void shutdown() {
-        for (LuaScript script : scripts.values()) {
+        for (LuaActor script : scripts.values()) {
             script.stop();
         }
         scripts.clear();

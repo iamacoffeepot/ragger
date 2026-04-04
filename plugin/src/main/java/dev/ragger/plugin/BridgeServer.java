@@ -4,7 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import dev.ragger.plugin.scripting.ScriptManager;
+import dev.ragger.plugin.scripting.ActorManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,15 +39,15 @@ public class BridgeServer {
     /** Extra seconds added to the future timeout beyond the mail deadline. */
     private static final int MAIL_RECV_BUFFER_SECONDS = 5;
 
-    private final ScriptManager scriptManager;
+    private final ActorManager actorManager;
     private final String token;
     private final ConcurrentLinkedQueue<PendingRequest> pendingRequests = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<PendingRun> pendingRuns = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<PendingMailRecv> pendingMailRecvs = new ConcurrentLinkedQueue<>();
     private HttpServer server;
 
-    public BridgeServer(ScriptManager scriptManager) {
-        this.scriptManager = scriptManager;
+    public BridgeServer(ActorManager actorManager) {
+        this.actorManager = actorManager;
         this.token = java.util.UUID.randomUUID().toString();
     }
 
@@ -144,7 +144,7 @@ public class BridgeServer {
         PendingRequest req;
         while ((req = pendingRequests.poll()) != null) {
             try {
-                String result = scriptManager.eval(req.script);
+                String result = actorManager.eval(req.script);
                 req.future.complete(result);
             } catch (Exception e) {
                 req.future.complete("{\"error\":\"" + e.getMessage().replace("\"", "'") + "\"}");
@@ -154,8 +154,8 @@ public class BridgeServer {
         PendingRun run;
         while ((run = pendingRuns.poll()) != null) {
             try {
-                scriptManager.load(run.name, run.script);
-                scriptManager.defineTemplate(run.name, run.script);
+                actorManager.load(run.name, run.script);
+                actorManager.defineTemplate(run.name, run.script);
                 run.future.complete("{\"status\":\"loaded\",\"name\":\"" + run.name + "\"}");
             } catch (Exception e) {
                 run.future.complete("{\"error\":\"" + e.getMessage().replace("\"", "'") + "\"}");
@@ -181,7 +181,7 @@ public class BridgeServer {
             }
 
             // Try to collect more messages
-            var messages = scriptManager.drainClaudeMailbox(
+            var messages = actorManager.drainClaudeMailbox(
                 pending.remaining(), pending.fromFilter);
             pending.collected.addAll(messages);
 
@@ -246,13 +246,13 @@ public class BridgeServer {
             return;
         }
 
-        var names = scriptManager.list();
+        var names = actorManager.list();
         var arr = new com.google.gson.JsonArray();
         for (String name : names) {
             arr.add(name);
         }
         JsonObject result = new JsonObject();
-        result.add("scripts", arr);
+        result.add("actors", arr);
         respond(exchange, 200, result.toString());
     }
 
@@ -266,7 +266,7 @@ public class BridgeServer {
         try {
             JsonObject json = new JsonParser().parse(body).getAsJsonObject();
             String name = json.get("name").getAsString();
-            String source = scriptManager.getSource(name);
+            String source = actorManager.getSource(name);
             if (source == null) {
                 respond(exchange, 404, "{\"error\":\"script not found\"}");
             } else {
@@ -286,7 +286,7 @@ public class BridgeServer {
             return;
         }
 
-        var names = scriptManager.listTemplates();
+        var names = actorManager.listTemplates();
         var arr = new com.google.gson.JsonArray();
         for (String name : names) {
             arr.add(name);
@@ -306,7 +306,7 @@ public class BridgeServer {
         try {
             JsonObject json = new JsonParser().parse(body).getAsJsonObject();
             String name = json.get("name").getAsString();
-            String source = scriptManager.getTemplate(name);
+            String source = actorManager.getTemplate(name);
             if (source == null) {
                 respond(exchange, 404, "{\"error\":\"template not found\"}");
             } else {
@@ -335,7 +335,7 @@ public class BridgeServer {
             try { limit = Integer.parseInt(limitStr); } catch (NumberFormatException ignored) {}
         }
 
-        var messages = scriptManager.drainClaudeMailbox(limit, fromFilter);
+        var messages = actorManager.drainClaudeMailbox(limit, fromFilter);
         respond(exchange, 200, formatMailMessages(messages));
     }
 
@@ -470,7 +470,7 @@ public class BridgeServer {
             @SuppressWarnings("unchecked")
             java.util.Map<String, Object> map = (java.util.Map<String, Object>) fromJsonElement(data);
 
-            scriptManager.enqueueMail("claude", target, map);
+            actorManager.enqueueMail("claude", target, map);
             respond(exchange, 200, "{\"status\":\"queued\",\"target\":\"" + target + "\"}");
         } catch (Exception e) {
             respond(exchange, 500, "{\"error\":\"" + e.getMessage().replace("\"", "'") + "\"}");

@@ -5,14 +5,14 @@ import org.junit.Test;
 
 import static org.junit.Assert.*;
 
-public class ScriptManagerTest {
+public class ActorManagerTest {
 
-    private ScriptManager manager;
+    private ActorManager manager;
 
     @Before
     public void setUp() {
         // childName is a pure method — null deps are fine for these tests
-        manager = new ScriptManager(null, null, null);
+        manager = new ActorManager(null, null, null);
     }
 
     @Test

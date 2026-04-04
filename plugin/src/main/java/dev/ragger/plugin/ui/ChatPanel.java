@@ -1,6 +1,6 @@
 package dev.ragger.plugin.ui;
 
-import dev.ragger.plugin.scripting.ScriptManager;
+import dev.ragger.plugin.scripting.ActorManager;
 import net.runelite.client.ui.PluginPanel;
 
 import javax.swing.*;
@@ -17,15 +17,15 @@ import java.util.List;
 public class ChatPanel extends PluginPanel {
 
     private static final String HINT_TAB = "Console";
-    private static final String SCRIPTS_TAB = "Scripts";
+    private static final String ACTORS_TAB = "Actors";
     private static final String TEMPLATES_TAB = "Templates";
 
     private final JTabbedPane tabbedPane;
     private final JEditorPane hintPane;
-    private final JEditorPane scriptsPane;
+    private final JEditorPane actorsPane;
     private final JEditorPane templatesPane;
 
-    private ScriptManager scriptManager;
+    private ActorManager actorManager;
     private final Set<String> collapsed = new HashSet<>();
 
     public ChatPanel() {
@@ -45,9 +45,9 @@ public class ChatPanel extends PluginPanel {
         tabbedPane.addTab(HINT_TAB, wrap(hintPane));
 
         // ── Scripts tab ─────────────────────────────────────────────────
-        scriptsPane = createHtmlPane();
-        scriptsPane.setText(emptyState("No active scripts."));
-        tabbedPane.addTab(SCRIPTS_TAB, wrap(scriptsPane));
+        actorsPane = createHtmlPane();
+        actorsPane.setText(emptyState("No active actors."));
+        tabbedPane.addTab(ACTORS_TAB, wrap(actorsPane));
 
         // ── Templates tab ───────────────────────────────────────────────
         templatesPane = createHtmlPane();
@@ -60,27 +60,27 @@ public class ChatPanel extends PluginPanel {
     /**
      * Bind to the script manager and start listening for changes.
      */
-    public void setScriptManager(ScriptManager manager) {
-        this.scriptManager = manager;
+    public void setActorManager(ActorManager manager) {
+        this.actorManager = manager;
         manager.addChangeListener(() -> SwingUtilities.invokeLater(this::refresh));
         refresh();
     }
 
     /**
-     * Rebuild both tabs from current ScriptManager state.
+     * Rebuild both tabs from current ActorManager state.
      */
     private void refresh() {
-        if (scriptManager == null) return;
-        refreshScripts();
+        if (actorManager == null) return;
+        refreshActors();
         refreshTemplates();
     }
 
-    // ── Scripts tab rendering ───────────────────────────────────────────
+    // ── Actors tab rendering ───────────────────────────────────────────
 
-    private void refreshScripts() {
-        List<String> names = scriptManager.list();
+    private void refreshActors() {
+        List<String> names = actorManager.list();
         if (names.isEmpty()) {
-            scriptsPane.setText(emptyState("No active scripts."));
+            actorsPane.setText(emptyState("No active actors."));
             return;
         }
 
@@ -101,7 +101,7 @@ public class ChatPanel extends PluginPanel {
             renderTree(sb, child, child.name, 0);
         }
         sb.append("</div>");
-        scriptsPane.setText(html(sb.toString()));
+        actorsPane.setText(html(sb.toString()));
     }
 
     private void renderTree(StringBuilder sb, TreeNode node, String path, int depth) {
@@ -125,7 +125,7 @@ public class ChatPanel extends PluginPanel {
 
         sb.append("<span style='color:").append(nameColor).append("; font-size:9px;'>").append(esc(node.name)).append("</span>");
 
-        // Copy source link (only for leaf scripts that are actually loaded)
+        // Copy source link (only for leaf actors that are actually loaded)
         if (node.fullName != null) {
             sb.append(" <a href='copy-source:").append(esc(node.fullName)).append("' style='color:")
               .append(RaggerTheme.hex(RaggerTheme.CODE)).append("; font-size:8px; text-decoration:none;'>[copy]</a>");
@@ -145,7 +145,7 @@ public class ChatPanel extends PluginPanel {
     // ── Templates tab rendering ─────────────────────────────────────────
 
     private void refreshTemplates() {
-        List<String> names = scriptManager.listTemplates();
+        List<String> names = actorManager.listTemplates();
         if (names.isEmpty()) {
             templatesPane.setText(emptyState("No templates registered."));
             return;
@@ -199,38 +199,38 @@ public class ChatPanel extends PluginPanel {
     }
 
     private void handleLink(String href) {
-        if (scriptManager == null) return;
+        if (actorManager == null) return;
 
         if (href.startsWith("toggle:")) {
             String path = href.substring("toggle:".length());
             if (!collapsed.remove(path)) {
                 collapsed.add(path);
             }
-            refreshScripts();
+            refreshActors();
             return;
         }
 
         if (href.startsWith("copy-source:")) {
             String name = href.substring("copy-source:".length());
-            String source = scriptManager.getSource(name);
+            String source = actorManager.getSource(name);
             if (source != null) {
                 copyToClipboard(source);
             }
         } else if (href.startsWith("copy-template:")) {
             String name = href.substring("copy-template:".length());
-            String source = scriptManager.getTemplate(name);
+            String source = actorManager.getTemplate(name);
             if (source != null) {
                 copyToClipboard(source);
             }
         } else if (href.startsWith("run-template:")) {
             String name = href.substring("run-template:".length());
-            String source = scriptManager.getTemplate(name);
+            String source = actorManager.getTemplate(name);
             if (source != null) {
-                scriptManager.load(name, source);
+                actorManager.load(name, source);
             }
         } else if (href.startsWith("stop-script:")) {
             String name = href.substring("stop-script:".length());
-            scriptManager.unload(name);
+            actorManager.unload(name);
         }
     }
 

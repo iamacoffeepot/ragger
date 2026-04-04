@@ -19,7 +19,7 @@ import java.util.Map;
  * Loads Lua service templates from classpath resources, spawns configured
  * service instances on startup, and watches for crashes to respawn them.
  *
- * Services are managed scripts that run under a "svc/" namespace.
+ * Services are managed actors that run under a "svc/" namespace.
  * The manifest at services/services.json declares which templates to
  * register and which service instances to spawn.
  */
@@ -39,13 +39,13 @@ public class ServiceManager {
     /** Ticks of sustained uptime before resetting the respawn counter. */
     private static final int RESPAWN_RESET_UPTIME_TICKS = 100;
 
-    private final ScriptManager scriptManager;
+    private final ActorManager actorManager;
     private final List<ServiceEntry> services = new ArrayList<>();
     private final Map<String, String> templateSources = new HashMap<>();
     private boolean started = false;
 
-    public ServiceManager(ScriptManager scriptManager) {
-        this.scriptManager = scriptManager;
+    public ServiceManager(ActorManager actorManager) {
+        this.actorManager = actorManager;
     }
 
     /**
@@ -99,7 +99,7 @@ public class ServiceManager {
             String fullName = SERVICE_PREFIX + entry.name;
             entry.ticksSinceCheck++;
 
-            if (!scriptManager.isRunning(fullName)) {
+            if (!actorManager.isRunning(fullName)) {
                 if (entry.dead) continue;
 
                 if (entry.respawnAttempts >= MAX_RESPAWN_ATTEMPTS) {
@@ -133,7 +133,7 @@ public class ServiceManager {
         List<ServiceStatus> result = new ArrayList<>();
         for (ServiceEntry entry : services) {
             String fullName = SERVICE_PREFIX + entry.name;
-            boolean running = scriptManager.isRunning(fullName);
+            boolean running = actorManager.isRunning(fullName);
             result.add(new ServiceStatus(entry.name, entry.template, running,
                 entry.respawnAttempts, entry.dead));
         }
@@ -161,8 +161,8 @@ public class ServiceManager {
     public void shutdown() {
         for (ServiceEntry entry : services) {
             String fullName = SERVICE_PREFIX + entry.name;
-            if (scriptManager.isRunning(fullName)) {
-                scriptManager.unload(fullName);
+            if (actorManager.isRunning(fullName)) {
+                actorManager.unload(fullName);
             }
         }
         services.clear();
@@ -176,12 +176,12 @@ public class ServiceManager {
         String fullName = SERVICE_PREFIX + entry.name;
         String templateName = "svc-" + entry.template;
         // Resolve from template registry so hot-reloaded templates take effect
-        String source = scriptManager.getTemplate(templateName);
+        String source = actorManager.getTemplate(templateName);
         if (source == null) {
             source = entry.source; // fallback to initial source
         }
         try {
-            scriptManager.load(fullName, source);
+            actorManager.load(fullName, source);
             entry.respawnAttempts++;
             log.info("Spawned service: {}", fullName);
         } catch (Exception e) {
@@ -208,7 +208,7 @@ public class ServiceManager {
             }
 
             templateSources.put(template, source);
-            scriptManager.defineTemplate("svc-" + template, source);
+            actorManager.defineTemplate("svc-" + template, source);
         }
     }
 

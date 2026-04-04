@@ -3,8 +3,8 @@ package dev.ragger.plugin;
 import com.google.inject.Provides;
 import dev.ragger.plugin.ui.ChatPanel;
 import dev.ragger.plugin.ui.ConsoleOverlay;
-import dev.ragger.plugin.scripting.ScriptManager;
-import dev.ragger.plugin.scripting.ScriptOverlay;
+import dev.ragger.plugin.scripting.ActorManager;
+import dev.ragger.plugin.scripting.ActorOverlay;
 import dev.ragger.plugin.scripting.ServiceManager;
 import net.runelite.api.Client;
 import net.runelite.client.chat.ChatMessageManager;
@@ -30,7 +30,7 @@ import java.awt.image.BufferedImage;
 
 @PluginDescriptor(
     name = "Ragger",
-    description = "AI assistant powered by Claude with Lua scripting",
+    description = "AI assistant powered by Claude with Lua actors",
     tags = {"ai", "claude", "lua", "assistant"}
 )
 public class RaggerPlugin extends Plugin {
@@ -68,9 +68,9 @@ public class RaggerPlugin extends Plugin {
 
     private ChatPanel chatPanel;
     private NavigationButton navButton;
-    private ScriptManager scriptManager;
+    private ActorManager actorManager;
     private ServiceManager serviceManager;
-    private ScriptOverlay scriptOverlay;
+    private ActorOverlay actorOverlay;
     private ConsoleOverlay consoleOverlay;
     private BridgeServer bridgeServer;
     private ClaudeClient claude;
@@ -79,13 +79,13 @@ public class RaggerPlugin extends Plugin {
 
     @Override
     protected void startUp() {
-        scriptManager = new ScriptManager(client, chatMessageManager, itemManager);
-        scriptManager.setLimits(config.scriptMaxDepth(), config.scriptMaxChildren());
-        serviceManager = new ServiceManager(scriptManager);
-        scriptOverlay = new ScriptOverlay(scriptManager);
-        overlayManager.add(scriptOverlay);
+        actorManager = new ActorManager(client, chatMessageManager, itemManager);
+        actorManager.setLimits(config.actorMaxDepth(), config.actorMaxChildren());
+        serviceManager = new ServiceManager(actorManager);
+        actorOverlay = new ActorOverlay(actorManager);
+        overlayManager.add(actorOverlay);
 
-        bridgeServer = new BridgeServer(scriptManager);
+        bridgeServer = new BridgeServer(actorManager);
         try {
             bridgeServer.start(config.bridgePort());
         } catch (java.io.IOException e) {
@@ -94,7 +94,7 @@ public class RaggerPlugin extends Plugin {
 
         claude = new ClaudeClient(config.claudePath(), config.claudeModel(), config.bridgePort(), bridgeServer.getToken(), config.devMode(), config.extraTools());
         chatPanel = new ChatPanel();
-        chatPanel.setScriptManager(scriptManager);
+        chatPanel.setActorManager(actorManager);
         consoleOverlay = new ConsoleOverlay(client, this::onUserMessage);
         overlayManager.add(consoleOverlay);
 
@@ -141,21 +141,21 @@ public class RaggerPlugin extends Plugin {
     @Override
     protected void shutDown() {
         clientToolbar.removeNavigation(navButton);
-        overlayManager.remove(scriptOverlay);
+        overlayManager.remove(actorOverlay);
         overlayManager.remove(consoleOverlay);
         keyManager.unregisterKeyListener(consoleKeyListener);
         mouseManager.unregisterMouseWheelListener(consoleMouseWheelListener);
         bridgeServer.stop();
         serviceManager.shutdown();
-        scriptManager.shutdown();
+        actorManager.shutdown();
     }
 
     @Subscribe
     public void onGameTick(GameTick event) {
         serviceManager.start(); // no-op after first call
         bridgeServer.tick();
-        scriptManager.drainMail();
-        scriptManager.tick();
+        actorManager.drainMail();
+        actorManager.tick();
         serviceManager.tick();
     }
 
@@ -203,8 +203,8 @@ public class RaggerPlugin extends Plugin {
 
         if (message.equalsIgnoreCase("/stop")) {
             serviceManager.shutdown();
-            scriptManager.shutdown();
-            consoleOverlay.addToolMessage("All scripts and services stopped.");
+            actorManager.shutdown();
+            consoleOverlay.addToolMessage("All actors and services stopped.");
             return;
         }
 
@@ -241,17 +241,17 @@ public class RaggerPlugin extends Plugin {
 
         if (message.startsWith("/stop ")) {
             String name = message.substring(6).trim();
-            scriptManager.unload(name);
+            actorManager.unload(name);
             consoleOverlay.addToolMessage("Stopped: " + name);
             return;
         }
 
-        if (message.equalsIgnoreCase("/scripts")) {
-            var names = scriptManager.list();
+        if (message.equalsIgnoreCase("/actors")) {
+            var names = actorManager.list();
             if (names.isEmpty()) {
-                consoleOverlay.addToolMessage("No active scripts.");
+                consoleOverlay.addToolMessage("No active actors.");
             } else {
-                consoleOverlay.addToolMessage("Active scripts: " + String.join(", ", names));
+                consoleOverlay.addToolMessage("Active actors: " + String.join(", ", names));
             }
             return;
         }

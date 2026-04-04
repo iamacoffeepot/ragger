@@ -438,7 +438,7 @@ throttle()                                                                 # rat
 
 ## RuneLite Plugin
 
-Java plugin in `plugin/` that embeds an AI assistant into the RuneLite client. In-game console overlay (toggle with backtick) talks to Claude CLI. Lua scripting engine (luajava/LuaJ) for dynamic client modifications. HTTP bridge server for MCP tool communication.
+Java plugin in `plugin/` that embeds an AI assistant into the RuneLite client. In-game console overlay (toggle with backtick) talks to Claude CLI. Lua actor engine (luajava/LuaJ) for dynamic client modifications. HTTP bridge server for MCP tool communication.
 
 Requires JDK 21+. Run from `plugin/`:
 
@@ -457,13 +457,13 @@ JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home" ./grad
 - `RaggerPlugin.java` — main plugin entry, overlay registration, game tick dispatch, input handling
 - `RaggerConfig.java` — plugin config (Claude CLI path, model, bridge port)
 - `ClaudeClient.java` — spawns Claude CLI with behavior prompts, parses stream-json responses
-- `ClaudeResponse.java` — parsed response with text, scripts, and tool log
+- `ClaudeResponse.java` — parsed response with text, actors, and tool log
 - `BridgeServer.java` — HTTP server on localhost for MCP tool bridge (eval/run endpoints)
 - `ui/ChatPanel.java` — minimal sidebar panel (hint label)
 - `ui/ConsoleOverlay.java` — in-game console overlay with markdown rendering
-- `scripting/ScriptManager.java` — Lua script lifecycle manager
-- `scripting/LuaScript.java` — single Lua script instance with API bindings and lifecycle hooks
-- `scripting/ScriptOverlay.java` — overlay that dispatches render calls to active scripts
+- `scripting/ActorManager.java` — Lua actor lifecycle manager
+- `scripting/LuaActor.java` — single Lua actor instance with API bindings and lifecycle hooks
+- `scripting/ActorOverlay.java` — overlay that dispatches render calls to active actors
 - `scripting/ChatApi.java` — Lua `chat` API (game messages, console messages)
 - `scripting/CameraApi.java` — Lua `camera` API (position, angles, controls)
 - `scripting/ClientApi.java` — Lua `client` API (world, state, viewport, FPS)
@@ -476,9 +476,9 @@ JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home" ./grad
 - `scripting/CombatApi.java` — Lua `combat` API (spec, prayers, attack style, target)
 - `scripting/PrayerApi.java` — Lua `prayer` enum constants
 - `scripting/OverlayApi.java` — Lua overlay drawing context (text, shapes, fonts)
-- `scripting/MailApi.java` — Lua `mail` API (inter-script messaging)
+- `scripting/MailApi.java` — Lua `mail` API (inter-actor messaging)
 - `scripting/MailMessage.java` — mail message data object
-- `scripting/ScriptsApi.java` — Lua `scripts` API (child script management, templates)
+- `scripting/ActorsApi.java` — Lua `actors` API (child actor management, templates)
 - `scripting/JsonApi.java` — Lua `json` API (encode/decode)
 - `scripting/Base64Api.java` — Lua `base64` API (encode/decode)
 - `scripting/LuaUtils.java` — shared Lua conversion utilities
@@ -488,15 +488,15 @@ JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home" ./grad
 
 Python MCP server at `src/ragger/mcp_server.py` exposes the following tools:
 
-- `RaggerRun(name, script)` — submit a persistent Lua script to the plugin
+- `RaggerRun(name, script)` — submit a persistent Lua actor to the plugin
 - `RaggerEval(script)` — evaluate a Lua expression and return the result
-- `RaggerScriptList()` — list active scripts
-- `RaggerScriptSource(name)` — retrieve a running script's source code
-- `RaggerTemplateList()` — list registered script templates
+- `RaggerActorList()` — list active actors
+- `RaggerActorSource(name)` — retrieve a running actor's source code
+- `RaggerTemplateList()` — list registered templates
 - `RaggerTemplateSource(name)` — retrieve a template's source code
-- `RaggerMailSend(target, data)` — send a message to a script's `on_mail` hook
-- `RaggerMailRecvAsync(limit?, from_script?)` — non-blocking read of messages sent to Claude
-- `RaggerMailRecvSync(count?, from_script?, timeout?)` — blocking read, waits for messages
+- `RaggerMailSend(target, data)` — send a message to an actor's `on_mail` hook
+- `RaggerMailRecvAsync(limit?, from_actor?)` — non-blocking read of messages sent to Claude
+- `RaggerMailRecvSync(count?, from_actor?, timeout?)` — blocking read, waits for messages
 
 All tools bridge through the plugin's HTTP server on localhost (default port 7919). Per-session auth token prevents unauthorized access.
 
@@ -513,9 +513,9 @@ Behaviors are appended to every Claude CLI invocation via `--append-system-promp
 
 - `/reset` — reset Claude session and clear console
 - `/clear` — clear console output (keep session)
-- `/stop` — stop all running scripts
-- `/stop <name>` — stop a specific script
-- `/scripts` — list active scripts
+- `/stop` — stop all running actors
+- `/stop <name>` — stop a specific actor
+- `/actors` — list active actors
 - `/services` — list service status
 - `/revive <name>` — reset a dead service
 
