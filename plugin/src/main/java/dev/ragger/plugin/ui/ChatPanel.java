@@ -34,7 +34,7 @@ public class ChatPanel extends PluginPanel {
         setBackground(RaggerTheme.BG);
 
         tabbedPane = new JTabbedPane(JTabbedPane.TOP);
-        tabbedPane.putClientProperty("JTabbedPane.tabWidthMode", "equal");
+        tabbedPane.putClientProperty("JTabbedPane.tabAreaAlignment", "fill");
         styleTabPane(tabbedPane);
 
         // ── Console hint tab ────────────────────────────────────────────
