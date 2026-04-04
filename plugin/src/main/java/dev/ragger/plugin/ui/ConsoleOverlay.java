@@ -17,51 +17,38 @@ import java.util.function.Consumer;
  */
 public class ConsoleOverlay extends Overlay {
 
-    private static final Color BG_COLOR = new Color(0x18, 0x18, 0x1E, 0xE8);
-    private static final Color TEXT_COLOR = new Color(0xE0, 0xE0, 0xE0);
-    private static final Color SENDER_COLOR = new Color(0xFF, 0xB3, 0x47);
-    private static final Color TOOL_COLOR = new Color(0x99, 0x99, 0x99);
-    private static final Color CODE_COLOR = new Color(0xA8, 0xD8, 0xF0);
-    private static final Color CODE_BG = new Color(0x2A, 0x2A, 0x35, 0xCC);
-    private static final Color QUOTE_COLOR = new Color(0xAA, 0xAA, 0xAA);
-    private static final Color QUOTE_BAR = new Color(0x55, 0x55, 0x66);
-    private static final Color LIST_BULLET_COLOR = new Color(0xFF, 0xB3, 0x47);
-    private static final Color TABLE_HEADER_BG = new Color(0x2A, 0x2A, 0x38, 0xCC);
-    private static final Color TABLE_BORDER = new Color(0x44, 0x44, 0x55);
-    private static final Color INPUT_BG = new Color(0x22, 0x22, 0x2A, 0xEE);
-    private static final Color INPUT_BORDER = new Color(0x55, 0x55, 0x66);
-    private static final Color CURSOR_COLOR = new Color(0xFF, 0xB3, 0x47);
-    private static final Font FONT;
-    private static final Font FONT_BOLD;
-    private static final Font FONT_ITALIC;
-    private static final Font FONT_BOLD_ITALIC;
-    private static final Font FONT_HEADER;
-
-    static {
-        Font regular = loadFont("fonts/MesloLGS-Regular.ttf", Font.PLAIN);
-        Font bold = loadFont("fonts/MesloLGS-Bold.ttf", Font.BOLD);
-        Font italic = loadFont("fonts/MesloLGS-Italic.ttf", Font.ITALIC);
-        Font boldItalic = loadFont("fonts/MesloLGS-BoldItalic.ttf", Font.BOLD | Font.ITALIC);
-
-        FONT = regular.deriveFont(12f);
-        FONT_BOLD = bold.deriveFont(12f);
-        FONT_ITALIC = italic.deriveFont(12f);
-        FONT_BOLD_ITALIC = boldItalic.deriveFont(12f);
-        FONT_HEADER = bold.deriveFont(14f);
-    }
-
-    private static Font loadFont(String resource, int fallbackStyle) {
-        try (var is = ConsoleOverlay.class.getResourceAsStream(resource)) {
-            if (is != null) {
-                Font font = Font.createFont(Font.TRUETYPE_FONT, is);
-                GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(font);
-                return font;
-            }
-        } catch (Exception e) {
-            // fall through
-        }
-        return new Font(Font.MONOSPACED, fallbackStyle, 12);
-    }
+    // ── Theme aliases (delegate to RaggerTheme) ───────────────────────
+    private static final Color BG_COLOR = RaggerTheme.BG_ALPHA;
+    private static final Color TEXT_COLOR = RaggerTheme.TEXT;
+    private static final Color SENDER_COLOR = RaggerTheme.ACCENT;
+    private static final Color TOOL_COLOR = RaggerTheme.TEXT_DIM;
+    private static final Color CODE_COLOR = RaggerTheme.CODE;
+    private static final Color CODE_BG = RaggerTheme.BG_CODE;
+    private static final Color SYN_KEYWORD = new Color(0xC5, 0x8B, 0xDB);   // purple
+    private static final Color SYN_STRING = new Color(0x98, 0xC3, 0x79);    // green
+    private static final Color SYN_NUMBER = new Color(0xD1, 0x9A, 0x66);    // orange
+    private static final Color SYN_COMMENT = new Color(0x6A, 0x6A, 0x7A);   // dim gray
+    private static final java.util.Set<String> KEYWORDS = java.util.Set.of(
+        "if", "then", "else", "elseif", "end", "do", "while", "for", "in",
+        "repeat", "until", "return", "local", "function", "not", "and", "or",
+        "true", "false", "nil", "break", "goto",
+        "def", "class", "import", "from", "pass", "raise", "try", "except",
+        "finally", "with", "as", "yield", "lambda", "None", "True", "False",
+        "self", "elif", "print", "is", "continue"
+    );
+    private static final Color QUOTE_COLOR = RaggerTheme.QUOTE;
+    private static final Color QUOTE_BAR = RaggerTheme.BORDER;
+    private static final Color LIST_BULLET_COLOR = RaggerTheme.ACCENT;
+    private static final Color TABLE_HEADER_BG = RaggerTheme.BG_TABLE_HDR;
+    private static final Color TABLE_BORDER = RaggerTheme.TABLE_BORDER;
+    private static final Color INPUT_BG = RaggerTheme.INPUT_BG;
+    private static final Color INPUT_BORDER = RaggerTheme.BORDER;
+    private static final Color CURSOR_COLOR = RaggerTheme.ACCENT;
+    private static final Font FONT = RaggerTheme.FONT;
+    private static final Font FONT_BOLD = RaggerTheme.FONT_BOLD;
+    private static final Font FONT_ITALIC = RaggerTheme.FONT_ITALIC;
+    private static final Font FONT_BOLD_ITALIC = RaggerTheme.FONT_BOLD_ITALIC;
+    private static final Font FONT_HEADER = RaggerTheme.FONT_HEADER;
     private static final int PADDING = 12;
     private static final int LINE_HEIGHT = 16;
 
@@ -487,8 +474,7 @@ public class ConsoleOverlay extends Overlay {
                     }
                     g.setColor(CODE_BG);
                     g.fillRect(PADDING + 2, y - LINE_HEIGHT + 4, maxWidth, LINE_HEIGHT);
-                    g.setColor(CODE_COLOR);
-                    g.drawString(codeText, PADDING + 8, y);
+                    drawSyntaxHighlighted(g, codeText, PADDING + 8, y);
                     y -= LINE_HEIGHT;
                 }
                 case LIST_ITEM -> {
@@ -556,6 +542,89 @@ public class ConsoleOverlay extends Overlay {
     /**
      * Draw a line with inline markdown: **bold**, *italic*, `code`
      */
+    /**
+     * Draw a line of code with syntax highlighting.
+     * Tokenizes into keywords, strings, numbers, comments, and plain code.
+     */
+    private void drawSyntaxHighlighted(Graphics2D g, String text, int x, int y) {
+        g.setFont(FONT);
+        FontMetrics fm = g.getFontMetrics();
+        int cx = x;
+        int idx = 0;
+
+        while (idx < text.length()) {
+            char c = text.charAt(idx);
+
+            // Comments: -- (Lua) or # (Python)
+            if (c == '-' && idx + 1 < text.length() && text.charAt(idx + 1) == '-') {
+                g.setColor(SYN_COMMENT);
+                g.drawString(text.substring(idx), cx, y);
+                return;
+            }
+            if (c == '#') {
+                g.setColor(SYN_COMMENT);
+                g.drawString(text.substring(idx), cx, y);
+                return;
+            }
+
+            // Strings: "..." or '...'
+            if (c == '"' || c == '\'') {
+                int end = text.indexOf(c, idx + 1);
+                if (end < 0) end = text.length() - 1;
+                String str = text.substring(idx, end + 1);
+                g.setColor(SYN_STRING);
+                g.drawString(str, cx, y);
+                cx += fm.stringWidth(str);
+                idx = end + 1;
+                continue;
+            }
+
+            // Numbers
+            if (Character.isDigit(c) || (c == '.' && idx + 1 < text.length() && Character.isDigit(text.charAt(idx + 1)))) {
+                int end = idx;
+                while (end < text.length() && (Character.isDigit(text.charAt(end)) || text.charAt(end) == '.' || text.charAt(end) == 'x' || text.charAt(end) == 'X'
+                    || (text.charAt(end) >= 'a' && text.charAt(end) <= 'f') || (text.charAt(end) >= 'A' && text.charAt(end) <= 'F'))) {
+                    end++;
+                }
+                String num = text.substring(idx, end);
+                g.setColor(SYN_NUMBER);
+                g.drawString(num, cx, y);
+                cx += fm.stringWidth(num);
+                idx = end;
+                continue;
+            }
+
+            // Words (potential keywords)
+            if (Character.isLetter(c) || c == '_') {
+                int end = idx;
+                while (end < text.length() && (Character.isLetterOrDigit(text.charAt(end)) || text.charAt(end) == '_')) {
+                    end++;
+                }
+                String word = text.substring(idx, end);
+                if (KEYWORDS.contains(word)) {
+                    g.setColor(SYN_KEYWORD);
+                    g.setFont(FONT_BOLD);
+                    g.drawString(word, cx, y);
+                    cx += g.getFontMetrics().stringWidth(word);
+                    g.setFont(FONT);
+                } else {
+                    g.setColor(CODE_COLOR);
+                    g.drawString(word, cx, y);
+                    cx += fm.stringWidth(word);
+                }
+                idx = end;
+                continue;
+            }
+
+            // Everything else (operators, punctuation, whitespace)
+            g.setColor(CODE_COLOR);
+            String ch = String.valueOf(c);
+            g.drawString(ch, cx, y);
+            cx += fm.stringWidth(ch);
+            idx++;
+        }
+    }
+
     private void drawStyledLine(Graphics2D g, String text, int x, int y, int maxWidth) {
         int cx = x;
         int idx = 0;
