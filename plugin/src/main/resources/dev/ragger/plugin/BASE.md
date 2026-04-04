@@ -221,6 +221,25 @@ end
 Combine with `items:name()` and `items:grand_exchange_price()` to get names and values.
 
 ```lua
+-- Game objects — returns array of tables (trees, rocks, doors, interactables, etc.)
+local objs = scene:objects()              -- all objects (can be very large!)
+local objs = scene:objects("bank booth")  -- single name filter (case-insensitive, partial match)
+local objs = scene:objects({"bank booth", "tree"})  -- multiple name filters
+for i = 1, #objs do
+    local obj = objs[i]
+    -- obj.name       (string)
+    -- obj.id         (int, object ID)
+    -- obj.type       (string: "game", "wall", "ground", "decorative")
+    -- obj.x          (int, world X)
+    -- obj.y          (int, world Y)
+    -- obj.plane      (int)
+    -- obj.actions     (array of strings, e.g. {"Mine", "Prospect"})
+end
+```
+
+Always use a name filter when possible — the unfiltered list includes every object in the loaded scene (~104x104 tiles).
+
+```lua
 -- Players — returns array of tables
 local players = scene:players()
 for i = 1, #players do
