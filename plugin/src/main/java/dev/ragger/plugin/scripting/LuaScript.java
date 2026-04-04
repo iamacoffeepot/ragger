@@ -56,6 +56,7 @@ public class LuaScript {
         new ItemsApi(itemManager).register(lua);
         new InventoryApi(client, itemManager).register(lua);
         new CombatApi(client).register(lua);
+        lua.set("prayer", new PrayerApi());
     }
 
     public void start() {

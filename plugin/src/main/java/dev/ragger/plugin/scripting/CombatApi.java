@@ -3,9 +3,6 @@ package dev.ragger.plugin.scripting;
 import net.runelite.api.*;
 import party.iroiro.luajava.Lua;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Lua binding for combat state — spec energy, prayers, attack style, target.
  * Exposed as the global "combat" table in Lua scripts.
@@ -15,14 +12,6 @@ public class CombatApi {
     private static final int VARP_SPEC_ENERGY = 300;
     private static final int VARP_SPEC_ENABLED = 301;
     private static final int VARP_ATTACK_STYLE = 43;
-
-    private static final Map<String, Prayer> PRAYER_LOOKUP = new HashMap<>();
-
-    static {
-        for (Prayer p : Prayer.values()) {
-            PRAYER_LOOKUP.put(p.name().toLowerCase(), p);
-        }
-    }
 
     private final Client client;
 
@@ -79,32 +68,27 @@ public class CombatApi {
     }
 
     /**
-     * combat:prayer_active("protect_from_melee") -> bool
+     * combat:prayer_active(prayer.PROTECT_FROM_MELEE) -> bool
      */
     private int prayer_active(Lua lua) {
-        String name = lua.toString(2);
-        if (name == null) {
+        Object obj = lua.toJavaObject(2);
+        if (!(obj instanceof Prayer)) {
             lua.push(false);
             return 1;
         }
-        Prayer prayer = PRAYER_LOOKUP.get(name.toLowerCase());
-        if (prayer == null) {
-            lua.push(false);
-            return 1;
-        }
-        lua.push(client.isPrayerActive(prayer));
+        lua.push(client.isPrayerActive((Prayer) obj));
         return 1;
     }
 
     /**
-     * combat:active_prayers() -> array of prayer name strings
+     * combat:active_prayers() -> array of Prayer enum values
      */
     private int active_prayers(Lua lua) {
         lua.createTable(0, 0);
         int index = 1;
         for (Prayer prayer : Prayer.values()) {
             if (client.isPrayerActive(prayer)) {
-                lua.push(prayer.name().toLowerCase());
+                lua.pushJavaObject(prayer);
                 lua.rawSetI(-2, index++);
             }
         }
