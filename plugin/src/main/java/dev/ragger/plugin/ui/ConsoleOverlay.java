@@ -740,18 +740,17 @@ public class ConsoleOverlay extends Overlay {
             g.setColor(TABLE_BORDER);
             g.drawRect(cellX, y - LINE_HEIGHT + 4, cellWidth, LINE_HEIGHT);
 
-            // Cell text
+            // Cell text — clip to cell bounds and render with inline formatting
             g.setColor(isHeader ? SENDER_COLOR : TEXT_COLOR);
-            String cellText = cells[c];
-            // Truncate if too wide
-            FontMetrics fm = g.getFontMetrics();
-            if (fm.stringWidth(cellText) > cellWidth - cellPadding * 2) {
-                while (cellText.length() > 1 && fm.stringWidth(cellText + "..") > cellWidth - cellPadding * 2) {
-                    cellText = cellText.substring(0, cellText.length() - 1);
-                }
-                cellText = cellText + "..";
+            Shape oldClip = g.getClip();
+            g.clipRect(cellX + cellPadding, y - LINE_HEIGHT + 4, cellWidth - cellPadding * 2, LINE_HEIGHT);
+            if (isHeader) {
+                g.setFont(FONT_BOLD);
+                g.drawString(cells[c], cellX + cellPadding, y);
+            } else {
+                drawStyledLine(g, cells[c], cellX + cellPadding, y, cellWidth - cellPadding * 2);
             }
-            g.drawString(cellText, cellX + cellPadding, y);
+            g.setClip(oldClip);
         }
     }
 
