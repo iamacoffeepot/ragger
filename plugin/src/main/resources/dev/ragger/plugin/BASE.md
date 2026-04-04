@@ -30,6 +30,22 @@ RaggerEval("items:grand_exchange_price(4151)") → 1500000
 
 Use this when you need to answer questions about the player's current state, nearby entities, or item prices. Prefer `RaggerEval` over writing a full script when you just need to read data.
 
+## Managing Scripts
+
+Use `RaggerScriptList` to see what's running, and `RaggerScriptSource` to retrieve source code before modifying a script.
+
+```
+RaggerScriptList()                     → {scripts: ["npc-highlighter", "tick-counter"]}
+RaggerScriptSource("npc-highlighter")  → {name: "npc-highlighter", source: "local npcs = ..."}
+```
+
+Use `RaggerTemplateList` to see registered templates, and `RaggerTemplateSource` to retrieve a template's source.
+
+```
+RaggerTemplateList()                       → {templates: ["tile-marker", "counter-display"]}
+RaggerTemplateSource("tile-marker")        → {name: "tile-marker", source: "local color = ..."}
+```
+
 ## Lua Scripting
 
 To execute code in the RuneLite client, call the `RaggerRun` MCP tool with a Lua script string. The script runs in a sandboxed LuaJ runtime with the following globals available.
@@ -521,6 +537,61 @@ return {
 
 If a script does not return a table, it runs once top-to-bottom (one-shot mode). Locals defined in the script body are captured by hook closures and persist for the script's lifetime.
 
+### API: `scripts`
+
+Manage child scripts from within a script. All operations are scoped — a script can only manage its own children, not siblings or parents. Child names are automatically namespaced (e.g. parent `quest-guide` spawning `step-1` creates `quest-guide/step-1`). Stopping a parent cascade-stops all children. Max depth is 3 levels.
+
+```lua
+-- Spawn a child script from raw source
+scripts:run("child-name", [[
+    chat:game("Hello from child!")
+]])
+
+-- Stop a child (and its descendants)
+scripts:stop("child-name")
+
+-- List direct children (short names)
+local children = scripts:list()    -- {"step-1", "step-2"}
+
+-- Read a child's source
+local src = scripts:source("child-name")
+
+-- Check if a child is running
+scripts:is_running("child-name")   -- true/false
+
+-- List all registered templates
+scripts:templates()                -- {"counter-display", "tile-marker"}
+```
+
+#### Templates
+
+Register reusable script blueprints, then spawn parameterized instances:
+
+```lua
+-- Define a template (global — any script can define or use)
+scripts:define("tile-marker", [[
+    local color = args and args.color or 0xFFFFFF
+    local tx, ty = args and args.x or 0, args and args.y or 0
+    return {
+        on_render = function(g)
+            local poly = coords:world_tile_poly(tx, ty)
+            if poly and #poly >= 3 then
+                for j = 1, #poly do
+                    local next = j < #poly and j + 1 or 1
+                    g:line(poly[j].x, poly[j].y, poly[next].x, poly[next].y, color)
+                end
+            end
+        end
+    }
+]])
+
+-- Create children from the template with different args
+scripts:create("marker-1", "tile-marker", { x = 3200, y = 3400, color = 0xFF0000 })
+scripts:create("marker-2", "tile-marker", { x = 3201, y = 3400, color = 0x00FF00 })
+```
+
+The `args` table is injected as a global in the child script's Lua environment.
+
 ### Scratch Directory
 
 The `scratch/` folder at the project root is your workspace for temporary artifacts. Use it for downloads, generated files, intermediate data, or anything you'd normally put in `/tmp`. This is the only directory you have write access to — `Edit` and `Write` tools are scoped to `scratch/` exclusively.
@@ -539,3 +610,4 @@ scratch/
 - Do not use infinite loops — use `on_tick` for recurring work.
 - Return `false` from `on_tick` to self-terminate the script.
 - Fetch data (scene:npcs(), scene:players()) in `on_tick` and store in locals. Only draw in `on_render` — it runs every frame (~50 FPS) so keep it lightweight.
+- Use stable, descriptive kebab-case names (e.g. "npc-highlighter", "tick-counter"). Do NOT append random hashes or suffixes — the plugin replaces scripts with the same name automatically. Use `RaggerSource` to read a script's source before modifying it.
