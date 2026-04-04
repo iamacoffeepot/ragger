@@ -199,13 +199,13 @@ public class ClaudeClient {
         if (input == null) return displayName + "()";
 
         if (input.has("command")) {
-            return displayName + "(" + truncate(input.get("command").getAsString(), 60) + ")";
+            return displayName + "(" + truncate(censorPath(input.get("command").getAsString()), 60) + ")";
         }
         if (input.has("pattern")) {
             return displayName + "(" + input.get("pattern").getAsString() + ")";
         }
         if (input.has("file_path")) {
-            return displayName + "(" + input.get("file_path").getAsString() + ")";
+            return displayName + "(" + censorPath(input.get("file_path").getAsString()) + ")";
         }
         if (input.has("script")) {
             String name = input.has("name") ? input.get("name").getAsString() : "";
@@ -217,6 +217,19 @@ public class ClaudeClient {
     private static String truncate(String s, int maxLen) {
         if (s.length() <= maxLen) return s;
         return s.substring(0, maxLen) + "...";
+    }
+
+    private static String censorPath(String text) {
+        String projectRoot = System.getenv("RAGGER_PROJECT_ROOT");
+        if (projectRoot != null) {
+            String prefix = projectRoot.endsWith("/") ? projectRoot : projectRoot + "/";
+            text = text.replace(prefix, "");
+        }
+        String home = System.getProperty("user.home");
+        if (home != null) {
+            text = text.replace(home, "~");
+        }
+        return text;
     }
 
     private String loadBehaviors(String... behaviors) {
