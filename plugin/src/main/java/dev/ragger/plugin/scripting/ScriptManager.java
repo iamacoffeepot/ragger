@@ -215,14 +215,18 @@ public class ScriptManager {
         return count;
     }
 
+    private static final int MAX_FILTER_LENGTH = 200;
+
     private static java.util.regex.Pattern compileFromFilter(String fromFilter) {
         if (fromFilter == null || fromFilter.isEmpty()) {
             return null;
         }
+        if (fromFilter.length() > MAX_FILTER_LENGTH) {
+            return java.util.regex.Pattern.compile(java.util.regex.Pattern.quote(fromFilter));
+        }
         try {
             return java.util.regex.Pattern.compile(fromFilter);
         } catch (java.util.regex.PatternSyntaxException e) {
-            // Fall back to literal match if not a valid regex
             return java.util.regex.Pattern.compile(java.util.regex.Pattern.quote(fromFilter));
         }
     }
