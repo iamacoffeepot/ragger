@@ -7,14 +7,39 @@ import dev.ragger.plugin.scripting.ActorManager;
 import dev.ragger.plugin.scripting.ActorOverlay;
 import dev.ragger.plugin.scripting.LuaEvent;
 import dev.ragger.plugin.scripting.ServiceManager;
-import net.runelite.api.*;
-import net.runelite.api.events.*;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.api.InventoryID;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.events.ActorDeath;
+import net.runelite.api.events.AnimationChanged;
+import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.GameObjectDespawned;
+import net.runelite.api.events.GameObjectSpawned;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
+import net.runelite.api.events.GraphicChanged;
+import net.runelite.api.events.HitsplatApplied;
+import net.runelite.api.events.ItemDespawned;
+import net.runelite.api.events.ItemSpawned;
+import net.runelite.api.events.NpcDespawned;
+import net.runelite.api.events.NpcSpawned;
+import net.runelite.api.events.PlayerDespawned;
+import net.runelite.api.events.PlayerSpawned;
+import net.runelite.api.events.ProjectileMoved;
+import net.runelite.api.events.StatChanged;
+import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.events.WidgetClosed;
+import net.runelite.api.events.WidgetLoaded;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.input.KeyListener;
 import net.runelite.client.input.KeyManager;
+import net.runelite.client.input.MouseListener;
 import net.runelite.client.input.MouseManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -27,7 +52,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 
 @PluginDescriptor(
     name = "Ragger",
@@ -63,7 +91,7 @@ public class RaggerPlugin extends Plugin {
     private RaggerConfig config;
 
     @Provides
-    RaggerConfig provideConfig(ConfigManager configManager) {
+    RaggerConfig provideConfig(final ConfigManager configManager) {
         return configManager.getConfig(RaggerConfig.class);
     }
 
@@ -75,13 +103,13 @@ public class RaggerPlugin extends Plugin {
     private ConsoleOverlay consoleOverlay;
     private BridgeServer bridgeServer;
     private ClaudeClient claude;
-    private net.runelite.client.input.KeyListener consoleKeyListener;
+    private KeyListener consoleKeyListener;
     private net.runelite.client.input.MouseWheelListener consoleMouseWheelListener;
-    private net.runelite.client.input.MouseListener actorMouseListener;
+    private MouseListener actorMouseListener;
 
     // Inventory snapshot for change detection
-    private int[] prevInventoryIds = new int[28];
-    private int[] prevInventoryQtys = new int[28];
+    private final int[] prevInventoryIds = new int[28];
+    private final int[] prevInventoryQtys = new int[28];
     private int prevWorld = -1;
 
     @Override
@@ -95,19 +123,27 @@ public class RaggerPlugin extends Plugin {
         bridgeServer = new BridgeServer(actorManager);
         try {
             bridgeServer.start(config.bridgePort());
-        } catch (java.io.IOException e) {
+        } catch (final IOException e) {
             log.error("Failed to start bridge server", e);
         }
 
-        claude = new ClaudeClient(config.claudePath(), config.claudeModel(), config.bridgePort(), bridgeServer.getToken(), config.devMode(), config.extraTools());
+        claude = new ClaudeClient(
+            config.claudePath(),
+            config.claudeModel(),
+            config.bridgePort(),
+            bridgeServer.getToken(),
+            config.devMode(),
+            config.extraTools()
+        );
         chatPanel = new ChatPanel();
         chatPanel.setActorManager(actorManager);
+
         consoleOverlay = new ConsoleOverlay(client, this::onUserMessage);
         overlayManager.add(consoleOverlay);
 
-        consoleKeyListener = new net.runelite.client.input.KeyListener() {
+        consoleKeyListener = new KeyListener() {
             @Override
-            public void keyTyped(java.awt.event.KeyEvent e) {
+            public void keyTyped(final KeyEvent e) {
                 if (e.getKeyChar() == '`') {
                     consoleOverlay.toggle();
                     e.consume();
@@ -117,12 +153,12 @@ public class RaggerPlugin extends Plugin {
             }
 
             @Override
-            public void keyPressed(java.awt.event.KeyEvent e) {
+            public void keyPressed(final KeyEvent e) {
                 consoleOverlay.handleKeyPressed(e);
             }
 
             @Override
-            public void keyReleased(java.awt.event.KeyEvent e) {}
+            public void keyReleased(final KeyEvent e) {}
         };
         keyManager.registerKeyListener(consoleKeyListener);
 
@@ -135,46 +171,46 @@ public class RaggerPlugin extends Plugin {
         };
         mouseManager.registerMouseWheelListener(consoleMouseWheelListener);
 
-        actorMouseListener = new net.runelite.client.input.MouseListener() {
+        actorMouseListener = new MouseListener() {
             @Override
-            public java.awt.event.MouseEvent mouseClicked(java.awt.event.MouseEvent e) {
+            public MouseEvent mouseClicked(final MouseEvent e) {
                 actorManager.bufferEvent(LuaEvent.fromMouseClick(e));
                 return e;
             }
 
             @Override
-            public java.awt.event.MouseEvent mousePressed(java.awt.event.MouseEvent e) {
+            public MouseEvent mousePressed(final MouseEvent e) {
                 return e;
             }
 
             @Override
-            public java.awt.event.MouseEvent mouseReleased(java.awt.event.MouseEvent e) {
+            public MouseEvent mouseReleased(final MouseEvent e) {
                 return e;
             }
 
             @Override
-            public java.awt.event.MouseEvent mouseEntered(java.awt.event.MouseEvent e) {
+            public MouseEvent mouseEntered(final MouseEvent e) {
                 return e;
             }
 
             @Override
-            public java.awt.event.MouseEvent mouseExited(java.awt.event.MouseEvent e) {
+            public MouseEvent mouseExited(final MouseEvent e) {
                 return e;
             }
 
             @Override
-            public java.awt.event.MouseEvent mouseDragged(java.awt.event.MouseEvent e) {
+            public MouseEvent mouseDragged(final MouseEvent e) {
                 return e;
             }
 
             @Override
-            public java.awt.event.MouseEvent mouseMoved(java.awt.event.MouseEvent e) {
+            public MouseEvent mouseMoved(final MouseEvent e) {
                 return e;
             }
         };
         mouseManager.registerMouseListener(actorMouseListener);
 
-        BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
+        final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
         navButton = NavigationButton.builder()
             .tooltip("Ragger")
             .icon(icon)
@@ -198,7 +234,7 @@ public class RaggerPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onGameTick(GameTick event) {
+    public void onGameTick(final GameTick event) {
         serviceManager.start(); // no-op after first call
         bridgeServer.tick();
         actorManager.drainMail();
@@ -212,13 +248,17 @@ public class RaggerPlugin extends Plugin {
      * Diff the inventory against the previous snapshot and buffer change events.
      */
     private void diffInventory() {
-        ItemContainer inv = client.getItemContainer(InventoryID.INVENTORY);
-        if (inv == null) return;
+        final ItemContainer inv = client.getItemContainer(InventoryID.INVENTORY);
+        if (inv == null) {
+            return;
+        }
 
-        Item[] items = inv.getItems();
+        final Item[] items = inv.getItems();
+
         for (int i = 0; i < 28; i++) {
-            int id = i < items.length ? items[i].getId() : -1;
-            int qty = i < items.length ? items[i].getQuantity() : 0;
+            final int id = i < items.length ? items[i].getId() : -1;
+            final int qty = i < items.length ? items[i].getQuantity() : 0;
+
             if (id != prevInventoryIds[i] || qty != prevInventoryQtys[i]) {
                 actorManager.bufferEvent(LuaEvent.fromInventoryChanged(
                     i, prevInventoryIds[i], prevInventoryQtys[i], id, qty));
@@ -231,99 +271,107 @@ public class RaggerPlugin extends Plugin {
     // -- Game event subscriptions --
 
     @Subscribe
-    public void onHitsplatApplied(HitsplatApplied event) {
+    public void onHitsplatApplied(final HitsplatApplied event) {
         actorManager.bufferEvent(LuaEvent.fromHitsplat(event));
     }
 
     @Subscribe
-    public void onProjectileMoved(ProjectileMoved event) {
+    public void onProjectileMoved(final ProjectileMoved event) {
         // Only buffer on first cycle to avoid duplicate events per projectile
-        if (event.getProjectile().getRemainingCycles() == event.getProjectile().getEndCycle() - event.getProjectile().getStartCycle()) {
+        final var projectile = event.getProjectile();
+        final int remaining = projectile.getRemainingCycles();
+        final int total = projectile.getEndCycle() - projectile.getStartCycle();
+
+        if (remaining == total) {
             actorManager.bufferEvent(LuaEvent.fromProjectile(event));
         }
     }
 
     @Subscribe
-    public void onActorDeath(ActorDeath event) {
+    public void onActorDeath(final ActorDeath event) {
         actorManager.bufferEvent(LuaEvent.fromActorDeath(event));
     }
 
     @Subscribe
-    public void onChatMessage(ChatMessage event) {
+    public void onChatMessage(final ChatMessage event) {
         actorManager.bufferEvent(LuaEvent.fromChat(event));
     }
 
     @Subscribe
-    public void onItemSpawned(ItemSpawned event) {
+    public void onItemSpawned(final ItemSpawned event) {
         actorManager.bufferEvent(LuaEvent.fromItemSpawned(event));
     }
 
     @Subscribe
-    public void onItemDespawned(ItemDespawned event) {
+    public void onItemDespawned(final ItemDespawned event) {
         actorManager.bufferEvent(LuaEvent.fromItemDespawned(event));
     }
 
     @Subscribe
-    public void onStatChanged(StatChanged event) {
+    public void onStatChanged(final StatChanged event) {
         actorManager.bufferEvent(LuaEvent.fromStatChanged(event));
     }
 
     @Subscribe
-    public void onPlayerSpawned(PlayerSpawned event) {
+    public void onPlayerSpawned(final PlayerSpawned event) {
         actorManager.bufferEvent(LuaEvent.fromPlayerSpawned(event));
     }
 
     @Subscribe
-    public void onPlayerDespawned(PlayerDespawned event) {
+    public void onPlayerDespawned(final PlayerDespawned event) {
         actorManager.bufferEvent(LuaEvent.fromPlayerDespawned(event));
     }
 
     @Subscribe
-    public void onNpcSpawned(NpcSpawned event) {
+    public void onNpcSpawned(final NpcSpawned event) {
         actorManager.bufferEvent(LuaEvent.fromNpcSpawned(event));
     }
 
     @Subscribe
-    public void onNpcDespawned(NpcDespawned event) {
+    public void onNpcDespawned(final NpcDespawned event) {
         actorManager.bufferEvent(LuaEvent.fromNpcDespawned(event));
     }
 
     @Subscribe
-    public void onAnimationChanged(AnimationChanged event) {
-        actorManager.bufferEvent(LuaEvent.fromAnimation(event.getActor(), event.getActor().getAnimation()));
+    public void onAnimationChanged(final AnimationChanged event) {
+        final var actor = event.getActor();
+        actorManager.bufferEvent(LuaEvent.fromAnimation(actor, actor.getAnimation()));
     }
 
     @Subscribe
-    public void onGraphicChanged(GraphicChanged event) {
-        actorManager.bufferEvent(LuaEvent.fromGraphic(event.getActor(), event.getActor().getGraphic()));
+    public void onGraphicChanged(final GraphicChanged event) {
+        final var actor = event.getActor();
+        actorManager.bufferEvent(LuaEvent.fromGraphic(actor, actor.getGraphic()));
     }
 
     @Subscribe
-    public void onGameObjectSpawned(GameObjectSpawned event) {
+    public void onGameObjectSpawned(final GameObjectSpawned event) {
         actorManager.bufferEvent(LuaEvent.fromGameObjectSpawned(event));
     }
 
     @Subscribe
-    public void onGameObjectDespawned(GameObjectDespawned event) {
+    public void onGameObjectDespawned(final GameObjectDespawned event) {
         actorManager.bufferEvent(LuaEvent.fromGameObjectDespawned(event));
     }
 
     @Subscribe
-    public void onVarbitChanged(VarbitChanged event) {
+    public void onVarbitChanged(final VarbitChanged event) {
         actorManager.bufferEvent(LuaEvent.fromVarpChanged(event));
     }
 
     @Subscribe
-    public void onGameStateChanged(GameStateChanged event) {
-        GameState state = event.getGameState();
+    public void onGameStateChanged(final GameStateChanged event) {
+        final GameState state = event.getGameState();
+
         if (state == GameState.LOGGED_IN) {
-            int world = client.getWorld();
+            final int world = client.getWorld();
+
             if (prevWorld == -1) {
-                // First login
                 actorManager.bufferEvent(LuaEvent.fromLogin());
             } else if (prevWorld != world) {
                 actorManager.bufferEvent(LuaEvent.fromWorldChanged(prevWorld, world));
             }
+
             prevWorld = world;
         } else if (state == GameState.LOGIN_SCREEN && prevWorld != -1) {
             actorManager.bufferEvent(LuaEvent.fromLogout());
@@ -332,40 +380,54 @@ public class RaggerPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onWidgetLoaded(WidgetLoaded event) {
+    public void onWidgetLoaded(final WidgetLoaded event) {
         actorManager.bufferEvent(LuaEvent.fromWidgetLoaded(event));
     }
 
     @Subscribe
-    public void onWidgetClosed(WidgetClosed event) {
+    public void onWidgetClosed(final WidgetClosed event) {
         actorManager.bufferEvent(LuaEvent.fromWidgetClosed(event));
     }
 
     @Subscribe
-    public void onConfigChanged(ConfigChanged event) {
+    public void onConfigChanged(final ConfigChanged event) {
         if (!"ragger".equals(event.getGroup())) {
             return;
         }
 
-        String key = event.getKey();
+        final String key = event.getKey();
 
         if ("bridgePort".equals(key)) {
             bridgeServer.stop();
             try {
                 bridgeServer.start(config.bridgePort());
-            } catch (java.io.IOException e) {
+            } catch (final IOException e) {
                 log.error("Failed to restart bridge server on new port", e);
             }
-            // Recreate claude client with new bridge port
-            claude = new ClaudeClient(config.claudePath(), config.claudeModel(), config.bridgePort(), bridgeServer.getToken(), config.devMode(), config.extraTools());
+
+            claude = new ClaudeClient(
+                config.claudePath(),
+                config.claudeModel(),
+                config.bridgePort(),
+                bridgeServer.getToken(),
+                config.devMode(),
+                config.extraTools()
+            );
             log.info("Bridge server restarted on port {}", config.bridgePort());
         } else if ("claudePath".equals(key) || "claudeModel".equals(key) || "devMode".equals(key) || "extraTools".equals(key)) {
-            claude = new ClaudeClient(config.claudePath(), config.claudeModel(), config.bridgePort(), bridgeServer.getToken(), config.devMode(), config.extraTools());
+            claude = new ClaudeClient(
+                config.claudePath(),
+                config.claudeModel(),
+                config.bridgePort(),
+                bridgeServer.getToken(),
+                config.devMode(),
+                config.extraTools()
+            );
             log.info("Claude client recreated with updated config");
         }
     }
 
-    private void onUserMessage(String message) {
+    private void onUserMessage(final String message) {
         if (message.equalsIgnoreCase("/reset")) {
             claude.resetSession();
             consoleOverlay.clear();
@@ -391,13 +453,16 @@ public class RaggerPlugin extends Plugin {
         }
 
         if (message.equalsIgnoreCase("/services")) {
-            var statuses = serviceManager.status();
+            final var statuses = serviceManager.status();
+
             if (statuses.isEmpty()) {
                 consoleOverlay.addToolMessage("No managed services.");
             } else {
-                StringBuilder sb = new StringBuilder("Services:");
-                for (var s : statuses) {
+                final StringBuilder sb = new StringBuilder("Services:");
+
+                for (final var s : statuses) {
                     sb.append("\n  ").append(s.name()).append(" (").append(s.template()).append(") — ");
+
                     if (s.dead()) {
                         sb.append("dead (").append(s.respawnAttempts()).append(" attempts)");
                     } else if (s.running()) {
@@ -406,13 +471,15 @@ public class RaggerPlugin extends Plugin {
                         sb.append("restarting...");
                     }
                 }
+
                 consoleOverlay.addToolMessage(sb.toString());
             }
             return;
         }
 
         if (message.startsWith("/revive ")) {
-            String name = message.substring(8).trim();
+            final String name = message.substring(8).trim();
+
             if (serviceManager.revive(name)) {
                 consoleOverlay.addToolMessage("Reviving service: " + name);
             } else {
@@ -422,14 +489,15 @@ public class RaggerPlugin extends Plugin {
         }
 
         if (message.startsWith("/stop ")) {
-            String name = message.substring(6).trim();
+            final String name = message.substring(6).trim();
             actorManager.unload(name);
             consoleOverlay.addToolMessage("Stopped: " + name);
             return;
         }
 
         if (message.equalsIgnoreCase("/actors")) {
-            var names = actorManager.list();
+            final var names = actorManager.list();
+
             if (names.isEmpty()) {
                 consoleOverlay.addToolMessage("No active actors.");
             } else {
@@ -441,13 +509,15 @@ public class RaggerPlugin extends Plugin {
         consoleOverlay.addMessage("You", message);
         consoleOverlay.addThinking();
         consoleOverlay.setBusy(true);
+
         claude.send(message, new ClaudeClient.StreamListener() {
             private boolean streaming = false;
             private boolean senderShown = false;
 
             @Override
-            public void onText(String text) {
+            public void onText(final String text) {
                 consoleOverlay.removeThinking();
+
                 if (!streaming) {
                     if (!senderShown) {
                         consoleOverlay.beginStream("Claude");
@@ -457,54 +527,66 @@ public class RaggerPlugin extends Plugin {
                     }
                     streaming = true;
                 }
+
                 consoleOverlay.appendStream(text);
             }
 
             @Override
-            public void onToolUse(String toolLog) {
+            public void onToolUse(final String toolLog) {
                 consoleOverlay.removeThinking();
+
                 if (streaming) {
                     consoleOverlay.endStream();
                     streaming = false;
                 }
+
                 consoleOverlay.addToolMessage(toolLog);
             }
 
             @Override
-            public void onComplete(String finalText) {
+            public void onComplete(final String finalText) {
                 consoleOverlay.removeThinking();
+
                 if (streaming) {
                     consoleOverlay.endStream();
                     streaming = false;
                 }
+
                 consoleOverlay.setBusy(false);
-                String queued = consoleOverlay.pollQueue();
+
+                final String queued = consoleOverlay.pollQueue();
                 if (queued != null) {
                     onUserMessage(queued);
                 }
             }
 
             @Override
-            public void onError(String error) {
+            public void onError(final String error) {
                 consoleOverlay.removeThinking();
+
                 if (streaming) {
                     consoleOverlay.endStream();
                     streaming = false;
                 }
+
                 consoleOverlay.addMessage("Claude", error);
                 consoleOverlay.setBusy(false);
-                String queued = consoleOverlay.pollQueue();
+
+                final String queued = consoleOverlay.pollQueue();
                 if (queued != null) {
                     onUserMessage(queued);
                 }
             }
+
             @Override
             public void onCancelled() {
                 consoleOverlay.removeThinking();
+
                 if (streaming) {
                     consoleOverlay.endStream();
                     streaming = false;
                 }
+
                 consoleOverlay.addToolMessage("Request cancelled.");
                 consoleOverlay.clearQueue();
                 consoleOverlay.setBusy(false);
