@@ -130,7 +130,8 @@ public class ClaudeClient {
         }
 
         command.add("--mcp-config");
-        command.add("{\"mcpServers\":{\"ragger\":{\"type\":\"stdio\",\"command\":\"uv\",\"args\":[\"run\",\"python\",\"src/ragger/mcp_server.py\"]}}}");
+        command.add("""
+                {"mcpServers":{"ragger":{"type":"stdio","command":"uv","args":["run","python","src/ragger/mcp_server.py"]}}}""");
 
         String systemPrompt = loadBehaviors(behaviors);
         if (!systemPrompt.isEmpty()) {
