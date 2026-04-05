@@ -178,17 +178,38 @@ def ragger_mail_recv_sync(count: int = 1, from_actor: str = "", timeout: int = 3
         return json.dumps({"error": "Bridge server not running"})
 
 
-class MailMessage(BaseModel):
+class BatchMailMessage(BaseModel):
     target: str
     data: dict
 
 
 @mcp.tool(name="RaggerMailSend")
-def ragger_mail_send(messages: list[MailMessage]) -> str:
-    """Send one or more messages to actor on_mail hooks.
+def ragger_mail_send(name: str, messages: list[dict]) -> str:
+    """Send one or more messages to a single actor's on_mail hook.
 
-    Each message must have "target" and "data" keys. Messages are
-    delivered in order. Use a single-element list for one message.
+    All messages are delivered to the same actor in order.
+
+    Args:
+        name: Target actor name (e.g. "tile-marker", "npc-highlighter")
+        messages: List of data dicts to deliver
+    """
+    try:
+        resp = requests.post(
+            f"{BRIDGE_URL}/mail",
+            json=[{"target": name, "data": m} for m in messages],
+            headers=BRIDGE_HEADERS,
+            timeout=10,
+        )
+        return resp.text
+    except requests.ConnectionError:
+        return json.dumps({"error": "Bridge server not running"})
+
+
+@mcp.tool(name="RaggerMailSendBatch")
+def ragger_mail_send_batch(messages: list[BatchMailMessage]) -> str:
+    """Send messages to multiple actors in one call.
+
+    Each message specifies its own target actor. Messages are delivered in order.
 
     Args:
         messages: List of {target: str, data: dict} messages to deliver

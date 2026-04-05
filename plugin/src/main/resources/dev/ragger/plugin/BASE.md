@@ -68,8 +68,17 @@ RaggerTemplateSource("tile-marker")        → {name: "tile-marker", source: "lo
 Use `RaggerMailSend` to send data to a running actor's `on_mail` hook. This lets you control long-lived actors without restarting them.
 
 ```
-RaggerMailSend("tile-marker", { action = "add", x = 3200, y = 3400, color = 0xFF0000 })
-RaggerMailSend("npc-highlighter", { action = "clear" })
+RaggerMailSend("tile-marker", [{ action = "add", x = 3200, y = 3400, color = 0xFF0000 }])
+RaggerMailSend("npc-highlighter", [{ action = "clear" }])
+```
+
+Use `RaggerMailSendBatch` to send messages to multiple actors in one call:
+
+```
+RaggerMailSendBatch([
+    { target = "tile-marker", data = { action = "add", x = 3200, y = 3400 } },
+    { target = "npc-highlighter", data = { action = "clear" } }
+])
 ```
 
 The actor receives the message in its `on_mail(from, data)` hook:
@@ -108,7 +117,7 @@ Sync returns early with whatever was collected if the timeout is reached. Use as
 
 Messages are consumed on read — subsequent calls return only new messages.
 
-Prefer `RaggerMailSend` over rewriting an actor when you just need to update its state.
+Prefer `RaggerMailSend` / `RaggerMailSendBatch` over rewriting an actor when you just need to update its state.
 
 ## Lua Actors
 

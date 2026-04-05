@@ -574,7 +574,8 @@ Python MCP server at `src/ragger/mcp_server.py` exposes the following tools:
 - `RaggerActorSource(name)` — retrieve a running actor's source code
 - `RaggerTemplateList()` — list registered templates
 - `RaggerTemplateSource(name)` — retrieve a template's source code
-- `RaggerMailSend(target, data)` — send a message to an actor's `on_mail` hook
+- `RaggerMailSend(name, messages)` — send one or more messages to a single actor's `on_mail` hook
+- `RaggerMailSendBatch(messages)` — send messages to multiple actors in one call
 - `RaggerMailRecvAsync(limit?, from_actor?)` — non-blocking read of messages sent to Claude
 - `RaggerMailRecvSync(count?, from_actor?, timeout?)` — blocking read, waits for messages
 
