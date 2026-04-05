@@ -1,21 +1,24 @@
 """Classify game variable names using the Claude CLI and validate against the database.
 
-Sends batches of variable names to Claude (Sonnet by default) via the `claude` CLI
-for content/functional tag classification. The prompt is seeded with real entity names
-from the database so the model prefers known names. Content tags are then validated
-against quests, monsters, locations, items, and NPCs tables.
+Uses Claude CLI in --print mode with the taxonomy as a system prompt and seed examples
+in the user message. Each batch is an independent call with --no-session-persistence.
+Supports parallel workers for throughput.
 
 Requires the Claude CLI (`claude`) to be on PATH.
 """
 
 import argparse
 import json
+import queue
 import re
 import shutil
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from ragger.db import get_connection
@@ -41,8 +44,6 @@ SYSTEM_ACTIVITIES = {
 
 # ---------------------------------------------------------------------------
 # Known abbreviation map (prefix -> decoded meaning)
-# Built from manual inspection of game_vars names and OSRS wiki quest/content names.
-# The model doesn't HAVE to use only these, but should prefer them.
 # ---------------------------------------------------------------------------
 
 ABBREVIATIONS = {
@@ -80,7 +81,7 @@ ABBREVIATIONS = {
     "ATJUN": "quest:at_first_light",
     "DOTI": "quest:death_on_the_isle",
     "TOL": "quest:tower_of_life",
-    "HUNDRED": "quest:one_hundred_percent_favour",  # Kourend favour
+    "HUNDRED": "quest:one_hundred_percent_favour",
     "KR": "quest:kings_ransom",
     "RESTLESS": "quest:the_restless_ghost",
     "MISC": "quest:throne_of_miscellania",
@@ -150,26 +151,59 @@ ABBREVIATIONS = {
     "JUVINATE": "npc:vyrewatch",
 }
 
+# ---------------------------------------------------------------------------
+# Seed batch — synthetic examples covering all categories and tag combos
+# ---------------------------------------------------------------------------
+
+SEED_EXPECTED = """\
+GOBDIP_STATE | quest:goblin_diplomacy | progress
+DS2_VORKATH_DEFEATED | quest:dragon_slayer_ii, npc:vorkath | progress
+SOTE_FRAGMENT_COLLECTED | quest:song_of_the_elves | progress
+SLAYER_TASK_AMOUNT | skill:slayer | counter
+FARMING_PATCH_RAKED | skill:farming | toggle
+SAILING_VOYAGE_COUNT | skill:sailing | counter
+CORP_KILL_COUNT | npc:corporeal_beast | counter
+KALPHITE_QUEEN_FORM | npc:kalphite_queen | toggle
+DORGESH_KAAN_VISITED | location:dorgesh_kaan | toggle
+KELDAGRIM_TRAIN_UNLOCKED | location:keldagrim | toggle
+LOOTING_BAG_STORED_ITEMS | item:looting_bag | storage
+TOB_COMPLETION_COUNT | minigame:theatre_of_blood | counter
+BA_QUEEN_KILLS | minigame:barbarian_assault | counter
+COX_TOTAL_POINTS | minigame:chambers_of_xeric | counter
+MUSIC_TRACK_UNLOCKED_042 | activity:music | toggle
+COLLECTION_LOG_ABYSSAL_WHIP | activity:collection_log, item:abyssal_whip | toggle
+XPTRACKER_MINING_GAINED | activity:xp_tracker, skill:mining | counter
+LEAGUE_TASK_COMPLETE_MM2 | activity:league, quest:monkey_madness_ii | toggle
+CA_TASK_GIANT_MOLE | activity:combat_achievements, npc:giant_mole | toggle
+SLAYER_KRAKEN_KILLS | skill:slayer, npc:cave_kraken | counter
+COM_STANCE | - | config
+CHATBOX_INPUT_TYPE | - | ui
+SIDE_PANEL_TAB | - | ui
+BUFF_ANTIFIRE_TIMER | item:antifire_potion | timer
+BUFF_PRAYER_RENEWAL | item:prayer_renewal | timer
+BRIGHTNESS_SETTING | - | config
+ROOFS_HIDDEN | - | config
+POH_COS_WALLPAPER_STYLE | skill:construction | cosmetic
+AAAA_BBBB_CCCC | - | -"""
+
 
 # ---------------------------------------------------------------------------
-# Prompt construction (seeded with DB entity names)
+# Prompt construction
 # ---------------------------------------------------------------------------
 
-def build_prompt(var_names: list[str], conn: sqlite3.Connection) -> str:
-    """Build the classification prompt seeded with real entity names from the DB."""
+def build_system_prompt(conn: sqlite3.Connection) -> str:
+    """Build the system prompt with taxonomy and entity lists. Reused across all calls."""
     quest_names = sorted(
         r[0] for r in conn.execute("SELECT DISTINCT name FROM quests ORDER BY name").fetchall()
     )
     location_names = sorted(
         r[0] for r in conn.execute("SELECT DISTINCT name FROM locations ORDER BY name").fetchall()
     )
-    # Bosses / notable NPCs: combat level > 100 or slayer category exists
     npc_names = sorted(set(
         r[0] for r in conn.execute(
             "SELECT DISTINCT name FROM monsters WHERE combat_level > 100 OR slayer_category IS NOT NULL ORDER BY name"
         ).fetchall()
     ))
-    # Activities from the activities table, split by type
     minigame_names = sorted(
         r[0] for r in conn.execute(
             "SELECT DISTINCT name FROM activities WHERE type IN ('Minigame', 'Raid') ORDER BY name"
@@ -183,77 +217,57 @@ def build_prompt(var_names: list[str], conn: sqlite3.Connection) -> str:
 
     abbrev_lines = "\n".join(f"  {prefix} = {meaning}" for prefix, meaning in sorted(ABBREVIATIONS.items()))
 
-    quest_list = ", ".join(quest_names)
-    skill_list = ", ".join(VALID_SKILLS)
-    location_list = ", ".join(location_names[:200])  # top 200 to keep prompt manageable
-    npc_list = ", ".join(npc_names[:200])
-    minigame_list = ", ".join(minigame_names)
-    activity_list = ", ".join(activity_names)
-
     return f"""\
-Classify these Old School RuneScape game variable names.
+You are a classifier for Old School RuneScape game variable names.
 
 Variable names use UPPER_SNAKE_CASE with heavy abbreviation. A prefix usually identifies
 the content area, and suffixes describe the specific property being tracked.
 
 ## Output format
 
-Output ONLY a JSON array. No explanation, no markdown fences.
+One line per variable, exactly:
+VAR_NAME | content_tag1, content_tag2 | functional_tag1, functional_tag2
 
-Each entry: {{"name": "VAR_NAME", "content": ["category:specific_name"], "functional": ["tag"]}}
+Use - for empty columns. No explanation. No headers. Just the lines.
 
 ## Content tags (category:specific_name)
 
-Use snake_case for specific_name. Prefer names from the lists below. You may use names
-not on these lists if you're confident, but strongly prefer known names.
+Use snake_case for specific_name. Prefer names from the lists below.
 
-**quest:<quest_name>** — which quest the var tracks
-Known quests: {quest_list}
-
-**skill:<skill_name>** — which skill
-Known skills: {skill_list}
-
-**npc:<npc_name>** — which NPC, boss, or monster
-Known NPCs/bosses (partial list): {npc_list}
-
-**location:<location_name>** — which location
-Known locations (partial list): {location_list}
-
-**item:<item_name>** — which item (too many to list; use your OSRS knowledge)
-
-**minigame:<name>** — which minigame or raid
-Known minigames: {minigame_list}
-
-**activity:<name>** — activities, bosses, forestry events, D&Ds, or broad game systems
-Known activities: {activity_list}
-Also use activity for systems without a DB entry: combat_achievements, collection_log, league, xp_tracker, pvp, adventure_path, fairy_rings, fossil_island, music, holiday_event, polls, deadman_mode, group_ironman, ports, clans, diary
+quest: {", ".join(quest_names)}
+skill: {", ".join(VALID_SKILLS)}
+npc (partial): {", ".join(npc_names[:200])}
+location (partial): {", ".join(location_names[:200])}
+item: use your OSRS knowledge
+minigame: {", ".join(minigame_names)}
+activity: {", ".join(activity_names)}
+Also: combat_achievements, collection_log, league, xp_tracker, pvp, adventure_path, fairy_rings, fossil_island, music, holiday_event, polls, deadman_mode, group_ironman, ports, clans, diary
 
 ## Functional tags
 
-Values: progress, toggle, counter, ui, config, storage, timer, cosmetic
+progress, toggle, counter, ui, config, storage, timer, cosmetic
 
 ## Known abbreviations
 
-These prefixes map to specific content. Apply them when you see the prefix:
 {abbrev_lines}
 
 ## Rules
 
-- A variable can have multiple content tags (e.g. a league task about a quest gets both activity:league and quest:X).
-- If you can't determine content, use an empty array for content.
-- LEAGUE_TASK_* = activity:league + whatever content the task name references.
-- CA_TASK_* = activity:combat_achievements + the NPC/boss.
-- COLLECTION_* = activity:collection_log + specific content if identifiable.
-- XPTRACKER_* = activity:xp_tracker + the skill.
-- SLAYER_* = skill:slayer + the NPC if identifiable.
-- POH_* / POH_COS_* = skill:construction.
-- MUSIC_* = activity:music.
-- POTIONSTORE_* = activity:potionstore (NMZ potion storage).
-- BUFF_* = track buff duration/state.
+- Multiple content tags OK (e.g. league task about a quest = activity:league, quest:X)
+- LEAGUE_TASK_* = activity:league + referenced content
+- CA_TASK_* = activity:combat_achievements + NPC/boss
+- COLLECTION_* = activity:collection_log + specific content if identifiable
+- XPTRACKER_* = activity:xp_tracker + skill
+- SLAYER_* = skill:slayer + NPC if identifiable
+- POH_* / POH_COS_* = skill:construction
+- MUSIC_* = activity:music
+- POTIONSTORE_* = activity:potionstore
+- BUFF_* = timer"""
 
-## Variables to classify
 
-{chr(10).join(var_names)}"""
+def build_user_message(var_names: list[str]) -> str:
+    """Build the user message with seed examples and variables to classify."""
+    return f"Here is an example of correct classification:\n\n{SEED_EXPECTED}\n\nNow classify these:\n" + "\n".join(var_names)
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +293,6 @@ def build_entity_sets(conn: sqlite3.Connection) -> dict[str, set[str]]:
     rows = conn.execute("SELECT DISTINCT name FROM locations").fetchall()
     entities["location"] = {normalize(r[0]) for r in rows}
 
-    # Activities — minigames/raids validate as "minigame", others as "activity"
     rows = conn.execute("SELECT DISTINCT name, type FROM activities").fetchall()
     entities["minigame"] = {normalize(r[0]) for r in rows if r[1] in ("Minigame", "Raid")}
     entities["activity"] = {normalize(r[0]) for r in rows if r[1] not in ("Minigame", "Raid", "Random event")}
@@ -293,7 +306,7 @@ def build_entity_sets(conn: sqlite3.Connection) -> dict[str, set[str]]:
 def normalize(name: str) -> str:
     """Normalize a name to snake_case for fuzzy matching."""
     s = name.lower()
-    s = re.sub(r"[''']s\b", "s", s)  # possessives
+    s = re.sub(r"[''']s\b", "s", s)
     s = re.sub(r"[^a-z0-9]+", "_", s)
     return s.strip("_")
 
@@ -316,7 +329,6 @@ def validate_content_tags(
         if entity_set is None:
             valid.append(tag)
             continue
-        # Try exact match, then stripped (no underscores) match, then substring
         norm_value = normalize(value)
         stripped_value = norm_value.replace("_", "")
         if norm_value in entity_set:
@@ -334,58 +346,79 @@ def validate_content_tags(
 # Claude CLI interaction
 # ---------------------------------------------------------------------------
 
+def parse_response(text: str, var_set: set[str]) -> list[dict]:
+    """Parse pipe-delimited response lines into result dicts."""
+    results = []
+    for line in text.splitlines():
+        line = line.strip()
+        if "|" not in line:
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) < 2:
+            continue
+
+        name = parts[0]
+        if name not in var_set:
+            continue
+
+        content_str = parts[1] if len(parts) > 1 else "-"
+        functional_str = parts[2] if len(parts) > 2 else "-"
+
+        content = [t.strip() for t in content_str.split(",") if t.strip() and t.strip() != "-"]
+        functional = [t.strip() for t in functional_str.split(",") if t.strip() and t.strip() != "-"]
+
+        results.append({"name": name, "content": content, "functional": functional})
+
+    return results
+
+
 def classify_batch(
-    var_names: list[str], model: str, claude_bin: str, conn: sqlite3.Connection
+    var_names: list[str],
+    system_prompt: str,
+    claude_bin: str,
+    model: str,
+    session_id: str | None = None,
+    first_session_id: str | None = None,
+    timeout: int = 300,
 ) -> list[dict]:
-    """Send a batch of variable names to Claude via CLI."""
-    prompt = build_prompt(var_names, conn)
+    """Classify a batch of variable names via --print.
+
+    If session_id is given, resumes that session (taxonomy already loaded).
+    If first_session_id is given, creates a new session with that ID.
+    """
+    user_msg = build_user_message(var_names)
+
+    cmd = [
+        claude_bin,
+        "--print",
+        "--model", model,
+        "--output-format", "text",
+        "--allowedTools", "",
+    ]
+
+    if session_id:
+        # Resume existing session — taxonomy already loaded
+        cmd.extend(["--resume", session_id])
+        input_msg = "Classify these:\n" + "\n".join(var_names)
+    else:
+        # First call — send full taxonomy + seed examples
+        cmd.extend(["--system-prompt", system_prompt])
+        if first_session_id:
+            cmd.extend(["--session-id", first_session_id])
+        input_msg = user_msg
 
     result = subprocess.run(
-        [
-            claude_bin,
-            "--print",
-            "--model", model,
-            "--output-format", "text",
-            "--system-prompt", "You classify OSRS game variable names. Output ONLY raw JSON — no markdown fences, no explanation, no preamble.",
-            "--no-session-persistence",
-            "--allowedTools", "",
-        ],
-        input=prompt,
+        cmd,
+        input=input_msg,
         capture_output=True,
         text=True,
-        timeout=180,
+        timeout=timeout,
     )
 
     if result.returncode != 0:
-        print(f"  WARNING: claude exited with code {result.returncode}")
-        print(f"  stderr: {result.stderr[:300]}")
-        return []
+        return [], result.stdout, result.stderr
 
-    text = result.stdout.strip()
-
-    # Strip markdown code fences if present
-    text = re.sub(r"^```(?:json)?\s*\n?", "", text)
-    text = re.sub(r"\n?```\s*$", "", text)
-
-    # Try to extract a JSON array or object
-    json_match = re.search(r"[\[{].*[\]}]", text, re.DOTALL)
-    if not json_match:
-        print(f"  WARNING: No JSON found in response:\n{text[:200]}")
-        return []
-
-    try:
-        parsed = json.loads(json_match.group())
-    except json.JSONDecodeError as e:
-        print(f"  WARNING: JSON decode error: {e}")
-        print(f"  text: {text[:300]}")
-        return []
-
-    # Handle both {"vars": [...]} wrapper and bare [...] array
-    if isinstance(parsed, dict):
-        return parsed.get("vars", [])
-    elif isinstance(parsed, list):
-        return parsed
-    return []
+    return parse_response(result.stdout, set(var_names)), result.stdout, result.stderr
 
 
 # ---------------------------------------------------------------------------
@@ -422,6 +455,57 @@ def migrate_columns(conn: sqlite3.Connection) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Progress display
+# ---------------------------------------------------------------------------
+
+class Progress:
+    """Thread-safe progress tracker."""
+
+    def __init__(self, total: int, enabled: bool = True):
+        self.total = total
+        self.done = 0
+        self.flagged = 0
+        self.failed = 0
+        self.enabled = enabled
+        self._lock = threading.Lock()
+        self._start = time.time()
+
+    def update(self, classified: int, flagged: int = 0, failed: int = 0) -> None:
+        with self._lock:
+            self.done += classified
+            self.flagged += flagged
+            self.failed += failed
+            if self.enabled:
+                self._render()
+
+    def _render(self) -> None:
+        elapsed = time.time() - self._start
+        pct = self.done / self.total * 100 if self.total else 0
+        rate = self.done / elapsed if elapsed > 0 else 0
+        eta = (self.total - self.done) / rate if rate > 0 else 0
+
+        bar_width = 30
+        filled = int(bar_width * self.done / self.total) if self.total else 0
+        bar = "█" * filled + "░" * (bar_width - filled)
+
+        parts = [f"\r{bar} {pct:5.1f}% {self.done}/{self.total}"]
+        parts.append(f" ({rate:.0f}/s, ETA {eta:.0f}s)")
+        if self.flagged:
+            parts.append(f" [{self.flagged} flagged]")
+        if self.failed:
+            parts.append(f" [{self.failed} failed]")
+
+        sys.stderr.write("".join(parts))
+        sys.stderr.flush()
+
+    def finish(self) -> None:
+        if self.enabled:
+            self._render()
+            sys.stderr.write("\n")
+            sys.stderr.flush()
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -431,9 +515,16 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=100)
     parser.add_argument("--limit", type=int, default=None, help="Max vars to classify")
     parser.add_argument("--var-type", choices=["varp", "varbit", "varc_int", "varc_str"])
-    parser.add_argument("--model", default="sonnet")
+    parser.add_argument("--model", default="opus")
+    parser.add_argument("--workers", type=int, default=1, help="Parallel workers")
+    parser.add_argument("--timeout", type=int, default=300, help="Timeout per batch in seconds")
+    parser.add_argument("--delay", type=int, default=10, help="Seconds between batches per worker")
+    parser.add_argument("--session-reset", type=int, default=5, dest="session_reset",
+                        help="Reset session every N batches to limit context growth (default: 5)")
     parser.add_argument("--reclassify", action="store_true", help="Re-classify already tagged vars")
     parser.add_argument("--dry-run", action="store_true", help="Print tags without writing to DB")
+    parser.add_argument("--progress", action=argparse.BooleanOptionalAction, default=True,
+                        help="Show progress bar (default: on)")
     args = parser.parse_args()
 
     claude_bin = shutil.which("claude")
@@ -465,67 +556,145 @@ def main() -> None:
         print("No vars to classify.")
         return
 
-    print(f"Classifying {total} vars in batches of {args.batch_size} using {args.model}")
+    total_batches = (total + args.batch_size - 1) // args.batch_size
+    print(f"Classifying {total} vars in {total_batches} batches of {args.batch_size} "
+          f"using {args.model} with {args.workers} worker(s)", flush=True)
 
-    # Build validation entity sets
+    # Build system prompt and validation sets
+    system_prompt = build_system_prompt(conn)
     entities = build_entity_sets(conn)
-    print(f"Validation entities: {', '.join(f'{k}={len(v)}' for k, v in entities.items())}")
 
-    classified = 0
-    flagged_total = 0
+    # Split into batches
+    batches = []
+    for i in range(0, total, args.batch_size):
+        batch_rows = rows[i : i + args.batch_size]
+        batches.append(batch_rows)
 
-    for batch_start in range(0, total, args.batch_size):
-        batch = rows[batch_start : batch_start + args.batch_size]
-        var_names = [r[0] for r in batch]
-        var_types = {r[0]: r[1] for r in batch}
-        batch_num = batch_start // args.batch_size + 1
-        total_batches = (total + args.batch_size - 1) // args.batch_size
+    progress = Progress(total, enabled=args.progress)
 
-        print(f"\nBatch {batch_num}/{total_batches} ({len(batch)} vars)...")
+    # DB writer queue — all DB ops happen on the writer thread
+    write_queue: queue.Queue = queue.Queue()
+    SENTINEL = "STOP"
+    COMMIT = "COMMIT"
 
-        results = classify_batch(var_names, args.model, claude_bin, conn)
-
-        # Index results by name
-        result_map = {r["name"]: r for r in results if "name" in r}
-
-        for var_name, var_type in batch:
-            result = result_map.get(var_name)
-            if not result:
+    def db_writer() -> None:
+        writer_conn = sqlite3.connect(args.db)
+        writer_conn.execute("PRAGMA foreign_keys = ON")
+        while True:
+            item = write_queue.get()
+            if item is SENTINEL:
+                writer_conn.commit()
+                writer_conn.close()
+                write_queue.task_done()
+                break
+            if item is COMMIT:
+                writer_conn.commit()
+                write_queue.task_done()
                 continue
+            var_name, var_type, content_tags, functional_tags = item
+            write_tags(writer_conn, var_name, var_type, content_tags, functional_tags)
+            write_queue.task_done()
 
-            content_raw = result.get("content", [])
-            functional_raw = result.get("functional", [])
-
-            # Validate functional tags
-            functional_tags = [t for t in functional_raw if t in FUNCTIONAL_CATEGORIES]
-
-            # Validate content tags against DB
-            valid_content, flagged_content = validate_content_tags(content_raw, entities)
-
-            if args.dry_run:
-                status = ""
-                if flagged_content:
-                    status = f"  FLAGGED: {flagged_content}"
-                    flagged_total += len(flagged_content)
-                print(f"  {var_name}: content={valid_content} functional={functional_tags}{status}")
-            else:
-                write_tags(conn, var_name, var_type, valid_content, functional_tags)
-                classified += 1
-                if flagged_content:
-                    flagged_total += len(flagged_content)
-                    print(f"  FLAGGED {var_name}: {flagged_content}")
-
-        if not args.dry_run:
-            conn.commit()
-
-        # Rate limit between batches
-        if batch_start + args.batch_size < total:
-            time.sleep(0.5)
-
+    writer_thread = threading.Thread(target=db_writer, daemon=True)
     if not args.dry_run:
-        print(f"\nDone. Classified {classified} vars, {flagged_total} tags flagged and dropped.")
+        writer_thread.start()
+
+    def worker_loop(worker_batches: list[list[tuple]], worker_id: int) -> None:
+        session_id = str(uuid.uuid4())
+        session_batch_count = 0
+
+        for i, batch_rows in enumerate(worker_batches):
+            if i > 0:
+                time.sleep(args.delay)
+
+            # Reset session every N batches to keep context window small
+            if session_batch_count >= args.session_reset:
+                session_id = str(uuid.uuid4())
+                session_batch_count = 0
+
+            var_names = [r[0] for r in batch_rows]
+            var_types = {r[0]: r[1] for r in batch_rows}
+
+            t0 = time.time()
+            is_fresh = session_batch_count == 0
+            try:
+                results, raw_stdout, raw_stderr = classify_batch(
+                    var_names, system_prompt, claude_bin, args.model,
+                    session_id=session_id if not is_fresh else None,
+                    timeout=args.timeout,
+                    first_session_id=session_id if is_fresh else None,
+                )
+            except subprocess.TimeoutExpired:
+                ttr = time.time() - t0
+                print(f"  W{worker_id}B{i}: TIMEOUT after {ttr:.1f}s", file=sys.stderr, flush=True)
+                progress.update(0, failed=len(var_names))
+                continue
+            ttr = time.time() - t0
+
+            # Log any stderr from the CLI
+            if raw_stderr.strip():
+                print(f"  W{worker_id}B{i}: stderr: {raw_stderr.strip()[:200]}", file=sys.stderr, flush=True)
+
+            # Check if output has non-pipe content (thinking, tool use, etc.)
+            non_pipe_lines = [l for l in raw_stdout.splitlines() if l.strip() and "|" not in l]
+            if non_pipe_lines:
+                print(f"  W{worker_id}B{i}: extra output: {non_pipe_lines[:3]}", file=sys.stderr, flush=True)
+
+            result_map = {r["name"]: r for r in results}
+            batch_flagged = 0
+
+            for var_name, var_type in batch_rows:
+                result = result_map.get(var_name)
+                if not result:
+                    continue
+
+                content_raw = result.get("content", [])
+                functional_raw = result.get("functional", [])
+
+                functional_tags = [t for t in functional_raw if t in FUNCTIONAL_CATEGORIES]
+                valid_content, flagged_content = validate_content_tags(content_raw, entities)
+                batch_flagged += len(flagged_content)
+
+                if not args.dry_run:
+                    write_queue.put((var_name, var_type, valid_content, functional_tags))
+
+            # Flush writes after each batch
+            if not args.dry_run:
+                write_queue.put(COMMIT)
+                write_queue.join()
+
+            session_batch_count += 1
+            resumed = "resume" if not is_fresh else "new"
+            print(f"  W{worker_id}B{i}: TTR={ttr:.1f}s parsed={len(result_map)}/{len(batch_rows)} ({resumed})",
+                  file=sys.stderr, flush=True)
+
+            progress.update(len(batch_rows), flagged=batch_flagged,
+                            failed=len(batch_rows) - len(result_map))
+
+    # Distribute batches round-robin to workers
+    worker_assignments: list[list[list[tuple]]] = [[] for _ in range(args.workers)]
+    for i, batch in enumerate(batches):
+        worker_assignments[i % args.workers].append(batch)
+
+    if args.workers > 1:
+        with ThreadPoolExecutor(max_workers=args.workers) as pool:
+            futures = [pool.submit(worker_loop, wa, i) for i, wa in enumerate(worker_assignments)]
+            for f in as_completed(futures):
+                f.result()
     else:
-        print(f"\nDry run complete. {flagged_total} tags would be flagged.")
+        worker_loop(worker_assignments[0], 0)
+
+    # Stop writer thread
+    if not args.dry_run:
+        write_queue.put(SENTINEL)
+        write_queue.join()
+        writer_thread.join()
+
+    progress.finish()
+
+    elapsed = time.time() - progress._start
+    print(f"\nDone in {elapsed:.1f}s. "
+          f"Classified: {progress.done}, flagged: {progress.flagged}, failed: {progress.failed}")
 
     conn.close()
 
