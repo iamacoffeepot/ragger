@@ -1,11 +1,12 @@
 import sqlite3
 from pathlib import Path
 
-from ragger.enums import ALL_REGIONS_MASK, ALL_SKILLS_MASK, DiaryLocation, DiaryTier, Region, ShopType, Skill, TaskDifficulty
+from ragger.enums import ALL_REGIONS_MASK, ALL_SKILLS_MASK, ActivityType, DiaryLocation, DiaryTier, Region, ShopType, Skill, TaskDifficulty
 
 _skill_ids = ", ".join(str(s.value) for s in Skill)
 _region_ids = ", ".join(str(r.value) for r in Region)
 _difficulty_ids = ", ".join(str(d.value) for d in TaskDifficulty)
+_activity_type_values = ", ".join(f"'{t.value}'" for t in ActivityType)
 _diary_location_values = ", ".join(f"'{l.value}'" for l in DiaryLocation)
 _diary_tier_values = ", ".join(f"'{t.value}'" for t in DiaryTier)
 
@@ -400,6 +401,20 @@ SCHEMAS: list[str] = [
         buy_price INTEGER,
         FOREIGN KEY (shop_id) REFERENCES shops(id),
         UNIQUE(shop_id, item_name)
+    )
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS activities (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        type TEXT NOT NULL DEFAULT 'Activity' CHECK(type IN ({_activity_type_values})),
+        members INTEGER NOT NULL DEFAULT 1,
+        location TEXT,
+        location_id INTEGER,
+        players TEXT,
+        skills INTEGER NOT NULL DEFAULT 0,
+        region INTEGER CHECK(region IN ({_region_ids}) OR region IS NULL),
+        FOREIGN KEY (location_id) REFERENCES locations(id)
     )
     """,
     """

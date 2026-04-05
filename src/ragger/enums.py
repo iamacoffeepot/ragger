@@ -69,6 +69,16 @@ _SKILL_LABEL_LOOKUP: dict[str, Skill] = {v.lower(): k for k, v in SKILL_LABELS.i
 
 ALL_SKILLS_MASK = (1 << len(Skill)) - 1
 
+COMBAT_SKILLS_MASK = (
+    Skill.ATTACK.mask
+    | Skill.STRENGTH.mask
+    | Skill.DEFENCE.mask
+    | Skill.HITPOINTS.mask
+    | Skill.RANGED.mask
+    | Skill.MAGIC.mask
+    | Skill.PRAYER.mask
+)
+
 
 class Region(int, Enum):
     GENERAL = 0
@@ -398,3 +408,25 @@ class ShopType(str, Enum):
         if "candle" in cleaned:
             return cls.CANDLE
         return cls.OTHER
+
+
+class ActivityType(str, Enum):
+    MINIGAME = "Minigame"
+    RANDOM_EVENT = "Random event"
+    FORESTRY = "Forestry"
+    RAID = "Raid"
+    ACTIVITY = "Activity"
+    BOSS = "Boss"
+    DISTRACTION_AND_DIVERSION = "Distraction and Diversion"
+    QUEST = "Quest"
+    REWARD = "Reward"
+
+    @classmethod
+    def from_label(cls, label: str) -> "ActivityType":
+        if not label:
+            return cls.ACTIVITY
+        cleaned = label.strip()
+        for member in cls:
+            if member.value.lower() == cleaned.lower():
+                return member
+        return cls.ACTIVITY

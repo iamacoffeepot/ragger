@@ -41,16 +41,18 @@ Pipeline order (managed by `fetch_all.py`):
 12. `fetch_quetzal.py` — Parses Quetzal Transport System stops and creates links between all stops
 13. `fetch_charter_ships.py` — Parses charter ship dock coordinates from Trader Stan's Trading Post
 14. `fetch_magic_teleports.py` — Parses all spellbook teleports (Standard, Ancient, Lunar) and item teleports (jewellery, etc.)
-15. `link_shop_locations.py` — Links shops to locations by matching location text
-16. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
-17. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
+15. `fetch_activities.py` — Pulls activities/minigames with type, skills bitmask, and region from Category:Activities
+16. `link_shop_locations.py` — Links shops to locations by matching location text
+17. `link_activity_locations.py` — Links activities to locations by matching location text
+18. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
+19. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
 
 ### Utility scripts
 
 - `import_map_squares.py` — Imports map square images from `data/map-squares.zip` into the `map_squares` table. One-time setup.
 - `import_game_vars.py` — Imports game var JSON from `data/game-vars/` (produced by `dumpGameVars`) into the `game_vars` table. Re-run after updating RuneLite.
-18. `fetch_league_tasks.py` — Pulls league tasks (with `--league` flag)
-19. `fetch_npcs.py` — Pulls non-combat NPC data (name, version, location, options, region) from Category:Non-player characters
+20. `fetch_league_tasks.py` — Pulls league tasks (with `--league` flag)
+21. `fetch_npcs.py` — Pulls non-combat NPC data (name, version, location, options, region) from Category:Non-player characters
 
 ## Cache Dump Tool
 
@@ -344,6 +346,26 @@ render_path(conn, path, "output.png", padding=200, dpi=200)
 
 Pathfinding uses A* with Chebyshev heuristic. Zero cost for instant transitions (teleports, fairy rings, entrances). Walkable edges cost Chebyshev distance. Path rendering chains arrows end-to-end, snaps same-location coords, and splits into panels when jumps exceed 384 tiles (6 regions) with departure/arrival markers.
 
+### Activity (`src/ragger/activity.py`)
+
+```python
+from ragger.activity import Activity
+
+Activity.all(conn, region?, activity_type?) -> list[Activity]
+Activity.by_name(conn, name) -> Activity | None
+Activity.search(conn, name) -> list[Activity]          # partial name match
+Activity.by_type(conn, activity_type) -> list[Activity]
+Activity.for_skill(conn, skill) -> list[Activity]      # bitmask match
+activity.skill_list() -> list[Skill]
+activity.type -> ActivityType
+activity.members -> bool
+activity.location -> str | None
+activity.location_id -> int | None                     # FK to locations table
+activity.players -> str | None
+activity.skills -> int                                 # bitmask
+activity.region -> Region | None
+```
+
 ### Npc (`src/ragger/npc.py`)
 
 ```python
@@ -450,11 +472,13 @@ throttle()                                                                 # rat
 - `DiaryLocation(str, Enum)` — 12 diary regions with `xp_reward(tier)`, `min_level(tier)` methods
 - `DiaryTier(str, Enum)` — Easy/Medium/Hard/Elite
 - `ShopType(str, Enum)` — 36 shop types (General, Gem, Fishing, Magic, etc.) with `from_label` fuzzy matching
+- `ActivityType(str, Enum)` — Minigame, Random event, Forestry, Raid, Activity, Boss, Distraction and Diversion, Quest, Reward with `from_label` (falls back to Activity)
 - `Facility(int, Enum)` — Bank, Furnace, Anvil, Range, Altar, Spinning wheel, Loom with `mask`, `label` properties
 - `Immunity(int, Enum)` — Poison, Venom, Cannon, Thrall, Burn with `mask`, `label` properties
 - `MapLinkType(str, Enum)` — entrance, exit, fairy_ring, charter_ship, spirit_tree, gnome_glider, canoe, teleport, minecart, ship, quetzal, walkable, npc_transport
 - `MAP_LINK_ANYWHERE` — constant `"ANYWHERE"` for teleport from_location (castable from any location)
 - `ALL_SKILLS_MASK`, `ALL_REGIONS_MASK` — bitmask constants for "all"
+- `COMBAT_SKILLS_MASK` — bitmask for Attack, Strength, Defence, Hitpoints, Ranged, Magic, Prayer
 
 ## RuneLite Plugin
 
