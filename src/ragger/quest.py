@@ -3,9 +3,11 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from ragger.enums import Region
+from ragger.enums import ContentCategory, Region
+from ragger.game_variable import GameVariable
 from ragger.requirements import QuestPointRequirement, QuestRequirement, RegionRequirement, SkillRequirement
 from ragger.rewards import ExperienceReward, ItemReward
+from ragger.utils import snake_case
 
 
 @dataclass
@@ -154,3 +156,6 @@ class Quest:
         visited.add(self.id)
         _build(self.id, self.name, 1)
         return "\n".join(lines)
+
+    def game_vars(self, conn: sqlite3.Connection) -> list[GameVariable]:
+        return GameVariable.by_content_tag(conn, ContentCategory.QUEST, snake_case(self.name))

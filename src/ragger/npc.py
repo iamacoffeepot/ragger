@@ -3,7 +3,9 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from ragger.enums import Region
+from ragger.enums import ContentCategory, Region
+from ragger.game_variable import GameVariable
+from ragger.utils import snake_case
 
 
 @dataclass
@@ -83,3 +85,6 @@ class Npc:
         if self.options is None:
             return []
         return [o.strip() for o in self.options.split(",")]
+
+    def game_vars(self, conn: sqlite3.Connection) -> list[GameVariable]:
+        return GameVariable.by_content_tag(conn, ContentCategory.NPC, snake_case(self.name))

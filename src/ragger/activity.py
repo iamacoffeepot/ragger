@@ -3,7 +3,9 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from ragger.enums import ActivityType, Region, Skill
+from ragger.enums import ActivityType, ContentCategory, Region, Skill
+from ragger.game_variable import GameVariable
+from ragger.utils import snake_case
 
 
 @dataclass
@@ -89,3 +91,7 @@ class Activity:
 
     def skill_list(self) -> list[Skill]:
         return [s for s in Skill if self.skills & s.mask]
+
+    def game_vars(self, conn: sqlite3.Connection) -> list[GameVariable]:
+        category = ContentCategory.MINIGAME if self.type in (ActivityType.MINIGAME, ActivityType.RAID) else ContentCategory.ACTIVITY
+        return GameVariable.by_content_tag(conn, category, snake_case(self.name))

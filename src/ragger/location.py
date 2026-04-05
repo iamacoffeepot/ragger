@@ -6,7 +6,9 @@ from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 
-from ragger.enums import Facility, Region
+from ragger.enums import ContentCategory, Facility, Region
+from ragger.game_variable import GameVariable
+from ragger.utils import snake_case
 from ragger.shop import Shop
 
 
@@ -215,3 +217,6 @@ class Location:
             (shop_id,),
         ).fetchone()
         return cls._from_row(row) if row else None
+
+    def game_vars(self, conn: sqlite3.Connection) -> list[GameVariable]:
+        return GameVariable.by_content_tag(conn, ContentCategory.LOCATION, snake_case(self.name))

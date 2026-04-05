@@ -561,7 +561,7 @@ widget.TYPE_LINE
 
 ### API: `varp`
 
-Read player variables (varps) and varbits. Look up variable IDs from the `game_vars` table in the ragger database using `GameVar.search()` or `GameVar.by_name()`.
+Read player variables (varps) and varbits. Look up variable IDs from the `game_vars` table in the ragger database using `GameVariable.search()` or `GameVariable.by_name()`.
 
 ```lua
 -- Read a raw varp slot by ID

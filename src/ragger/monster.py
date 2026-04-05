@@ -3,7 +3,9 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from ragger.enums import Immunity, Region
+from ragger.enums import ContentCategory, Immunity, Region
+from ragger.game_variable import GameVariable
+from ragger.utils import snake_case
 
 
 @dataclass
@@ -200,3 +202,6 @@ class Monster:
             (self.id, item_name),
         ).fetchall()
         return [MonsterDrop(*r) for r in rows]
+
+    def game_vars(self, conn: sqlite3.Connection) -> list[GameVariable]:
+        return GameVariable.by_content_tag(conn, ContentCategory.NPC, snake_case(self.name))
