@@ -44,7 +44,7 @@ public class ServiceManager {
     private final Map<String, String> templateSources = new HashMap<>();
     private boolean started = false;
 
-    public ServiceManager(ActorManager actorManager) {
+    public ServiceManager(final ActorManager actorManager) {
         this.actorManager = actorManager;
     }
 
@@ -53,10 +53,12 @@ public class ServiceManager {
      * Safe to call on the game tick thread.
      */
     public void start() {
-        if (started) return;
+        if (started) {
+            return;
+        }
         started = true;
 
-        JsonObject manifest = loadManifest();
+        final JsonObject manifest = loadManifest();
         if (manifest == null) {
             log.warn("No service manifest found — skipping service layer");
             return;
@@ -66,21 +68,23 @@ public class ServiceManager {
         loadTemplates(manifest);
 
         // Spawn service instances
-        JsonArray svcs = manifest.getAsJsonArray("services");
-        if (svcs == null) return;
+        final JsonArray svcs = manifest.getAsJsonArray("services");
+        if (svcs == null) {
+            return;
+        }
 
-        for (JsonElement el : svcs) {
-            JsonObject obj = el.getAsJsonObject();
-            String name = obj.get("name").getAsString();
-            String template = obj.get("template").getAsString();
+        for (final JsonElement el : svcs) {
+            final JsonObject obj = el.getAsJsonObject();
+            final String name = obj.get("name").getAsString();
+            final String template = obj.get("template").getAsString();
 
-            String source = templateSources.get(template);
+            final String source = templateSources.get(template);
             if (source == null) {
                 log.warn("Service '{}' references unknown template '{}' — skipping", name, template);
                 continue;
             }
 
-            ServiceEntry entry = new ServiceEntry(name, template, source);
+            final ServiceEntry entry = new ServiceEntry(name, template, source);
             services.add(entry);
             spawnService(entry);
         }
@@ -93,14 +97,18 @@ public class ServiceManager {
      * Called every game tick to check for crashed services and respawn them.
      */
     public void tick() {
-        if (!started) return;
+        if (!started) {
+            return;
+        }
 
-        for (ServiceEntry entry : services) {
-            String fullName = SERVICE_PREFIX + entry.name;
+        for (final ServiceEntry entry : services) {
+            final String fullName = SERVICE_PREFIX + entry.name;
             entry.ticksSinceCheck++;
 
             if (!actorManager.isRunning(fullName)) {
-                if (entry.dead) continue;
+                if (entry.dead) {
+                    continue;
+                }
 
                 if (entry.respawnAttempts >= MAX_RESPAWN_ATTEMPTS) {
                     if (!entry.dead) {
@@ -111,7 +119,9 @@ public class ServiceManager {
                     continue;
                 }
 
-                if (entry.ticksSinceCheck < RESPAWN_COOLDOWN_TICKS) continue;
+                if (entry.ticksSinceCheck < RESPAWN_COOLDOWN_TICKS) {
+                    continue;
+                }
 
                 log.info("Service '{}' not running — respawning (attempt {}/{})",
                     entry.name, entry.respawnAttempts + 1, MAX_RESPAWN_ATTEMPTS);
@@ -130,21 +140,23 @@ public class ServiceManager {
      * List managed service names and their status.
      */
     public List<ServiceStatus> status() {
-        List<ServiceStatus> result = new ArrayList<>();
-        for (ServiceEntry entry : services) {
-            String fullName = SERVICE_PREFIX + entry.name;
-            boolean running = actorManager.isRunning(fullName);
+        final List<ServiceStatus> result = new ArrayList<>();
+
+        for (final ServiceEntry entry : services) {
+            final String fullName = SERVICE_PREFIX + entry.name;
+            final boolean running = actorManager.isRunning(fullName);
             result.add(new ServiceStatus(entry.name, entry.template, running,
                 entry.respawnAttempts, entry.dead));
         }
+
         return result;
     }
 
     /**
      * Reset a dead service so the watchdog will try respawning it again.
      */
-    public boolean revive(String name) {
-        for (ServiceEntry entry : services) {
+    public boolean revive(final String name) {
+        for (final ServiceEntry entry : services) {
             if (entry.name.equals(name)) {
                 entry.dead = false;
                 entry.respawnAttempts = 0;
@@ -159,12 +171,13 @@ public class ServiceManager {
      * Shut down all managed services.
      */
     public void shutdown() {
-        for (ServiceEntry entry : services) {
-            String fullName = SERVICE_PREFIX + entry.name;
+        for (final ServiceEntry entry : services) {
+            final String fullName = SERVICE_PREFIX + entry.name;
             if (actorManager.isRunning(fullName)) {
                 actorManager.unload(fullName);
             }
         }
+
         services.clear();
         templateSources.clear();
         started = false;
@@ -172,36 +185,41 @@ public class ServiceManager {
 
     // -- internals --
 
-    private void spawnService(ServiceEntry entry) {
-        String fullName = SERVICE_PREFIX + entry.name;
-        String templateName = "svc-" + entry.template;
+    private void spawnService(final ServiceEntry entry) {
+        final String fullName = SERVICE_PREFIX + entry.name;
+        final String templateName = "svc-" + entry.template;
+
         // Resolve from template registry so hot-reloaded templates take effect
         String source = actorManager.getTemplate(templateName);
         if (source == null) {
             source = entry.source; // fallback to initial source
         }
+
         try {
             actorManager.load(fullName, source);
             entry.respawnAttempts++;
             log.info("Spawned service: {}", fullName);
-        } catch (Exception e) {
+        } catch (final Exception e) {
             entry.respawnAttempts++;
             log.error("Failed to spawn service '{}': {}", entry.name, e.getMessage());
         }
     }
 
-    private void loadTemplates(JsonObject manifest) {
-        // Discover templates from service entries
-        JsonArray svcs = manifest.getAsJsonArray("services");
-        if (svcs == null) return;
+    private void loadTemplates(final JsonObject manifest) {
+        final JsonArray svcs = manifest.getAsJsonArray("services");
+        if (svcs == null) {
+            return;
+        }
 
-        for (JsonElement el : svcs) {
-            JsonObject obj = el.getAsJsonObject();
-            String template = obj.get("template").getAsString();
+        for (final JsonElement el : svcs) {
+            final JsonObject obj = el.getAsJsonObject();
+            final String template = obj.get("template").getAsString();
 
-            if (templateSources.containsKey(template)) continue;
+            if (templateSources.containsKey(template)) {
+                continue;
+            }
 
-            String source = loadResource(RESOURCE_BASE + template + ".lua");
+            final String source = loadResource(RESOURCE_BASE + template + ".lua");
             if (source == null) {
                 log.warn("Template resource not found: {}.lua", template);
                 continue;
@@ -213,16 +231,20 @@ public class ServiceManager {
     }
 
     private JsonObject loadManifest() {
-        String json = loadResource(MANIFEST);
-        if (json == null) return null;
+        final String json = loadResource(MANIFEST);
+        if (json == null) {
+            return null;
+        }
         return new Gson().fromJson(json, JsonObject.class);
     }
 
-    private String loadResource(String path) {
-        try (InputStream is = getClass().getResourceAsStream(path)) {
-            if (is == null) return null;
+    private String loadResource(final String path) {
+        try (final InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) {
+                return null;
+            }
             return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
+        } catch (final IOException e) {
             log.error("Failed to read resource: {}", path, e);
             return null;
         }
@@ -238,7 +260,7 @@ public class ServiceManager {
         int ticksSinceCheck = RESPAWN_COOLDOWN_TICKS; // allow immediate first spawn
         boolean dead = false;
 
-        ServiceEntry(String name, String template, String source) {
+        ServiceEntry(final String name, final String template, final String source) {
             this.name = name;
             this.template = template;
             this.source = source;

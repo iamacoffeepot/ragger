@@ -51,6 +51,7 @@ public class BridgeServer {
     private final ConcurrentLinkedQueue<PendingRequest> pendingRequests = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<PendingRun> pendingRuns = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<PendingMailRecv> pendingMailRecvs = new ConcurrentLinkedQueue<>();
+
     private HttpServer server;
 
     public BridgeServer(final ActorManager actorManager) {
@@ -193,6 +194,7 @@ public class BridgeServer {
             }
 
             final boolean expired = now >= pending.deadlineMs;
+
             if (expired) {
                 pending.future.complete(formatMailMessages(pending.collected));
                 it.remove();
@@ -221,7 +223,8 @@ public class BridgeServer {
             return;
         }
 
-        final String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        final String body = new String(
+            exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
 
         try {
             final JsonObject json = new JsonParser().parse(body).getAsJsonObject();
@@ -244,7 +247,8 @@ public class BridgeServer {
             return;
         }
 
-        final String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        final String body = new String(
+            exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
 
         try {
             final JsonObject json = new JsonParser().parse(body).getAsJsonObject();
@@ -286,7 +290,8 @@ public class BridgeServer {
             return;
         }
 
-        final String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        final String body = new String(
+            exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
 
         try {
             final JsonObject json = new JsonParser().parse(body).getAsJsonObject();
@@ -331,7 +336,8 @@ public class BridgeServer {
             return;
         }
 
-        final String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        final String body = new String(
+            exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
 
         try {
             final JsonObject json = new JsonParser().parse(body).getAsJsonObject();
@@ -362,12 +368,18 @@ public class BridgeServer {
         final String fromFilter = params.getOrDefault("from", null);
         final String limitStr = params.get("limit");
 
-        int limit = 0;
+        final int limit;
+
         if (limitStr != null) {
+            int parsed;
             try {
-                limit = Integer.parseInt(limitStr);
+                parsed = Integer.parseInt(limitStr);
             } catch (final NumberFormatException ignored) {
+                parsed = 0;
             }
+            limit = parsed;
+        } else {
+            limit = 0;
         }
 
         final List<MailMessage> messages = actorManager.drainClaudeMailbox(limit, fromFilter);
@@ -385,21 +397,32 @@ public class BridgeServer {
         final String countStr = params.get("count");
         final String timeoutStr = params.get("timeout");
 
-        int count = 1;
+        final int count;
+
         if (countStr != null) {
+            int parsed;
             try {
-                count = Math.max(1, Integer.parseInt(countStr));
+                parsed = Math.max(1, Integer.parseInt(countStr));
             } catch (final NumberFormatException ignored) {
+                parsed = 1;
             }
+            count = parsed;
+        } else {
+            count = 1;
         }
 
-        int timeoutSec = MAIL_RECV_DEFAULT_TIMEOUT;
+        final int timeoutSec;
+
         if (timeoutStr != null) {
+            int parsed;
             try {
-                final int parsed = Integer.parseInt(timeoutStr);
-                timeoutSec = Math.max(1, Math.min(MAIL_RECV_MAX_TIMEOUT, parsed));
+                parsed = Math.max(1, Math.min(MAIL_RECV_MAX_TIMEOUT, Integer.parseInt(timeoutStr)));
             } catch (final NumberFormatException ignored) {
+                parsed = MAIL_RECV_DEFAULT_TIMEOUT;
             }
+            timeoutSec = parsed;
+        } else {
+            timeoutSec = MAIL_RECV_DEFAULT_TIMEOUT;
         }
 
         final CompletableFuture<String> future = new CompletableFuture<>();
@@ -422,6 +445,7 @@ public class BridgeServer {
         if (query != null) {
             for (final String pair : query.split("&")) {
                 final int eq = pair.indexOf('=');
+
                 if (eq > 0) {
                     params.put(pair.substring(0, eq), pair.substring(eq + 1));
                 }
@@ -450,15 +474,19 @@ public class BridgeServer {
     private static JsonElement toJsonElement(final Object value) {
         if (value instanceof Map) {
             final JsonObject obj = new JsonObject();
+
             for (final Map.Entry<String, Object> kv : ((Map<String, Object>) value).entrySet()) {
                 obj.add(kv.getKey(), toJsonElement(kv.getValue()));
             }
+
             return obj;
         } else if (value instanceof List) {
             final JsonArray arr = new JsonArray();
+
             for (final Object item : (List<Object>) value) {
                 arr.add(toJsonElement(item));
             }
+
             return arr;
         } else if (value instanceof Boolean) {
             return new JsonPrimitive((Boolean) value);
@@ -474,15 +502,19 @@ public class BridgeServer {
     private static Object fromJsonElement(final JsonElement element) {
         if (element.isJsonObject()) {
             final Map<String, Object> map = new HashMap<>();
+
             for (final Map.Entry<String, JsonElement> kv : element.getAsJsonObject().entrySet()) {
                 map.put(kv.getKey(), fromJsonElement(kv.getValue()));
             }
+
             return map;
         } else if (element.isJsonArray()) {
             final List<Object> list = new ArrayList<>();
+
             for (final JsonElement item : element.getAsJsonArray()) {
                 list.add(fromJsonElement(item));
             }
+
             return list;
         } else if (element.isJsonPrimitive()) {
             final JsonPrimitive prim = element.getAsJsonPrimitive();
@@ -501,6 +533,7 @@ public class BridgeServer {
                 if (isWholeInt) {
                     return (int) num;
                 }
+
                 return num;
             }
 
@@ -516,7 +549,8 @@ public class BridgeServer {
             return;
         }
 
-        final String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        final String body = new String(
+            exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
 
         try {
             final JsonElement parsed = new JsonParser().parse(body);
@@ -536,12 +570,14 @@ public class BridgeServer {
                     }
 
                     @SuppressWarnings("unchecked")
-                    final Map<String, Object> map = (Map<String, Object>) fromJsonElement(data);
+                    final Map<String, Object> map =
+                        (Map<String, Object>) fromJsonElement(data);
                     actorManager.enqueueMail("claude", target, map);
                     queued++;
                 }
 
-                respond(exchange, 200, "{\"status\":\"queued\",\"count\":" + queued + "}");
+                respond(exchange, 200,
+                    "{\"status\":\"queued\",\"count\":" + queued + "}");
                 return;
             }
 
@@ -559,14 +595,19 @@ public class BridgeServer {
             final Map<String, Object> map = (Map<String, Object>) fromJsonElement(data);
 
             actorManager.enqueueMail("claude", target, map);
-            respond(exchange, 200, "{\"status\":\"queued\",\"target\":\"" + target + "\"}");
+            respond(exchange, 200,
+                "{\"status\":\"queued\",\"target\":\"" + target + "\"}");
         } catch (final Exception e) {
             final String escaped = e.getMessage().replace("\"", "'");
             respond(exchange, 500, "{\"error\":\"" + escaped + "\"}");
         }
     }
 
-    private void respond(final HttpExchange exchange, final int code, final String body) throws IOException {
+    private void respond(
+        final HttpExchange exchange,
+        final int code,
+        final String body
+    ) throws IOException {
         final byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json");
         exchange.sendResponseHeaders(code, bytes.length);

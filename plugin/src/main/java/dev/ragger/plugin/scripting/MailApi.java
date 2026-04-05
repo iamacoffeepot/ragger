@@ -16,12 +16,12 @@ public class MailApi {
     private final String senderName;
     private final ActorManager manager;
 
-    public MailApi(String senderName, ActorManager manager) {
+    public MailApi(final String senderName, final ActorManager manager) {
         this.senderName = senderName;
         this.manager = manager;
     }
 
-    public void register(Lua lua) {
+    public void register(final Lua lua) {
         lua.createTable(0, 1);
 
         lua.push(this::send);
@@ -35,14 +35,14 @@ public class MailApi {
      * arg 2 = target actor name (string)
      * arg 3 = data table
      */
-    private int send(Lua lua) {
-        String target = lua.toString(2);
+    private int send(final Lua lua) {
+        final String target = lua.toString(2);
         if (target == null || target.isEmpty()) {
             lua.error("mail:send requires a target name");
             return 0;
         }
 
-        Map<String, Object> data;
+        final Map<String, Object> data;
         if (lua.type(3) == Lua.LuaType.TABLE) {
             data = LuaUtils.tableToMap(lua, 3);
         } else {

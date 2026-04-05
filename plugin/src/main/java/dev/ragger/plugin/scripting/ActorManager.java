@@ -1,11 +1,5 @@
 package dev.ragger.plugin.scripting;
 
-import net.runelite.api.Client;
-import net.runelite.client.chat.ChatMessageManager;
-import net.runelite.client.game.ItemManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.awt.Graphics2D;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -16,6 +10,12 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+
+import net.runelite.api.Client;
+import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.game.ItemManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Manages Lua actor lifecycles. Each script gets its own LuaJ runtime
@@ -59,16 +59,25 @@ public class ActorManager {
         HOOK_NAMES.put(LuaEvent.Type.MOUSE_CLICK, "on_mouse_click");
     }
 
+    // --- Dependencies ---
+
     private final Client client;
     private final ChatMessageManager chatMessageManager;
     private final ItemManager itemManager;
+
+    // --- Actor and template storage ---
+
     private final ConcurrentHashMap<String, LuaActor> scripts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String> templates = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<Runnable> changeListeners = new CopyOnWriteArrayList<>();
 
+    // --- Mail and event queues ---
+
     private final ConcurrentLinkedQueue<MailMessage> mailQueue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<MailMessage> claudeMailbox = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<LuaEvent> eventQueue = new ConcurrentLinkedQueue<>();
+
+    // --- Limits ---
 
     private int maxDepth = 3;
     private int maxChildren = 50;
@@ -88,6 +97,10 @@ public class ActorManager {
             super(message);
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Configuration
+    // -----------------------------------------------------------------------
 
     /**
      * Update script limits from config.
@@ -113,6 +126,10 @@ public class ActorManager {
             }
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Actor lifecycle
+    // -----------------------------------------------------------------------
 
     /**
      * Load and start a Lua script from source (top-level, no parent).
@@ -143,7 +160,9 @@ public class ActorManager {
                 .count();
 
             if (childCount >= maxChildren) {
-                throw new ActorLimitException("child limit reached for " + parent + " (max " + maxChildren + ")");
+                throw new ActorLimitException(
+                    "child limit reached for " + parent + " (max " + maxChildren + ")"
+                );
             }
         }
 
@@ -153,7 +172,9 @@ public class ActorManager {
             existing.stop();
         }
 
-        final LuaActor script = new LuaActor(name, source, client, chatMessageManager, itemManager, this, args);
+        final LuaActor script = new LuaActor(
+            name, source, client, chatMessageManager, itemManager, this, args
+        );
         scripts.put(name, script);
         script.start();
         log.info("Loaded actor: {}", name);
@@ -161,6 +182,69 @@ public class ActorManager {
 
         return name;
     }
+
+    /**
+     * Unload and stop a script and all its children.
+     */
+    public void unload(final String name) {
+        // Stop children first
+        final String prefix = name + "/";
+        final var it = scripts.entrySet().iterator();
+
+        while (it.hasNext()) {
+            final var entry = it.next();
+            if (entry.getKey().startsWith(prefix)) {
+                entry.getValue().stop();
+                it.remove();
+                log.info("Cascade-unloaded actor: {}", entry.getKey());
+            }
+        }
+
+        // Stop the script itself
+        final LuaActor script = scripts.remove(name);
+        if (script != null) {
+            script.stop();
+            log.info("Unloaded actor: {}", name);
+        }
+
+        fireChange();
+    }
+
+    /**
+     * Resolve a child name relative to a parent.
+     * Child names must not contain '/' or '..' to prevent namespace escaping.
+     */
+    public String childName(final String parent, final String child) {
+        if (child == null || child.isEmpty() || child.contains("/") || child.contains("..")) {
+            throw new IllegalArgumentException(
+                "invalid child name: must not be empty or contain '/' or '..'"
+            );
+        }
+        return parent + "/" + child;
+    }
+
+    /**
+     * List direct children of a parent script.
+     */
+    public List<String> listChildren(final String parent) {
+        final String prefix = parent + "/";
+        final List<String> result = new ArrayList<>();
+
+        for (final String key : scripts.keySet()) {
+            if (key.startsWith(prefix)) {
+                final String rest = key.substring(prefix.length());
+                if (!rest.contains("/")) {
+                    result.add(rest);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // -----------------------------------------------------------------------
+    // Mail
+    // -----------------------------------------------------------------------
 
     /**
      * Enqueue a mail message for delivery on the next drain.
@@ -171,7 +255,7 @@ public class ActorManager {
 
     /**
      * Drain the mail queue and deliver messages to recipients.
-     * Uses snapshot pattern — messages sent during delivery queue for next drain.
+     * Uses snapshot pattern -- messages sent during delivery queue for next drain.
      */
     public void drainMail() {
         final List<MailMessage> batch = new ArrayList<>();
@@ -275,8 +359,12 @@ public class ActorManager {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Tick and events
+    // -----------------------------------------------------------------------
+
     /**
-     * Called every game tick — dispatches to all active scripts with hooks.
+     * Called every game tick -- dispatches to all active scripts with hooks.
      */
     public void tick() {
         final var it = scripts.entrySet().iterator();
@@ -304,7 +392,7 @@ public class ActorManager {
 
     /**
      * Drain buffered events and deliver to all actors that define the matching hook.
-     * Called after tick() — actors see on_tick first, then events from that tick.
+     * Called after tick() -- actors see on_tick first, then events from that tick.
      */
     public void drainEvents() {
         final List<LuaEvent> batch = new ArrayList<>();
@@ -338,6 +426,10 @@ public class ActorManager {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Eval
+    // -----------------------------------------------------------------------
+
     /**
      * Evaluate a Lua expression and return the result as a string.
      * Runs in a temporary LuaJ runtime with all API bindings.
@@ -354,62 +446,9 @@ public class ActorManager {
         }
     }
 
-    /**
-     * Unload and stop a script and all its children.
-     */
-    public void unload(final String name) {
-        // Stop children first
-        final String prefix = name + "/";
-        final var it = scripts.entrySet().iterator();
-
-        while (it.hasNext()) {
-            final var entry = it.next();
-            if (entry.getKey().startsWith(prefix)) {
-                entry.getValue().stop();
-                it.remove();
-                log.info("Cascade-unloaded actor: {}", entry.getKey());
-            }
-        }
-
-        // Stop the script itself
-        final LuaActor script = scripts.remove(name);
-        if (script != null) {
-            script.stop();
-            log.info("Unloaded actor: {}", name);
-        }
-
-        fireChange();
-    }
-
-    /**
-     * Resolve a child name relative to a parent.
-     * Child names must not contain '/' or '..' to prevent namespace escaping.
-     */
-    public String childName(final String parent, final String child) {
-        if (child == null || child.isEmpty() || child.contains("/") || child.contains("..")) {
-            throw new IllegalArgumentException("invalid child name: must not be empty or contain '/' or '..'");
-        }
-        return parent + "/" + child;
-    }
-
-    /**
-     * List direct children of a parent script.
-     */
-    public List<String> listChildren(final String parent) {
-        final String prefix = parent + "/";
-        final List<String> result = new ArrayList<>();
-
-        for (final String key : scripts.keySet()) {
-            if (key.startsWith(prefix)) {
-                final String rest = key.substring(prefix.length());
-                if (!rest.contains("/")) {
-                    result.add(rest);
-                }
-            }
-        }
-
-        return result;
-    }
+    // -----------------------------------------------------------------------
+    // Templates
+    // -----------------------------------------------------------------------
 
     /**
      * Register a template (script blueprint).
@@ -434,8 +473,12 @@ public class ActorManager {
         return new ArrayList<>(templates.keySet());
     }
 
+    // -----------------------------------------------------------------------
+    // Rendering and queries
+    // -----------------------------------------------------------------------
+
     /**
-     * Called during overlay render — dispatches to all active scripts with hooks.
+     * Called during overlay render -- dispatches to all active scripts with hooks.
      */
     public void render(final Graphics2D graphics) {
         for (final LuaActor script : scripts.values()) {

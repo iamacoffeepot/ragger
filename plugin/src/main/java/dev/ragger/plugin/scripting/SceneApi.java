@@ -1,6 +1,17 @@
 package dev.ragger.plugin.scripting;
 
-import net.runelite.api.*;
+import net.runelite.api.Client;
+import net.runelite.api.DecorativeObject;
+import net.runelite.api.GameObject;
+import net.runelite.api.GroundObject;
+import net.runelite.api.NPC;
+import net.runelite.api.ObjectComposition;
+import net.runelite.api.Player;
+import net.runelite.api.Scene;
+import net.runelite.api.Tile;
+import net.runelite.api.TileItem;
+import net.runelite.api.TileObject;
+import net.runelite.api.WallObject;
 import net.runelite.api.coords.WorldPoint;
 import party.iroiro.luajava.Lua;
 
@@ -15,14 +26,14 @@ public class SceneApi {
 
     private final Client client;
 
-    public SceneApi(Client client) {
+    public SceneApi(final Client client) {
         this.client = client;
     }
 
     /**
      * Register the scene table and all its functions on the Lua state.
      */
-    public void register(Lua lua) {
+    public void register(final Lua lua) {
         lua.createTable(0, 4);
 
         lua.push(this::npcs);
@@ -40,14 +51,16 @@ public class SceneApi {
         lua.setGlobal("scene");
     }
 
-    private int npcs(Lua lua) {
-        List<NPC> npcs = client.getNpcs();
+    private int npcs(final Lua lua) {
+        final List<NPC> npcs = client.getNpcs();
 
         lua.createTable(npcs.size(), 0);
         int index = 1;
 
-        for (NPC npc : npcs) {
-            if (npc == null || npc.getName() == null) continue;
+        for (final NPC npc : npcs) {
+            if (npc == null || npc.getName() == null) {
+                continue;
+            }
 
             lua.createTable(0, 10);
 
@@ -59,7 +72,7 @@ public class SceneApi {
             pushInt(lua, "hp_scale", npc.getHealthScale());
             pushBool(lua, "is_dead", npc.isDead());
 
-            WorldPoint wp = npc.getWorldLocation();
+            final WorldPoint wp = npc.getWorldLocation();
             if (wp != null) {
                 pushInt(lua, "x", wp.getX());
                 pushInt(lua, "y", wp.getY());
@@ -72,14 +85,16 @@ public class SceneApi {
         return 1;
     }
 
-    private int players(Lua lua) {
-        List<Player> players = client.getPlayers();
+    private int players(final Lua lua) {
+        final List<Player> players = client.getPlayers();
 
         lua.createTable(players.size(), 0);
         int index = 1;
 
-        for (Player player : players) {
-            if (player == null || player.getName() == null) continue;
+        for (final Player player : players) {
+            if (player == null || player.getName() == null) {
+                continue;
+            }
 
             lua.createTable(0, 10);
 
@@ -93,7 +108,7 @@ public class SceneApi {
             pushBool(lua, "is_clan", player.isClanMember());
             pushInt(lua, "team", player.getTeam());
 
-            WorldPoint wp = player.getWorldLocation();
+            final WorldPoint wp = player.getWorldLocation();
             if (wp != null) {
                 pushInt(lua, "x", wp.getX());
                 pushInt(lua, "y", wp.getY());
@@ -106,26 +121,32 @@ public class SceneApi {
         return 1;
     }
 
-    private int ground_items(Lua lua) {
-        Scene scene = client.getScene();
-        Tile[][][] tiles = scene.getTiles();
-        int plane = client.getPlane();
+    private int ground_items(final Lua lua) {
+        final Scene scene = client.getScene();
+        final Tile[][][] tiles = scene.getTiles();
+        final int plane = client.getPlane();
 
         lua.createTable(0, 0);
         int index = 1;
 
         for (int x = 0; x < tiles[plane].length; x++) {
             for (int y = 0; y < tiles[plane][x].length; y++) {
-                Tile tile = tiles[plane][x][y];
-                if (tile == null) continue;
+                final Tile tile = tiles[plane][x][y];
+                if (tile == null) {
+                    continue;
+                }
 
-                List<TileItem> items = tile.getGroundItems();
-                if (items == null) continue;
+                final List<TileItem> items = tile.getGroundItems();
+                if (items == null) {
+                    continue;
+                }
 
-                WorldPoint wp = tile.getWorldLocation();
+                final WorldPoint wp = tile.getWorldLocation();
 
-                for (TileItem item : items) {
-                    if (item == null) continue;
+                for (final TileItem item : items) {
+                    if (item == null) {
+                        continue;
+                    }
 
                     lua.createTable(0, 7);
 
@@ -148,7 +169,7 @@ public class SceneApi {
         return 1;
     }
 
-    private int objects(Lua lua) {
+    private int objects(final Lua lua) {
         // Optional name filter:
         //   scene:objects()                          -- all objects
         //   scene:objects("Bank booth")              -- single name filter
@@ -159,7 +180,7 @@ public class SceneApi {
                 filters = List.of(lua.toString(2).toLowerCase());
             } else if (lua.isTable(2)) {
                 filters = new ArrayList<>();
-                int len = lua.rawLength(2);
+                final int len = lua.rawLength(2);
                 for (int i = 1; i <= len; i++) {
                     lua.rawGetI(2, i);
                     if (lua.isString(-1)) {
@@ -170,43 +191,47 @@ public class SceneApi {
             }
         }
 
-        Scene scene = client.getScene();
-        Tile[][][] tiles = scene.getTiles();
-        int plane = client.getPlane();
+        final Scene scene = client.getScene();
+        final Tile[][][] tiles = scene.getTiles();
+        final int plane = client.getPlane();
 
         lua.createTable(0, 0);
         int index = 1;
 
         for (int x = 0; x < tiles[plane].length; x++) {
             for (int y = 0; y < tiles[plane][x].length; y++) {
-                Tile tile = tiles[plane][x][y];
-                if (tile == null) continue;
+                final Tile tile = tiles[plane][x][y];
+                if (tile == null) {
+                    continue;
+                }
 
-                WorldPoint wp = tile.getWorldLocation();
+                final WorldPoint wp = tile.getWorldLocation();
 
                 // Game objects (trees, rocks, interactables, etc.)
-                GameObject[] gameObjects = tile.getGameObjects();
+                final GameObject[] gameObjects = tile.getGameObjects();
                 if (gameObjects != null) {
-                    for (GameObject obj : gameObjects) {
-                        if (obj == null) continue;
+                    for (final GameObject obj : gameObjects) {
+                        if (obj == null) {
+                            continue;
+                        }
                         index = pushTileObject(lua, obj, wp, filters, "game", index);
                     }
                 }
 
                 // Wall objects (doors, gates, walls)
-                WallObject wall = tile.getWallObject();
+                final WallObject wall = tile.getWallObject();
                 if (wall != null) {
                     index = pushTileObject(lua, wall, wp, filters, "wall", index);
                 }
 
                 // Ground objects (floor decorations)
-                GroundObject ground = tile.getGroundObject();
+                final GroundObject ground = tile.getGroundObject();
                 if (ground != null) {
                     index = pushTileObject(lua, ground, wp, filters, "ground", index);
                 }
 
                 // Decorative objects (wall decorations, curtains)
-                DecorativeObject decor = tile.getDecorativeObject();
+                final DecorativeObject decor = tile.getDecorativeObject();
                 if (decor != null) {
                     index = pushTileObject(lua, decor, wp, filters, "decorative", index);
                 }
@@ -216,27 +241,40 @@ public class SceneApi {
         return 1;
     }
 
-    private int pushTileObject(Lua lua, TileObject obj, WorldPoint wp, List<String> filters, String type, int index) {
-        int id = obj.getId();
-        ObjectComposition comp = client.getObjectDefinition(id);
-        if (comp == null) return index;
+    private int pushTileObject(
+        final Lua lua,
+        final TileObject obj,
+        final WorldPoint wp,
+        final List<String> filters,
+        final String type,
+        final int index
+    ) {
+        final int id = obj.getId();
+        final ObjectComposition comp = client.getObjectDefinition(id);
+        if (comp == null) {
+            return index;
+        }
 
-        String name = comp.getName();
-        if (name == null || "null".equals(name)) return index;
+        final String name = comp.getName();
+        if (name == null || "null".equals(name)) {
+            return index;
+        }
 
         if (filters != null) {
-            String lower = name.toLowerCase();
+            final String lower = name.toLowerCase();
             boolean matched = false;
-            for (String f : filters) {
+            for (final String f : filters) {
                 if (lower.contains(f)) {
                     matched = true;
                     break;
                 }
             }
-            if (!matched) return index;
+            if (!matched) {
+                return index;
+            }
         }
 
-        String[] actions = comp.getActions();
+        final String[] actions = comp.getActions();
 
         lua.createTable(0, 7);
 
@@ -254,7 +292,7 @@ public class SceneApi {
         if (actions != null) {
             lua.createTable(actions.length, 0);
             int ai = 1;
-            for (String action : actions) {
+            for (final String action : actions) {
                 if (action != null) {
                     lua.push(action);
                     lua.rawSetI(-2, ai);
@@ -264,21 +302,21 @@ public class SceneApi {
             lua.setField(-2, "actions");
         }
 
-        lua.rawSetI(-2, index++);
-        return index;
+        lua.rawSetI(-2, index);
+        return index + 1;
     }
 
-    private static void pushString(Lua lua, String key, String value) {
+    private static void pushString(final Lua lua, final String key, final String value) {
         lua.push(value);
         lua.setField(-2, key);
     }
 
-    private static void pushInt(Lua lua, String key, int value) {
+    private static void pushInt(final Lua lua, final String key, final int value) {
         lua.push(value);
         lua.setField(-2, key);
     }
 
-    private static void pushBool(Lua lua, String key, boolean value) {
+    private static void pushBool(final Lua lua, final String key, final boolean value) {
         lua.push(value);
         lua.setField(-2, key);
     }

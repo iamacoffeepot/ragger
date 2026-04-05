@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import party.iroiro.luajava.Lua;
 import party.iroiro.luajava.luaj.LuaJ;
 
+import java.awt.Graphics2D;
 import java.util.Map;
 
 /**
@@ -28,12 +29,21 @@ public class LuaActor {
     private final ActorManager actorManager;
     private final Map<String, Object> args;
     private final OverlayApi overlayApi = new OverlayApi();
+
     private Lua lua;
     private boolean running = false;
     private boolean hasHooks = false;
     private boolean requestStop = false;
 
-    public LuaActor(String name, String source, Client client, ChatMessageManager chatMessageManager, ItemManager itemManager, ActorManager actorManager, Map<String, Object> args) {
+    public LuaActor(
+        final String name,
+        final String source,
+        final Client client,
+        final ChatMessageManager chatMessageManager,
+        final ItemManager itemManager,
+        final ActorManager actorManager,
+        final Map<String, Object> args
+    ) {
         this.name = name;
         this.source = source;
         this.client = client;
@@ -57,19 +67,21 @@ public class LuaActor {
         lua.set("client", new ClientApi(client));
         lua.set("player", new PlayerApi(client));
         lua.set("skill", new SkillApi());
+
         new SceneApi(client).register(lua);
         new CoordsApi(client).register(lua);
         new ItemsApi(itemManager).register(lua);
         new InventoryApi(client, itemManager).register(lua);
         new CombatApi(client).register(lua);
+
         lua.set("prayer", new PrayerApi());
+
         new ActorsApi(name, actorManager).register(lua);
         new MailApi(name, actorManager).register(lua);
         new WidgetApi(client).register(lua);
         new VarApi(client).register(lua);
         new JsonApi().register(lua);
         new Base64Api().register(lua);
-        new GeometryApi(client).register(lua);
 
         // Inject args table if provided
         if (args != null && !args.isEmpty()) {
@@ -79,7 +91,9 @@ public class LuaActor {
     }
 
     public void start() {
-        if (running) return;
+        if (running) {
+            return;
+        }
 
         try {
             initLua();
@@ -95,21 +109,27 @@ public class LuaActor {
 
             running = true;
             log.info("Actor started: {} (hooks={})", name, hasHooks);
-        } catch (Exception e) {
+        } catch (final Exception e) {
             log.error("Failed to start actor: {}", name, e);
             stop();
         }
     }
 
     public void tick() {
-        if (!running || !hasHooks) return;
+        if (!running || !hasHooks) {
+            return;
+        }
+
         if (!callHook("on_tick")) {
             requestStop = true;
         }
     }
 
-    public void render(java.awt.Graphics2D graphics) {
-        if (!running || !hasHooks) return;
+    public void render(final Graphics2D graphics) {
+        if (!running || !hasHooks) {
+            return;
+        }
+
         callHookWithArg("on_render", overlayApi);
         overlayApi.flush(graphics);
     }
@@ -144,10 +164,12 @@ public class LuaActor {
                     "  for k, v in pairs(t) do parts[#parts+1] = '\"' .. tostring(k) .. '\":' .. __to_json(v) end " +
                     "  return '{' .. table.concat(parts, ',') .. '}' " +
                     "end end");
+
                 lua.getGlobal("__to_json");
                 lua.pushValue(-2); // push the table
                 lua.pCall(1, 1);
-                String result = lua.toString(-1);
+
+                final String result = lua.toString(-1);
                 return result != null ? result : "null";
             } else if (lua.type(-1) == Lua.LuaType.NIL) {
                 return "null";
@@ -156,10 +178,10 @@ public class LuaActor {
             } else if (lua.type(-1) == Lua.LuaType.NUMBER) {
                 return String.valueOf(lua.toNumber(-1));
             } else {
-                String result = lua.toString(-1);
+                final String result = lua.toString(-1);
                 return result != null ? "\"" + result.replace("\"", "\\\"") + "\"" : "null";
             }
-        } catch (Exception e) {
+        } catch (final Exception e) {
             log.error("Eval error: {}", e.getMessage());
             return "{\"error\":\"" + e.getMessage().replace("\"", "'") + "\"}";
         }
@@ -169,10 +191,12 @@ public class LuaActor {
         if (running && hasHooks) {
             callHook("on_stop");
         }
+
         if (lua != null) {
             lua.close();
             lua = null;
         }
+
         running = false;
         hasHooks = false;
         log.info("Actor stopped: {}", name);
@@ -181,42 +205,50 @@ public class LuaActor {
     /**
      * Call a hook function. Returns false if the hook explicitly returned false (request stop).
      */
-    private boolean callHook(String hookName) {
-        if (lua == null) return true;
+    private boolean callHook(final String hookName) {
+        if (lua == null) {
+            return true;
+        }
 
         try {
             lua.getGlobal("__hooks");
             lua.getField(-1, hookName);
+
             if (lua.type(-1) == Lua.LuaType.FUNCTION) {
                 lua.pCall(0, 1);
                 // Only stop if the hook explicitly returned false
-                boolean keepRunning = lua.type(-1) != Lua.LuaType.BOOLEAN || lua.toBoolean(-1);
+                final boolean keepRunning =
+                    lua.type(-1) != Lua.LuaType.BOOLEAN || lua.toBoolean(-1);
                 lua.pop(2); // pop return value + __hooks
                 return keepRunning;
             } else {
                 lua.pop(2); // pop non-function + __hooks
                 return true;
             }
-        } catch (Exception e) {
+        } catch (final Exception e) {
             log.error("Actor '{}' hook '{}' error: {}", name, hookName, e.getMessage());
             return true;
         }
     }
 
-    private void callHookWithArg(String hookName, Object arg) {
-        if (lua == null) return;
+    private void callHookWithArg(final String hookName, final Object arg) {
+        if (lua == null) {
+            return;
+        }
 
         try {
             lua.getGlobal("__hooks");
             lua.getField(-1, hookName);
+
             if (lua.type(-1) == Lua.LuaType.FUNCTION) {
                 lua.push(arg, Lua.Conversion.FULL);
                 lua.pCall(1, 0);
             } else {
                 lua.pop(1);
             }
+
             lua.pop(1); // pop __hooks
-        } catch (Exception e) {
+        } catch (final Exception e) {
             log.error("Actor '{}' hook '{}' error: {}", name, hookName, e.getMessage());
         }
     }
@@ -241,23 +273,27 @@ public class LuaActor {
      * Deliver a game event to this actor's matching hook (e.g. on_hitsplat, on_chat).
      * Returns false if the hook returned false (request stop).
      */
-    public boolean deliverEvent(String hookName, Map<String, Object> data) {
-        if (!running || !hasHooks || lua == null) return true;
+    public boolean deliverEvent(final String hookName, final Map<String, Object> data) {
+        if (!running || !hasHooks || lua == null) {
+            return true;
+        }
 
         try {
             lua.getGlobal("__hooks");
             lua.getField(-1, hookName);
+
             if (lua.type(-1) == Lua.LuaType.FUNCTION) {
                 LuaUtils.pushArgsTable(lua, data);
                 lua.pCall(1, 1);
-                boolean keepRunning = lua.type(-1) != Lua.LuaType.BOOLEAN || lua.toBoolean(-1);
+                final boolean keepRunning =
+                    lua.type(-1) != Lua.LuaType.BOOLEAN || lua.toBoolean(-1);
                 lua.pop(2); // pop return value + __hooks
                 return keepRunning;
             } else {
                 lua.pop(2); // pop non-function + __hooks
                 return true;
             }
-        } catch (Exception e) {
+        } catch (final Exception e) {
             log.error("Actor '{}' hook '{}' error: {}", name, hookName, e.getMessage());
             return true;
         }
@@ -267,24 +303,28 @@ public class LuaActor {
      * Deliver a mail message to this actor's on_mail hook.
      * Returns false if the hook returned false (request stop).
      */
-    public boolean deliverMail(String from, Map<String, Object> data) {
-        if (!running || !hasHooks || lua == null) return true;
+    public boolean deliverMail(final String from, final Map<String, Object> data) {
+        if (!running || !hasHooks || lua == null) {
+            return true;
+        }
 
         try {
             lua.getGlobal("__hooks");
             lua.getField(-1, "on_mail");
+
             if (lua.type(-1) == Lua.LuaType.FUNCTION) {
                 lua.push(from);
                 LuaUtils.pushArgsTable(lua, data);
                 lua.pCall(2, 1);
-                boolean keepRunning = lua.type(-1) != Lua.LuaType.BOOLEAN || lua.toBoolean(-1);
+                final boolean keepRunning =
+                    lua.type(-1) != Lua.LuaType.BOOLEAN || lua.toBoolean(-1);
                 lua.pop(2); // pop return value + __hooks
                 return keepRunning;
             } else {
                 lua.pop(2); // pop non-function + __hooks
                 return true;
             }
-        } catch (Exception e) {
+        } catch (final Exception e) {
             log.error("Actor '{}' on_mail error: {}", name, e.getMessage());
             return true;
         }

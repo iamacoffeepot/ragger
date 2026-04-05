@@ -7,7 +7,7 @@ import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import party.iroiro.luajava.Lua;
 
-import java.awt.*;
+import java.awt.Polygon;
 
 /**
  * Lua binding for coordinate system conversions.
@@ -22,11 +22,11 @@ public class CoordsApi {
 
     private final Client client;
 
-    public CoordsApi(Client client) {
+    public CoordsApi(final Client client) {
         this.client = client;
     }
 
-    public void register(Lua lua) {
+    public void register(final Lua lua) {
         lua.createTable(0, 6);
 
         lua.push(this::world_to_canvas);
@@ -53,17 +53,17 @@ public class CoordsApi {
     /**
      * coords:world_to_canvas(worldX, worldY) -> x, y or nil
      */
-    private int world_to_canvas(Lua lua) {
-        int worldX = (int) lua.toInteger(2);
-        int worldY = (int) lua.toInteger(3);
+    private int world_to_canvas(final Lua lua) {
+        final int worldX = (int) lua.toInteger(2);
+        final int worldY = (int) lua.toInteger(3);
 
-        LocalPoint lp = LocalPoint.fromWorld(client, worldX, worldY);
+        final LocalPoint lp = LocalPoint.fromWorld(client, worldX, worldY);
         if (lp == null) {
             lua.pushNil();
             return 1;
         }
 
-        Point canvas = Perspective.localToCanvas(client, lp, client.getPlane());
+        final Point canvas = Perspective.localToCanvas(client, lp, client.getPlane());
         if (canvas == null) {
             lua.pushNil();
             return 1;
@@ -77,12 +77,12 @@ public class CoordsApi {
     /**
      * coords:local_to_canvas(localTileX, localTileY) -> x, y or nil
      */
-    private int local_to_canvas(Lua lua) {
-        int tileX = (int) lua.toInteger(2);
-        int tileY = (int) lua.toInteger(3);
+    private int local_to_canvas(final Lua lua) {
+        final int tileX = (int) lua.toInteger(2);
+        final int tileY = (int) lua.toInteger(3);
 
-        LocalPoint lp = LocalPoint.fromScene(tileX, tileY);
-        Point canvas = Perspective.localToCanvas(client, lp, client.getPlane());
+        final LocalPoint lp = LocalPoint.fromScene(tileX, tileY);
+        final Point canvas = Perspective.localToCanvas(client, lp, client.getPlane());
         if (canvas == null) {
             lua.pushNil();
             return 1;
@@ -96,11 +96,11 @@ public class CoordsApi {
     /**
      * coords:world_to_local(worldX, worldY) -> localTileX, localTileY or nil
      */
-    private int world_to_local(Lua lua) {
-        int worldX = (int) lua.toInteger(2);
-        int worldY = (int) lua.toInteger(3);
+    private int world_to_local(final Lua lua) {
+        final int worldX = (int) lua.toInteger(2);
+        final int worldY = (int) lua.toInteger(3);
 
-        LocalPoint lp = LocalPoint.fromWorld(client, worldX, worldY);
+        final LocalPoint lp = LocalPoint.fromWorld(client, worldX, worldY);
         if (lp == null) {
             lua.pushNil();
             return 1;
@@ -114,17 +114,17 @@ public class CoordsApi {
     /**
      * coords:world_to_minimap(worldX, worldY) -> x, y or nil
      */
-    private int world_to_minimap(Lua lua) {
-        int worldX = (int) lua.toInteger(2);
-        int worldY = (int) lua.toInteger(3);
+    private int world_to_minimap(final Lua lua) {
+        final int worldX = (int) lua.toInteger(2);
+        final int worldY = (int) lua.toInteger(3);
 
-        LocalPoint lp = LocalPoint.fromWorld(client, worldX, worldY);
+        final LocalPoint lp = LocalPoint.fromWorld(client, worldX, worldY);
         if (lp == null) {
             lua.pushNil();
             return 1;
         }
 
-        Point minimap = Perspective.localToMinimap(client, lp);
+        final Point minimap = Perspective.localToMinimap(client, lp);
         if (minimap == null) {
             lua.pushNil();
             return 1;
@@ -139,18 +139,18 @@ public class CoordsApi {
      * coords:world_text_pos(worldX, worldY, height) -> x, y or nil
      * Height is in game units above the tile (e.g. 150 for above-head text).
      */
-    private int world_text_pos(Lua lua) {
-        int worldX = (int) lua.toInteger(2);
-        int worldY = (int) lua.toInteger(3);
-        int height = lua.getTop() >= 4 ? (int) lua.toInteger(4) : 0;
+    private int world_text_pos(final Lua lua) {
+        final int worldX = (int) lua.toInteger(2);
+        final int worldY = (int) lua.toInteger(3);
+        final int height = lua.getTop() >= 4 ? (int) lua.toInteger(4) : 0;
 
-        LocalPoint lp = LocalPoint.fromWorld(client, worldX, worldY);
+        final LocalPoint lp = LocalPoint.fromWorld(client, worldX, worldY);
         if (lp == null) {
             lua.pushNil();
             return 1;
         }
 
-        Point canvas = Perspective.localToCanvas(client, lp, client.getPlane(), height);
+        final Point canvas = Perspective.localToCanvas(client, lp, client.getPlane(), height);
         if (canvas == null) {
             lua.pushNil();
             return 1;
@@ -164,17 +164,17 @@ public class CoordsApi {
     /**
      * coords:world_tile_poly(worldX, worldY) -> array of {x, y} points or nil
      */
-    private int world_tile_poly(Lua lua) {
-        int worldX = (int) lua.toInteger(2);
-        int worldY = (int) lua.toInteger(3);
+    private int world_tile_poly(final Lua lua) {
+        final int worldX = (int) lua.toInteger(2);
+        final int worldY = (int) lua.toInteger(3);
 
-        LocalPoint lp = LocalPoint.fromWorld(client, worldX, worldY);
+        final LocalPoint lp = LocalPoint.fromWorld(client, worldX, worldY);
         if (lp == null) {
             lua.pushNil();
             return 1;
         }
 
-        Polygon poly = Perspective.getCanvasTilePoly(client, lp);
+        final Polygon poly = Perspective.getCanvasTilePoly(client, lp);
         if (poly == null) {
             lua.pushNil();
             return 1;

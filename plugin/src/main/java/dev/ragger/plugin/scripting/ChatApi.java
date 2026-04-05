@@ -43,19 +43,19 @@ public class ChatApi {
 
     private final ChatMessageManager chatMessageManager;
 
-    public ChatApi(ChatMessageManager chatMessageManager) {
+    public ChatApi(final ChatMessageManager chatMessageManager) {
         this.chatMessageManager = chatMessageManager;
     }
 
-    public void game(String message) {
+    public void game(final String message) {
         send(GAMEMESSAGE, message);
     }
 
-    public void console(String message) {
+    public void console(final String message) {
         send(CONSOLE, message);
     }
 
-    public void send(ChatMessageType type, String message) {
+    public void send(final ChatMessageType type, final String message) {
         chatMessageManager.queue(QueuedMessage.builder()
             .type(type)
             .value(message)

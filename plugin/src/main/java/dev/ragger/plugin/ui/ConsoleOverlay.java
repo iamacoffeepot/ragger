@@ -65,7 +65,7 @@ public class ConsoleOverlay extends Overlay {
     private final Consumer<String> onMessage;
     private final List<ConsoleLine> lines = new ArrayList<>();
     private final List<String> messageQueue = new ArrayList<>();
-    private StringBuilder inputBuffer = new StringBuilder();
+    private final StringBuilder inputBuffer = new StringBuilder();
     private int cursorPos = 0;
     private boolean visible = false;
     private boolean busy = false;
@@ -830,16 +830,18 @@ public class ConsoleOverlay extends Overlay {
         return spaces / 2; // 2 spaces per indent level
     }
 
-    private static String[] parseCells(String row) {
-        if (row.startsWith("|")) {
-            row = row.substring(1);
+    private static String[] parseCells(final String row) {
+        String trimmed = row;
+
+        if (trimmed.startsWith("|")) {
+            trimmed = trimmed.substring(1);
         }
 
-        if (row.endsWith("|")) {
-            row = row.substring(0, row.length() - 1);
+        if (trimmed.endsWith("|")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
 
-        final String[] cells = row.split("\\|");
+        final String[] cells = trimmed.split("\\|");
 
         for (int i = 0; i < cells.length; i++) {
             cells[i] = cells[i].strip();

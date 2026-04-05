@@ -1,6 +1,10 @@
 package dev.ragger.plugin.scripting;
 
-import net.runelite.api.*;
+import net.runelite.api.Client;
+import net.runelite.api.EquipmentInventorySlot;
+import net.runelite.api.Item;
+import net.runelite.api.ItemComposition;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.game.ItemManager;
 import party.iroiro.luajava.Lua;
@@ -14,12 +18,12 @@ public class InventoryApi {
     private final Client client;
     private final ItemManager itemManager;
 
-    public InventoryApi(Client client, ItemManager itemManager) {
+    public InventoryApi(final Client client, final ItemManager itemManager) {
         this.client = client;
         this.itemManager = itemManager;
     }
 
-    public void register(Lua lua) {
+    public void register(final Lua lua) {
         lua.createTable(0, 4);
 
         lua.push(this::items);
@@ -41,24 +45,29 @@ public class InventoryApi {
      * inventory:items() -> array of {id, name, quantity, slot}
      * Returns all non-empty inventory slots.
      */
-    private int items(Lua lua) {
+    private int items(final Lua lua) {
         lua.createTable(0, 0);
 
-        ItemContainer container = client.getItemContainer(InventoryID.INV);
-        if (container == null) return 1;
+        final ItemContainer container = client.getItemContainer(InventoryID.INV);
+        if (container == null) {
+            return 1;
+        }
 
-        Item[] allItems = container.getItems();
+        final Item[] allItems = container.getItems();
         int index = 1;
+
         for (int slot = 0; slot < allItems.length; slot++) {
-            Item item = allItems[slot];
-            if (item.getId() == -1 || item.getQuantity() == 0) continue;
+            final Item item = allItems[slot];
+            if (item.getId() == -1 || item.getQuantity() == 0) {
+                continue;
+            }
 
             lua.createTable(0, 4);
 
             lua.push(item.getId());
             lua.setField(-2, "id");
 
-            ItemComposition comp = itemManager.getItemComposition(item.getId());
+            final ItemComposition comp = itemManager.getItemComposition(item.getId());
             lua.push(comp.getName());
             lua.setField(-2, "name");
 
@@ -78,27 +87,34 @@ public class InventoryApi {
      * inventory:equipment() -> array of {id, name, quantity, slot, slot_name}
      * Returns all equipped items.
      */
-    private int equipment(Lua lua) {
+    private int equipment(final Lua lua) {
         lua.createTable(0, 0);
 
-        ItemContainer container = client.getItemContainer(InventoryID.WORN);
-        if (container == null) return 1;
+        final ItemContainer container = client.getItemContainer(InventoryID.WORN);
+        if (container == null) {
+            return 1;
+        }
 
-        Item[] allItems = container.getItems();
+        final Item[] allItems = container.getItems();
         int index = 1;
-        for (EquipmentInventorySlot eqSlot : EquipmentInventorySlot.values()) {
-            int slotIdx = eqSlot.getSlotIdx();
-            if (slotIdx >= allItems.length) continue;
 
-            Item item = allItems[slotIdx];
-            if (item.getId() == -1 || item.getQuantity() == 0) continue;
+        for (final EquipmentInventorySlot eqSlot : EquipmentInventorySlot.values()) {
+            final int slotIdx = eqSlot.getSlotIdx();
+            if (slotIdx >= allItems.length) {
+                continue;
+            }
+
+            final Item item = allItems[slotIdx];
+            if (item.getId() == -1 || item.getQuantity() == 0) {
+                continue;
+            }
 
             lua.createTable(0, 5);
 
             lua.push(item.getId());
             lua.setField(-2, "id");
 
-            ItemComposition comp = itemManager.getItemComposition(item.getId());
+            final ItemComposition comp = itemManager.getItemComposition(item.getId());
             lua.push(comp.getName());
             lua.setField(-2, "name");
 
@@ -120,9 +136,9 @@ public class InventoryApi {
     /**
      * inventory:contains(itemId) -> bool
      */
-    private int contains(Lua lua) {
-        int id = (int) lua.toInteger(2);
-        ItemContainer container = client.getItemContainer(InventoryID.INV);
+    private int contains(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
+        final ItemContainer container = client.getItemContainer(InventoryID.INV);
         lua.push(container != null && container.contains(id));
         return 1;
     }
@@ -130,9 +146,9 @@ public class InventoryApi {
     /**
      * inventory:count(itemId) -> int
      */
-    private int count(Lua lua) {
-        int id = (int) lua.toInteger(2);
-        ItemContainer container = client.getItemContainer(InventoryID.INV);
+    private int count(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
+        final ItemContainer container = client.getItemContainer(InventoryID.INV);
         lua.push(container != null ? container.count(id) : 0);
         return 1;
     }

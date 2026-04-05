@@ -12,11 +12,11 @@ public class ItemsApi {
 
     private final ItemManager itemManager;
 
-    public ItemsApi(ItemManager itemManager) {
+    public ItemsApi(final ItemManager itemManager) {
         this.itemManager = itemManager;
     }
 
-    public void register(Lua lua) {
+    public void register(final Lua lua) {
         lua.createTable(0, 5);
 
         lua.push(this::name);
@@ -46,9 +46,9 @@ public class ItemsApi {
     /**
      * items:name(itemId) -> string
      */
-    private int name(Lua lua) {
-        int id = (int) lua.toInteger(2);
-        ItemComposition comp = itemManager.getItemComposition(id);
+    private int name(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
+        final ItemComposition comp = itemManager.getItemComposition(id);
         lua.push(comp.getName());
         return 1;
     }
@@ -56,8 +56,8 @@ public class ItemsApi {
     /**
      * items:grand_exchange_price(itemId) -> int
      */
-    private int grand_exchange_price(Lua lua) {
-        int id = (int) lua.toInteger(2);
+    private int grand_exchange_price(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
         lua.push(itemManager.getItemPrice(id));
         return 1;
     }
@@ -65,9 +65,9 @@ public class ItemsApi {
     /**
      * items:high_alchemy_price(itemId) -> int
      */
-    private int high_alchemy_price(Lua lua) {
-        int id = (int) lua.toInteger(2);
-        ItemComposition comp = itemManager.getItemComposition(id);
+    private int high_alchemy_price(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
+        final ItemComposition comp = itemManager.getItemComposition(id);
         lua.push(comp.getHaPrice());
         return 1;
     }
@@ -75,9 +75,9 @@ public class ItemsApi {
     /**
      * items:base_price(itemId) -> int (store/base value)
      */
-    private int base_price(Lua lua) {
-        int id = (int) lua.toInteger(2);
-        ItemComposition comp = itemManager.getItemComposition(id);
+    private int base_price(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
+        final ItemComposition comp = itemManager.getItemComposition(id);
         lua.push(comp.getPrice());
         return 1;
     }
@@ -85,9 +85,9 @@ public class ItemsApi {
     /**
      * items:is_stackable(itemId) -> bool
      */
-    private int is_stackable(Lua lua) {
-        int id = (int) lua.toInteger(2);
-        ItemComposition comp = itemManager.getItemComposition(id);
+    private int is_stackable(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
+        final ItemComposition comp = itemManager.getItemComposition(id);
         lua.push(comp.isStackable());
         return 1;
     }
@@ -95,9 +95,9 @@ public class ItemsApi {
     /**
      * items:is_members(itemId) -> bool
      */
-    private int is_members(Lua lua) {
-        int id = (int) lua.toInteger(2);
-        ItemComposition comp = itemManager.getItemComposition(id);
+    private int is_members(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
+        final ItemComposition comp = itemManager.getItemComposition(id);
         lua.push(comp.isMembers());
         return 1;
     }
@@ -105,9 +105,9 @@ public class ItemsApi {
     /**
      * items:lookup(itemId) -> table {name, grand_exchange_price, high_alchemy_price, base_price, stackable, members}
      */
-    private int lookup(Lua lua) {
-        int id = (int) lua.toInteger(2);
-        ItemComposition comp = itemManager.getItemComposition(id);
+    private int lookup(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
+        final ItemComposition comp = itemManager.getItemComposition(id);
 
         lua.createTable(0, 6);
 

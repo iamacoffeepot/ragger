@@ -1,6 +1,9 @@
 package dev.ragger.plugin.ui;
 
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.GraphicsEnvironment;
+import java.io.InputStream;
 
 /**
  * Shared color palette and font stack for all Ragger UI components.
@@ -38,10 +41,10 @@ public final class RaggerTheme {
     public static final Font FONT_SMALL;
 
     static {
-        Font regular = loadFont("/dev/ragger/plugin/fonts/MesloLGS-Regular.ttf", Font.PLAIN);
-        Font bold    = loadFont("/dev/ragger/plugin/fonts/MesloLGS-Bold.ttf", Font.BOLD);
-        Font italic  = loadFont("/dev/ragger/plugin/fonts/MesloLGS-Italic.ttf", Font.ITALIC);
-        Font bi      = loadFont("/dev/ragger/plugin/fonts/MesloLGS-BoldItalic.ttf", Font.BOLD | Font.ITALIC);
+        final Font regular = loadFont("/dev/ragger/plugin/fonts/MesloLGS-Regular.ttf", Font.PLAIN);
+        final Font bold    = loadFont("/dev/ragger/plugin/fonts/MesloLGS-Bold.ttf", Font.BOLD);
+        final Font italic  = loadFont("/dev/ragger/plugin/fonts/MesloLGS-Italic.ttf", Font.ITALIC);
+        final Font bi      = loadFont("/dev/ragger/plugin/fonts/MesloLGS-BoldItalic.ttf", Font.BOLD | Font.ITALIC);
 
         FONT            = regular.deriveFont(12f);
         FONT_BOLD       = bold.deriveFont(12f);
@@ -51,14 +54,14 @@ public final class RaggerTheme {
         FONT_SMALL      = regular.deriveFont(11f);
     }
 
-    private static Font loadFont(String resource, int fallbackStyle) {
-        try (var is = RaggerTheme.class.getResourceAsStream(resource)) {
+    private static Font loadFont(final String resource, final int fallbackStyle) {
+        try (final InputStream is = RaggerTheme.class.getResourceAsStream(resource)) {
             if (is != null) {
-                Font font = Font.createFont(Font.TRUETYPE_FONT, is);
+                final Font font = Font.createFont(Font.TRUETYPE_FONT, is);
                 GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(font);
                 return font;
             }
-        } catch (Exception e) {
+        } catch (final Exception e) {
             // fall through
         }
         return new Font(Font.MONOSPACED, fallbackStyle, 12);
@@ -67,7 +70,7 @@ public final class RaggerTheme {
     /**
      * Hex string for use in HTML/CSS style attributes.
      */
-    public static String hex(Color c) {
+    public static String hex(final Color c) {
         return String.format("#%02x%02x%02x", c.getRed(), c.getGreen(), c.getBlue());
     }
 }

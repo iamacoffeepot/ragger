@@ -10,7 +10,7 @@ public class ClaudeResponse {
     private final String text;
     private final List<String> toolLog;
 
-    public ClaudeResponse(String text, List<String> toolLog) {
+    public ClaudeResponse(final String text, final List<String> toolLog) {
         this.text = text;
         this.toolLog = toolLog;
     }

@@ -17,11 +17,11 @@ public class VarApi {
 
     private final Client client;
 
-    public VarApi(Client client) {
+    public VarApi(final Client client) {
         this.client = client;
     }
 
-    public void register(Lua lua) {
+    public void register(final Lua lua) {
         // varp: player variables
         lua.createTable(0, 2);
 
@@ -49,8 +49,8 @@ public class VarApi {
      * varp:get(id) -> int
      * Read a raw varp (variable player) slot value.
      */
-    private int varpGet(Lua lua) {
-        int id = (int) lua.toInteger(2);
+    private int varpGet(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
         lua.push(client.getVarpValue(id));
         return 1;
     }
@@ -60,8 +60,8 @@ public class VarApi {
      * Read a varbit value. RuneLite extracts the bit range from the
      * appropriate varp slot automatically.
      */
-    private int varpBit(Lua lua) {
-        int id = (int) lua.toInteger(2);
+    private int varpBit(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
         lua.push(client.getVarbitValue(id));
         return 1;
     }
@@ -70,8 +70,8 @@ public class VarApi {
      * varc:int(id) -> int
      * Read a client integer variable.
      */
-    private int varcInt(Lua lua) {
-        int id = (int) lua.toInteger(2);
+    private int varcInt(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
         lua.push(client.getVarcIntValue(id));
         return 1;
     }
@@ -80,14 +80,16 @@ public class VarApi {
      * varc:str(id) -> string | nil
      * Read a client string variable.
      */
-    private int varcStr(Lua lua) {
-        int id = (int) lua.toInteger(2);
-        String value = client.getVarcStrValue(id);
+    private int varcStr(final Lua lua) {
+        final int id = (int) lua.toInteger(2);
+        final String value = client.getVarcStrValue(id);
+
         if (value == null) {
             lua.pushNil();
         } else {
             lua.push(value);
         }
+
         return 1;
     }
 }

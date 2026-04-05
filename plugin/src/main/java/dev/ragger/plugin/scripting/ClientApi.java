@@ -22,7 +22,7 @@ public class ClientApi {
 
     private final Client client;
 
-    public ClientApi(Client client) {
+    public ClientApi(final Client client) {
         this.client = client;
     }
 
