@@ -66,6 +66,7 @@ public class LuaActor {
         new ActorsApi(name, actorManager).register(lua);
         new MailApi(name, actorManager).register(lua);
         new WidgetApi(client).register(lua);
+        new VarApi(client).register(lua);
         new JsonApi().register(lua);
         new Base64Api().register(lua);
 
