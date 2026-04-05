@@ -77,6 +77,7 @@ public class RaggerPlugin extends Plugin {
     private ClaudeClient claude;
     private net.runelite.client.input.KeyListener consoleKeyListener;
     private net.runelite.client.input.MouseWheelListener consoleMouseWheelListener;
+    private net.runelite.client.input.MouseListener actorMouseListener;
 
     // Inventory snapshot for change detection
     private int[] prevInventoryIds = new int[28];
@@ -134,6 +135,45 @@ public class RaggerPlugin extends Plugin {
         };
         mouseManager.registerMouseWheelListener(consoleMouseWheelListener);
 
+        actorMouseListener = new net.runelite.client.input.MouseListener() {
+            @Override
+            public java.awt.event.MouseEvent mouseClicked(java.awt.event.MouseEvent e) {
+                actorManager.bufferEvent(LuaEvent.fromMouseClick(e));
+                return e;
+            }
+
+            @Override
+            public java.awt.event.MouseEvent mousePressed(java.awt.event.MouseEvent e) {
+                return e;
+            }
+
+            @Override
+            public java.awt.event.MouseEvent mouseReleased(java.awt.event.MouseEvent e) {
+                return e;
+            }
+
+            @Override
+            public java.awt.event.MouseEvent mouseEntered(java.awt.event.MouseEvent e) {
+                return e;
+            }
+
+            @Override
+            public java.awt.event.MouseEvent mouseExited(java.awt.event.MouseEvent e) {
+                return e;
+            }
+
+            @Override
+            public java.awt.event.MouseEvent mouseDragged(java.awt.event.MouseEvent e) {
+                return e;
+            }
+
+            @Override
+            public java.awt.event.MouseEvent mouseMoved(java.awt.event.MouseEvent e) {
+                return e;
+            }
+        };
+        mouseManager.registerMouseListener(actorMouseListener);
+
         BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
         navButton = NavigationButton.builder()
             .tooltip("Ragger")
@@ -151,6 +191,7 @@ public class RaggerPlugin extends Plugin {
         overlayManager.remove(consoleOverlay);
         keyManager.unregisterKeyListener(consoleKeyListener);
         mouseManager.unregisterMouseWheelListener(consoleMouseWheelListener);
+        mouseManager.unregisterMouseListener(actorMouseListener);
         bridgeServer.stop();
         serviceManager.shutdown();
         actorManager.shutdown();

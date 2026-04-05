@@ -775,6 +775,9 @@ Event hooks fire after `on_tick` each tick, delivering buffered game events. Eac
 - `on_widget_loaded(data)` — `{group_id}` — interface opened
 - `on_widget_closed(data)` — `{group_id}` — interface closed
 
+**Input:**
+- `on_mouse_click(data)` — `{x, y, button, shift, ctrl}` — mouse click on canvas (button: 1=left, 2=middle, 3=right)
+
 If an actor does not return a table, it runs once top-to-bottom (one-shot mode). Locals defined in the actor body are captured by hook closures and persist for the actor's lifetime.
 
 ### API: `mail`

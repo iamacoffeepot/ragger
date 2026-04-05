@@ -40,6 +40,7 @@ public class LuaEvent {
         WORLD_CHANGED,
         WIDGET_LOADED,
         WIDGET_CLOSED,
+        MOUSE_CLICK,
     }
 
     private final Type type;
@@ -315,5 +316,15 @@ public class LuaEvent {
         Map<String, Object> data = new HashMap<>();
         data.put("group_id", event.getGroupId());
         return new LuaEvent(Type.WIDGET_CLOSED, data);
+    }
+
+    public static LuaEvent fromMouseClick(java.awt.event.MouseEvent event) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("x", event.getX());
+        data.put("y", event.getY());
+        data.put("button", event.getButton());
+        data.put("shift", event.isShiftDown());
+        data.put("ctrl", event.isControlDown());
+        return new LuaEvent(Type.MOUSE_CLICK, data);
     }
 }
