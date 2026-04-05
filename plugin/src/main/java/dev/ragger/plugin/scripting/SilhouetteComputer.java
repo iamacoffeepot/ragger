@@ -1,6 +1,7 @@
 package dev.ragger.plugin.scripting;
 
 import net.runelite.api.*;
+import net.runelite.api.Perspective;
 import net.runelite.api.coords.LocalPoint;
 
 import java.util.*;
@@ -138,7 +139,7 @@ public class SilhouetteComputer {
 
         WorldView wv = client.getTopLevelWorldView();
         LocalPoint lp = actor.getLocalLocation();
-        int tileHeight = wv.getTileHeight(lp.getX(), lp.getY(), client.getPlane());
+        int tileHeight = Perspective.getTileHeight(client, lp, client.getPlane());
 
         return computeOutline(wv, model, lp.getX(), lp.getY(), tileHeight, actor.getCurrentOrientation());
     }
@@ -156,7 +157,7 @@ public class SilhouetteComputer {
 
         WorldView wv = client.getTopLevelWorldView();
         LocalPoint lp = obj.getLocalLocation();
-        int tileHeight = wv.getTileHeight(lp.getX(), lp.getY(), client.getPlane());
+        int tileHeight = Perspective.getTileHeight(client, lp, client.getPlane());
 
         return computeOutline(wv, model, lp.getX(), lp.getY(), tileHeight, obj.getModelOrientation());
     }
