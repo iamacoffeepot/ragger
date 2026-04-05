@@ -14,11 +14,13 @@ class Activity:
     members: bool
     location: str | None
     location_id: int | None
+    x: int | None
+    y: int | None
     players: str | None
     skills: int
     region: Region | None
 
-    _COLS = "id, name, type, members, location, location_id, players, skills, region"
+    _COLS = "id, name, type, members, location, location_id, x, y, players, skills, region"
 
     @classmethod
     def all(
@@ -78,9 +80,11 @@ class Activity:
             members=bool(row[3]),
             location=row[4],
             location_id=row[5],
-            players=row[6],
-            skills=row[7],
-            region=Region(row[8]) if row[8] is not None else None,
+            x=row[6],
+            y=row[7],
+            players=row[8],
+            skills=row[9],
+            region=Region(row[10]) if row[10] is not None else None,
         )
 
     def skill_list(self) -> list[Skill]:

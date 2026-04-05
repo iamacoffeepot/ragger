@@ -411,6 +411,8 @@ SCHEMAS: list[str] = [
         members INTEGER NOT NULL DEFAULT 1,
         location TEXT,
         location_id INTEGER,
+        x INTEGER,
+        y INTEGER,
         players TEXT,
         skills INTEGER NOT NULL DEFAULT 0,
         region INTEGER CHECK(region IN ({_region_ids}) OR region IS NULL),

@@ -13,6 +13,7 @@ from pathlib import Path
 from ragger.db import create_tables, get_connection
 from ragger.enums import COMBAT_SKILLS_MASK, ALL_SKILLS_MASK, ActivityType, Skill
 from ragger.wiki import (
+    extract_coords,
     extract_template,
     fetch_category_members,
     fetch_pages_wikitext_batch,
@@ -79,6 +80,16 @@ def parse_activity(wikitext: str) -> dict | None:
     skills_raw = parse_template_param(block, "skills")
     skills = parse_skills_mask(skills_raw)
 
+    # Extract coords from map field (grab raw chunk since parse_template_param
+    # truncates at nested {{ braces)
+    x, y = None, None
+    idx = block.find("|map")
+    if idx >= 0:
+        chunk = block[idx:idx + 300]
+        coords = extract_coords(chunk)
+        if coords:
+            x, y = coords[0]
+
     league_region = parse_template_param(block, "leagueRegion")
     region = resolve_region(league_region)
 
@@ -87,6 +98,8 @@ def parse_activity(wikitext: str) -> dict | None:
         "type": activity_type,
         "members": members,
         "location": location,
+        "x": x,
+        "y": y,
         "players": players,
         "skills": skills,
         "region": region,
@@ -118,13 +131,15 @@ def ingest(db_path: Path) -> None:
 
             conn.execute(
                 """INSERT OR IGNORE INTO activities
-                   (name, type, members, location, players, skills, region)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                   (name, type, members, location, x, y, players, skills, region)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     display_name,
                     data["type"].value,
                     data["members"],
                     data["location"],
+                    data["x"],
+                    data["y"],
                     data["players"],
                     data["skills"],
                     data["region"],

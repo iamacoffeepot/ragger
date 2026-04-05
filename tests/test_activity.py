@@ -6,13 +6,14 @@ from ragger.enums import ActivityType, Region, Skill
 
 def _seed_activities(conn: sqlite3.Connection) -> None:
     conn.executemany(
-        "INSERT INTO activities (name, type, members, location, players, skills, region) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO activities (name, type, members, location, x, y, players, skills, region) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
             (
                 "Barbarian Assault",
                 ActivityType.MINIGAME.value,
                 1,
                 "Barbarian Outpost",
+                2533, 3571,
                 "5",
                 Skill.ATTACK.mask | Skill.STRENGTH.mask | Skill.DEFENCE.mask,
                 Region.KANDARIN.value,
@@ -22,6 +23,7 @@ def _seed_activities(conn: sqlite3.Connection) -> None:
                 ActivityType.MINIGAME.value,
                 1,
                 "Port Khazard",
+                2667, 3162,
                 "1+",
                 Skill.FISHING.mask,
                 Region.KANDARIN.value,
@@ -31,6 +33,7 @@ def _seed_activities(conn: sqlite3.Connection) -> None:
                 ActivityType.RANDOM_EVENT.value,
                 0,
                 None,
+                None, None,
                 "1",
                 0,
                 None,
@@ -40,6 +43,7 @@ def _seed_activities(conn: sqlite3.Connection) -> None:
                 ActivityType.RAID.value,
                 1,
                 "Mount Quidamortem",
+                1255, 3638,
                 "1-100",
                 Skill.MINING.mask | Skill.WOODCUTTING.mask | Skill.COOKING.mask,
                 Region.KOUREND.value,
@@ -127,6 +131,22 @@ def test_skill_list(conn: sqlite3.Connection) -> None:
     assert Skill.STRENGTH in skills
     assert Skill.DEFENCE in skills
     assert Skill.FISHING not in skills
+
+
+def test_coordinates(conn: sqlite3.Connection) -> None:
+    _seed_activities(conn)
+    activity = Activity.by_name(conn, "Barbarian Assault")
+    assert activity is not None
+    assert activity.x == 2533
+    assert activity.y == 3571
+
+
+def test_coordinates_none(conn: sqlite3.Connection) -> None:
+    _seed_activities(conn)
+    beekeeper = Activity.by_name(conn, "Beekeeper")
+    assert beekeeper is not None
+    assert beekeeper.x is None
+    assert beekeeper.y is None
 
 
 def test_members_bool(conn: sqlite3.Connection) -> None:

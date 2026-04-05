@@ -361,6 +361,8 @@ activity.type -> ActivityType
 activity.members -> bool
 activity.location -> str | None
 activity.location_id -> int | None                     # FK to locations table
+activity.x -> int | None                               # map coordinates
+activity.y -> int | None
 activity.players -> str | None
 activity.skills -> int                                 # bitmask
 activity.region -> Region | None
