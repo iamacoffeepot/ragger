@@ -1,8 +1,6 @@
 package dev.ragger.plugin;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -169,42 +167,32 @@ public class ClaudeClient {
                 if (line.isBlank()) continue;
 
                 try {
-                    JsonObject event = new JsonParser().parse(line).getAsJsonObject();
+                    StreamEvent event = StreamEvent.parse(line);
 
-                    if (event.has("session_id")) {
-                        sessionId = event.get("session_id").getAsString();
+                    if (event.getSessionId() != null) {
+                        sessionId = event.getSessionId();
                     }
 
-                    if (event.has("result")) {
-                        finalResult = event.get("result").getAsString();
+                    if (event.getResult() != null) {
+                        finalResult = event.getResult();
                     }
 
-                    // Stream text content from assistant messages
-                    if (event.has("type") && "assistant".equals(event.get("type").getAsString())) {
-                        if (event.has("message")) {
-                            JsonObject msg = event.getAsJsonObject("message");
-                            if (msg.has("content")) {
-                                for (JsonElement el : msg.getAsJsonArray("content")) {
-                                    JsonObject block = el.getAsJsonObject();
-                                    String blockType = block.get("type").getAsString();
-
-                                    if ("text".equals(blockType) && block.has("text")) {
-                                        String fullText = block.get("text").getAsString();
-                                        // Only emit the new portion
-                                        if (fullText.length() > lastSeenText.length()) {
-                                            String newPart = fullText.substring(lastSeenText.length());
-                                            lastSeenText.setLength(0);
-                                            lastSeenText.append(fullText);
-                                            listener.onText(newPart);
-                                        }
-                                    } else if ("tool_use".equals(blockType)) {
-                                        String toolName = block.get("name").getAsString();
-                                        JsonObject input = block.has("input") ? block.getAsJsonObject("input") : null;
-                                        // Reset text tracking — onToolUse handles ending the stream
-                                        lastSeenText.setLength(0);
-                                        listener.onToolUse(formatToolLog(toolName, input));
-                                    }
+                    if (event.isAssistant() && event.getMessage() != null
+                            && event.getMessage().getContent() != null) {
+                        for (StreamEvent.ContentBlock block : event.getMessage().getContent()) {
+                            if (block.isText() && block.getText() != null) {
+                                String fullText = block.getText();
+                                // Only emit the new portion
+                                if (fullText.length() > lastSeenText.length()) {
+                                    String newPart = fullText.substring(lastSeenText.length());
+                                    lastSeenText.setLength(0);
+                                    lastSeenText.append(fullText);
+                                    listener.onText(newPart);
                                 }
+                            } else if (block.isToolUse()) {
+                                // Reset text tracking — onToolUse handles ending the stream
+                                lastSeenText.setLength(0);
+                                listener.onToolUse(formatToolLog(block.getName(), block.getInput()));
                             }
                         }
                     }
