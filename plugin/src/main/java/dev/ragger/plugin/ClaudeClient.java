@@ -4,15 +4,12 @@ import com.google.gson.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Manages communication with the Claude CLI with persistent sessions.
@@ -38,7 +35,14 @@ public class ClaudeClient {
     private volatile Process currentProcess;
     private volatile boolean cancelled;
 
-    public ClaudeClient(String claudePath, String model, int bridgePort, String bridgeToken, boolean devMode, String extraTools) {
+    public ClaudeClient(
+        final String claudePath,
+        final String model,
+        final int bridgePort,
+        final String bridgeToken,
+        final boolean devMode,
+        final String extraTools
+    ) {
         this.claudePath = claudePath;
         this.model = model;
         this.bridgePort = bridgePort;
@@ -63,7 +67,8 @@ public class ClaudeClient {
      */
     public void cancel() {
         cancelled = true;
-        Process p = currentProcess;
+
+        final Process p = currentProcess;
         if (p != null) {
             // Kill entire process tree (Claude CLI + MCP server subprocess)
             p.descendants().forEach(ProcessHandle::destroyForcibly);
@@ -79,7 +84,7 @@ public class ClaudeClient {
     /**
      * Send a message to Claude, streaming responses via the listener.
      */
-    public void send(String message, StreamListener listener, String... behaviors) {
+    public void send(final String message, final StreamListener listener, final String... behaviors) {
         CompletableFuture.runAsync(() -> {
             try {
                 execute(message, listener, behaviors);
@@ -90,8 +95,12 @@ public class ClaudeClient {
         });
     }
 
-    private void execute(String message, StreamListener listener, String... behaviors) throws IOException, InterruptedException {
-        List<String> command = new ArrayList<>();
+    private void execute(
+        final String message,
+        final StreamListener listener,
+        final String... behaviors
+    ) throws IOException, InterruptedException {
+        final List<String> command = new ArrayList<>();
         command.add(claudePath);
         command.add("-p");
         command.add(message);
@@ -122,8 +131,8 @@ public class ClaudeClient {
         }
 
         if (extraTools != null && !extraTools.isBlank()) {
-            for (String tool : extraTools.split(",")) {
-                String trimmed = tool.strip();
+            for (final String tool : extraTools.split(",")) {
+                final String trimmed = tool.strip();
                 if (!trimmed.isEmpty()) {
                     command.add(trimmed);
                 }
@@ -133,8 +142,7 @@ public class ClaudeClient {
         command.add("--mcp-config");
         command.add("{\"mcpServers\":{\"ragger\":{\"type\":\"stdio\",\"command\":\"uv\",\"args\":[\"run\",\"python\",\"src/ragger/mcp_server.py\"]}}}");
 
-
-        String systemPrompt = loadBehaviors(behaviors);
+        final String systemPrompt = loadBehaviors(behaviors);
         if (!systemPrompt.isEmpty()) {
             command.add("--append-system-prompt");
             command.add(systemPrompt);
@@ -145,25 +153,30 @@ public class ClaudeClient {
             command.add(sessionId);
         }
 
-        ProcessBuilder pb = new ProcessBuilder(command);
-        String projectRoot = System.getenv("RAGGER_PROJECT_ROOT");
+        final ProcessBuilder pb = new ProcessBuilder(command);
+        final String projectRoot = System.getenv("RAGGER_PROJECT_ROOT");
         if (projectRoot != null) {
-            pb.directory(new java.io.File(projectRoot));
+            pb.directory(new File(projectRoot));
         }
         pb.environment().put("RAGGER_BRIDGE_PORT", String.valueOf(bridgePort));
         pb.environment().put("RAGGER_BRIDGE_TOKEN", bridgeToken);
         pb.redirectErrorStream(true);
-        pb.redirectInput(ProcessBuilder.Redirect.from(new java.io.File("/dev/null")));
+        pb.redirectInput(ProcessBuilder.Redirect.from(new File("/dev/null")));
         cancelled = false;
-        Process process = pb.start();
+
+        final Process process = pb.start();
         currentProcess = process;
 
         // Track the last text we've seen to detect new content
-        StringBuilder lastSeenText = new StringBuilder();
+        final StringBuilder lastSeenText = new StringBuilder();
         String finalResult = null;
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+        try (
+            BufferedReader reader = new BufferedReader(new InputStreamReader(
+                process.getInputStream(),
+                StandardCharsets.UTF_8
+            ))
+        ) {
             String line;
             while (!cancelled && (line = reader.readLine()) != null) {
                 if (line.isBlank()) {
@@ -171,28 +184,32 @@ public class ClaudeClient {
                 }
 
                 try {
-                    StreamEvent event = StreamEvent.parse(line);
+                    final StreamEvent event = StreamEvent.parse(line);
 
                     if (event.getSessionId() != null) {
                         sessionId = event.getSessionId();
                     }
+
                     if (event.getResult() != null) {
                         finalResult = event.getResult();
                     }
+
                     if (!event.isAssistant()) {
                         continue;
                     }
+
                     if (event.getMessage() == null) {
                         continue;
                     }
+
                     if (event.getMessage().getContent() == null) {
                         continue;
                     }
 
-                    for (StreamEvent.ContentBlock block : event.getMessage().getContent()) {
+                    for (final StreamEvent.ContentBlock block : event.getMessage().getContent()) {
                         processContentBlock(block, lastSeenText, listener);
                     }
-                } catch (Exception e) {
+                } catch (final Exception e) {
                     log.debug("Non-JSON stream line: {}", line);
                 }
             }
@@ -205,7 +222,7 @@ public class ClaudeClient {
             return;
         }
 
-        boolean finished = process.waitFor(CLI_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+        final boolean finished = process.waitFor(CLI_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         if (!finished) {
             log.warn("Claude CLI timed out after {}s, killing process", CLI_TIMEOUT_SECONDS);
             process.destroyForcibly();
@@ -217,14 +234,18 @@ public class ClaudeClient {
         listener.onComplete(finalResult != null ? finalResult : lastSeenText.toString());
     }
 
-    private void processContentBlock(StreamEvent.ContentBlock block, StringBuilder lastSeenText, StreamListener listener) {
+    private void processContentBlock(
+        final StreamEvent.ContentBlock block,
+        final StringBuilder lastSeenText,
+        final StreamListener listener
+    ) {
         if (block.isText() && block.getText() != null) {
-            String fullText = block.getText();
+            final String fullText = block.getText();
             if (fullText.length() <= lastSeenText.length()) {
                 return;
             }
 
-            String newPart = fullText.substring(lastSeenText.length());
+            final String newPart = fullText.substring(lastSeenText.length());
             lastSeenText.setLength(0);
             lastSeenText.append(fullText);
             listener.onText(newPart);
@@ -235,8 +256,8 @@ public class ClaudeClient {
         }
     }
 
-    private String formatToolLog(String toolName, JsonObject input) {
-        String displayName = toolName.replaceFirst("^mcp__\\w+__", "");
+    private String formatToolLog(final String toolName, final JsonObject input) {
+        final String displayName = toolName.replaceFirst("^mcp__\\w+__", "");
 
         if (input == null) {
             return displayName + "()";
@@ -245,56 +266,68 @@ public class ClaudeClient {
         if (input.has("command")) {
             return displayName + "(" + truncate(censorPath(input.get("command").getAsString()), TOOL_LOG_TRUNCATE_LENGTH) + ")";
         }
+
         if (input.has("pattern")) {
             return displayName + "(" + input.get("pattern").getAsString() + ")";
         }
+
         if (input.has("file_path")) {
             return displayName + "(" + censorPath(input.get("file_path").getAsString()) + ")";
         }
+
         if (input.has("script")) {
-            String name = input.has("name") ? input.get("name").getAsString() : "";
+            final String name = input.has("name") ? input.get("name").getAsString() : "";
             return displayName + "(" + name + ", ...)";
         }
+
         return displayName + "()";
     }
 
-    private static String truncate(String s, int maxLen) {
+    private static String truncate(final String s, final int maxLen) {
         if (s.length() <= maxLen) {
             return s;
         }
+
         return s.substring(0, maxLen) + "...";
     }
 
     private static String censorPath(String text) {
-        String projectRoot = System.getenv("RAGGER_PROJECT_ROOT");
+        final String projectRoot = System.getenv("RAGGER_PROJECT_ROOT");
         if (projectRoot != null) {
-            String prefix = projectRoot.endsWith("/") ? projectRoot : projectRoot + "/";
+            final String prefix = projectRoot.endsWith("/") ? projectRoot : projectRoot + "/";
             text = text.replace(prefix, "");
         }
-        String home = System.getProperty("user.home");
+
+        final String home = System.getProperty("user.home");
         if (home != null) {
             text = text.replace(home, "~");
         }
+
         return text;
     }
 
-    private String loadBehaviors(String... behaviors) {
-        StringBuilder sb = new StringBuilder();
-        for (String behavior : behaviors) {
-            String resource = behavior + ".md";
-            try (InputStream is = getClass().getResourceAsStream(resource)) {
+    private String loadBehaviors(final String... behaviors) {
+        final StringBuilder sb = new StringBuilder();
+
+        for (final String behavior : behaviors) {
+            final String resource = behavior + ".md";
+
+            try (final InputStream is = getClass().getResourceAsStream(resource)) {
                 if (is == null) {
                     log.warn("Behavior resource not found: {}", resource);
                     continue;
                 }
+
                 if (!sb.isEmpty()) {
                     sb.append("\n\n");
                 }
+
                 sb.append(new String(is.readAllBytes(), StandardCharsets.UTF_8));
-            } catch (IOException e) {
+            } catch (final IOException e) {
                 log.error("Failed to load behavior: {}", behavior, e);
             }
         }
+
         return sb.toString();
     }
 

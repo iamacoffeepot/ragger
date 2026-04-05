@@ -41,7 +41,7 @@ public class StreamEvent {
         return "assistant".equals(type);
     }
 
-    public static StreamEvent parse(String json) {
+    public static StreamEvent parse(final String json) {
         return GSON.fromJson(json, StreamEvent.class);
     }
 
