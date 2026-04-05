@@ -2,7 +2,7 @@
 
 OSRS knowledge base powered by retrieval-augmented generation. Built with [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-Pulls data from the [OSRS Wiki](https://oldschool.runescape.wiki/) and the game cache into a SQLite database and provides a Python API for querying quests, items, diary tasks, league tasks, shops, locations, monsters, NPCs, and map data — everything you need to plan, pathfind, and theorycraft without writing SQL.
+Pulls data from the [OSRS Wiki](https://oldschool.runescape.wiki/) and the game cache into a SQLite database. Python API for querying quests, items, diary tasks, league tasks, shops, locations, monsters, NPCs, game variables, and map data with pathfinding. RuneLite plugin with an AI chat console and Lua actor engine for live client modifications.
 
 ## Prerequisites
 
@@ -54,27 +54,43 @@ Claude will use the Python API to query the database and answer without you need
 
 ### 4. RuneLite plugin
 
-An AI assistant that lives inside the RuneLite client. Chat with Claude in a sidebar panel — ask about quests, items, strategies, or have it generate Wasm scripts to modify the client. Requires JDK 21+.
+An AI assistant embedded in the RuneLite client. In-game console overlay (toggle with backtick) talks to Claude — ask about quests, items, strategies, or have it write Lua actors that modify the client in real time (tile markers, NPC highlights, timers, loot tracking, custom overlays). Requires JDK 21+.
 
 ```sh
 cd plugin
 ./run.sh
 ```
 
-This launches RuneLite with the Ragger plugin pre-loaded. Look for the Claude icon in the sidebar.
+This launches RuneLite with the Ragger plugin pre-loaded. The plugin includes:
+
+- **Lua actor engine** — sandboxed scripts with access to scene, inventory, combat, widget, and coordinate APIs
+- **Built-in services** — tile markers, NPC highlights, timers, loot tracker, stat tracker, radar (managed by a watchdog, controlled via mail)
+- **MCP bridge** — Claude can spawn actors, evaluate expressions, and send/receive mail through MCP tools
 
 ### 5. Cache dump tool (optional)
 
-Extracts collision maps, water masks, and rendered map tiles from the OSRS game cache. Requires JDK 21+.
+Extracts collision maps, water masks, rendered map tiles, and game variable constants from the OSRS game cache. Requires JDK 21+.
 
 ```sh
 cd tools/cache-dump
 ./gradlew dumpCollision   # collision flags
 ./gradlew dumpWater       # water masks
 ./gradlew dumpMapTiles    # rendered terrain tiles
+./gradlew dumpGameVars    # varp/varbit/varc constants to JSON
 ```
 
-The tool automatically downloads the latest OSRS cache from [OpenRS2](https://archive.openrs2.org/). Output goes to `data/cache-dump/`.
+The tool automatically downloads the latest OSRS cache from [OpenRS2](https://archive.openrs2.org/). Output goes to `data/cache-dump/` and `data/game-vars/`.
+
+### 6. Classify game variables (optional)
+
+Tags the 18K game variables in the database with content and functional metadata using Claude via the CLI:
+
+```sh
+uv run python scripts/classify_game_vars.py --limit 100 --dry-run  # preview
+uv run python scripts/classify_game_vars.py                         # full run
+```
+
+Uses Sonnet by default. The prompt is seeded with real entity names from the database and a hardcoded abbreviation map for known var name prefixes. Content tags are validated against quests, items, NPCs, and locations in the DB.
 
 ## Running tests
 
