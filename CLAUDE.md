@@ -409,16 +409,26 @@ monster.elemental_weakness_percent -> int | None
 ### GameVar (`src/ragger/game_var.py`)
 
 ```python
-from ragger.game_var import GameVar
+from ragger.game_var import GameVar, ContentTag
+from ragger.enums import ContentCategory, FunctionalTag
 
 GameVar.all(conn, var_type?) -> list[GameVar]       # var_type: 'varp', 'varbit', 'varc_int', 'varc_str'
 GameVar.by_name(conn, name) -> list[GameVar]        # exact name match
 GameVar.search(conn, name) -> list[GameVar]         # partial name match (LIKE %name%)
 GameVar.by_var_id(conn, var_id, var_type) -> GameVar | None
+GameVar.by_content_tag(conn, tag, var_type?) -> list[GameVar]       # "quest:troll_stronghold" or "quest" (category prefix)
+GameVar.by_functional_tag(conn, tag, var_type?) -> list[GameVar]    # FunctionalTag.TIMER or "timer"
 var.name -> str                                     # client name hash (e.g. "COM_STANCE")
 var.var_id -> int                                   # numeric ID to pass to varp:get/varc:int
 var.var_type -> str                                 # 'varp', 'varbit', 'varc_int', 'varc_str'
 var.description -> str | None                       # human-readable description (if annotated)
+var.content_tags -> list[ContentTag]                # e.g. [ContentTag(QUEST, "troll_stronghold")]
+var.functional_tags -> list[FunctionalTag]          # e.g. [FunctionalTag.PROGRESS]
+
+# ContentTag fields
+tag.category -> ContentCategory                     # QUEST, SKILL, NPC, LOCATION, ITEM, MINIGAME, ACTIVITY
+tag.name -> str                                     # e.g. "troll_stronghold"
+str(tag) -> "quest:troll_stronghold"
 ```
 
 ### Wiki utilities (`src/ragger/wiki.py`)
@@ -475,6 +485,8 @@ throttle()                                                                 # rat
 - `DiaryTier(str, Enum)` — Easy/Medium/Hard/Elite
 - `ShopType(str, Enum)` — 36 shop types (General, Gem, Fishing, Magic, etc.) with `from_label` fuzzy matching
 - `ActivityType(str, Enum)` — Minigame, Random event, Forestry, Raid, Activity, Boss, Distraction and Diversion, Quest, Reward with `from_label` (falls back to Activity)
+- `ContentCategory(str, Enum)` — quest, skill, npc, location, item, minigame, activity with `from_label`
+- `FunctionalTag(str, Enum)` — progress, toggle, counter, ui, config, storage, timer, cosmetic with `from_label`
 - `Facility(int, Enum)` — Bank, Furnace, Anvil, Range, Altar, Spinning wheel, Loom with `mask`, `label` properties
 - `Immunity(int, Enum)` — Poison, Venom, Cannon, Thrall, Burn with `mask`, `label` properties
 - `MapLinkType(str, Enum)` — entrance, exit, fairy_ring, charter_ship, spirit_tree, gnome_glider, canoe, teleport, minecart, ship, quetzal, walkable, npc_transport
