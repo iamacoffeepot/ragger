@@ -737,6 +737,8 @@ return {
 
 Event hooks fire after `on_tick` each tick, delivering buffered game events. Each receives a single table with the event data. Return `false` to self-stop the actor.
 
+**Tick dispatch order:** `on_mail` → `on_tick` → event hooks (`on_hitsplat`, `on_chat`, etc.) → `on_render` (each frame)
+
 **Combat & damage:**
 - `on_hitsplat(data)` — `{amount, type, is_mine, target_type, target_name, target_id?}`
 - `on_projectile(data)` — `{id, src_x, src_y, dst_x, dst_y, start_cycle, end_cycle, remaining_cycles, target_type?, target_name?, target_id?}`
