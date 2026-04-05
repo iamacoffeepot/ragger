@@ -41,7 +41,7 @@ Pipeline order (managed by `fetch_all.py`):
 12. `fetch_quetzal.py` — Parses Quetzal Transport System stops and creates links between all stops
 13. `fetch_charter_ships.py` — Parses charter ship dock coordinates from Trader Stan's Trading Post
 14. `fetch_magic_teleports.py` — Parses all spellbook teleports (Standard, Ancient, Lunar) and item teleports (jewellery, etc.)
-15. `fetch_activities.py` — Pulls activities/minigames with type, skills bitmask, and region from Category:Activities
+15. `fetch_activities.py` — Pulls activities/minigames with type, coordinates, skills bitmask, and region from Category:Activities
 16. `link_shop_locations.py` — Links shops to locations by matching location text
 17. `link_activity_locations.py` — Links activities to locations by matching location text
 18. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates

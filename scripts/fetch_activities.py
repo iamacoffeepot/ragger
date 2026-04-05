@@ -1,7 +1,8 @@
 """Fetch activity data from the OSRS wiki.
 
-Parses {{Infobox Activity}} for name, type, members, location, players,
-skills, and region. Skills are stored as a bitmask.
+Parses {{Infobox Activity}} for name, type, members, location, coordinates,
+players, skills, and region. Skills are stored as a bitmask. Coordinates
+are extracted from the {{Map}} template in the |map= field.
 
 Uses batched API calls (50 pages per request).
 """
