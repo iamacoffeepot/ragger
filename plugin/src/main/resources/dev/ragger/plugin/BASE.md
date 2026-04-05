@@ -206,6 +206,13 @@ on_render = function(g)
     g:circle(x, y, radius, 0x00FFFF)        -- circle outline
     g:fill_circle(x, y, radius, 0xFF00FF)   -- filled circle
 
+    -- Polygons (points from coords:world_tile_poly)
+    local poly = coords:world_tile_poly(3200, 3400)
+    if poly then
+        g:polygon(poly, 0xFF0000)            -- polygon outline
+        g:fill_polygon(poly, 0x00FF00)       -- filled polygon
+    end
+
     -- Font
     g:font("Arial", "bold", 14)             -- set font (family, style, size)
     g:font("Monospaced", 12)                -- style defaults to "plain"

@@ -86,6 +86,50 @@ public class OverlayApi {
         font(family, "plain", size);
     }
 
+    /**
+     * Draw a polygon outline: g:polygon(points, color)
+     * points is a List of Maps with "x" and "y" keys (matches coords:world_tile_poly output).
+     */
+    @SuppressWarnings("unchecked")
+    public void polygon(List<?> points, int rgb) {
+        Polygon poly = toPolygon(points);
+        if (poly == null) return;
+        Color color = new Color(rgb);
+        commands.add(g -> {
+            g.setColor(color);
+            g.drawPolygon(poly);
+        });
+    }
+
+    /**
+     * Draw a filled polygon: g:fill_polygon(points, color)
+     * points is a List of Maps with "x" and "y" keys (matches coords:world_tile_poly output).
+     */
+    @SuppressWarnings("unchecked")
+    public void fill_polygon(List<?> points, int rgb) {
+        Polygon poly = toPolygon(points);
+        if (poly == null) return;
+        Color color = new Color(rgb);
+        commands.add(g -> {
+            g.setColor(color);
+            g.fillPolygon(poly);
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Polygon toPolygon(List<?> points) {
+        if (points == null || points.isEmpty()) return null;
+        int n = points.size();
+        int[] xp = new int[n];
+        int[] yp = new int[n];
+        for (int i = 0; i < n; i++) {
+            var pt = (java.util.Map<String, Object>) points.get(i);
+            xp[i] = ((Number) pt.get("x")).intValue();
+            yp[i] = ((Number) pt.get("y")).intValue();
+        }
+        return new Polygon(xp, yp, n);
+    }
+
     public void clear() {
         commands.clear();
     }
