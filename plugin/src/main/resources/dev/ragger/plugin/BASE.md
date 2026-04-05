@@ -573,7 +573,7 @@ varp:bit(24)                          -- stamina duration varbit
 varp:bit(varp.STAMINA_DURATION)       -- same, using named constant
 ```
 
-Named constants are available as fields on the `varp` table (e.g. `varp.QUEST_POINTS`, `varp.STAMINA_EFFECT`). These are generated from RuneLite's `VarPlayerID` and `VarbitID` classes — see `VarpConstants.java` for the full list.
+Named constants are available as fields on the `varp` table (e.g. `varp.COM_STANCE`, `varp.STAMINA_DURATION`). These are the client's internal name hashes — see `VarpConstants.java` for the full list.
 
 ### API: `varc`
 
@@ -582,14 +582,14 @@ Read client variables (integers and strings).
 ```lua
 -- Read a client integer variable
 varc:int(171)                         -- inventory tab
-varc:int(varc.INVENTORY_TAB)          -- same, using named constant
+varc:int(varc.TOPLEVEL_PANEL)         -- same, using named constant
 
 -- Read a client string variable
 varc:str(335)                         -- chatbox typed text
-varc:str(varc.CHATBOX_TYPED_TEXT)     -- same, using named constant (returns nil if empty)
+varc:str(varc.CHATINPUT)              -- same, using named constant (returns nil if empty)
 ```
 
-Named constants are available as fields on the `varc` table (e.g. `varc.INVENTORY_TAB`, `varc.CAMERA_ZOOM_FIXED_VIEWPORT`). These are generated from RuneLite's `VarClientID` class — see `VarcConstants.java` for the full list.
+Named constants are available as fields on the `varc` table (e.g. `varc.TOPLEVEL_PANEL`, `varc.CHATINPUT`). These are the client's internal name hashes — see `VarcConstants.java` for the full list.
 
 ### API: `coords`
 
