@@ -47,7 +47,7 @@ public class OverlayApi {
     public void fill_rect(int x, int y, int width, int height, int rgb) {
         Color color = toColor(rgb);
         commands.add(g -> {
-            g.setColor(color);
+            if (!(g.getPaint() instanceof GradientPaint)) g.setColor(color);
             g.fillRect(x, y, width, height);
         });
     }
@@ -63,7 +63,7 @@ public class OverlayApi {
     public void fill_round_rect(int x, int y, int width, int height, int arcw, int arch, int rgb) {
         Color color = toColor(rgb);
         commands.add(g -> {
-            g.setColor(color);
+            if (!(g.getPaint() instanceof GradientPaint)) g.setColor(color);
             g.fillRoundRect(x, y, width, height, arcw, arch);
         });
     }
@@ -87,7 +87,7 @@ public class OverlayApi {
     public void fill_circle(int x, int y, int radius, int rgb) {
         Color color = toColor(rgb);
         commands.add(g -> {
-            g.setColor(color);
+            if (!(g.getPaint() instanceof GradientPaint)) g.setColor(color);
             g.fillOval(x - radius, y - radius, radius * 2, radius * 2);
         });
     }
@@ -103,7 +103,7 @@ public class OverlayApi {
     public void fill_arc(int x, int y, int radius, int startAngle, int arcAngle, int rgb) {
         Color color = toColor(rgb);
         commands.add(g -> {
-            g.setColor(color);
+            if (!(g.getPaint() instanceof GradientPaint)) g.setColor(color);
             g.fillArc(x - radius, y - radius, radius * 2, radius * 2, startAngle, arcAngle);
         });
     }
@@ -134,7 +134,7 @@ public class OverlayApi {
         if (poly == null) return;
         Color color = toColor(rgb);
         commands.add(g -> {
-            g.setColor(color);
+            if (!(g.getPaint() instanceof GradientPaint)) g.setColor(color);
             g.fillPolygon(poly);
         });
     }
@@ -422,7 +422,7 @@ public class OverlayApi {
         GeneralPath path = currentPath;
         Color color = toColor(rgb);
         commands.add(g -> {
-            g.setColor(color);
+            if (!(g.getPaint() instanceof GradientPaint)) g.setColor(color);
             g.fill(path);
         });
     }
