@@ -34,6 +34,15 @@ VALID_SKILLS = [
     "firemaking", "woodcutting", "farming", "sailing",
 ]
 
+# System-level activity names that don't come from the activities table
+SYSTEM_ACTIVITIES = {
+    "combat_achievements", "collection_log", "league", "league_tasks",
+    "xp_tracker", "pvp", "adventure_path", "fairy_rings", "fossil_island",
+    "music", "holiday_event", "polls", "deadman_mode", "group_ironman",
+    "ports", "clans", "diary", "potionstore", "board_games",
+    "hunter_rumours", "ent_totem_carving",
+}
+
 # ---------------------------------------------------------------------------
 # Known abbreviation map (prefix -> decoded meaning)
 # Built from manual inspection of game_vars names and OSRS wiki quest/content names.
@@ -164,6 +173,17 @@ def build_prompt(var_names: list[str], conn: sqlite3.Connection) -> str:
             "SELECT DISTINCT name FROM monsters WHERE combat_level > 100 OR slayer_category IS NOT NULL ORDER BY name"
         ).fetchall()
     ))
+    # Activities from the activities table, split by type
+    minigame_names = sorted(
+        r[0] for r in conn.execute(
+            "SELECT DISTINCT name FROM activities WHERE type IN ('Minigame', 'Raid') ORDER BY name"
+        ).fetchall()
+    )
+    activity_names = sorted(
+        r[0] for r in conn.execute(
+            "SELECT DISTINCT name FROM activities WHERE type NOT IN ('Minigame', 'Raid', 'Random event') ORDER BY name"
+        ).fetchall()
+    )
 
     abbrev_lines = "\n".join(f"  {prefix} = {meaning}" for prefix, meaning in sorted(ABBREVIATIONS.items()))
 
@@ -171,6 +191,8 @@ def build_prompt(var_names: list[str], conn: sqlite3.Connection) -> str:
     skill_list = ", ".join(VALID_SKILLS)
     location_list = ", ".join(location_names[:200])  # top 200 to keep prompt manageable
     npc_list = ", ".join(npc_names[:200])
+    minigame_list = ", ".join(minigame_names)
+    activity_list = ", ".join(activity_names)
 
     return f"""\
 Classify these Old School RuneScape game variable names.
@@ -203,9 +225,12 @@ Known locations (partial list): {location_list}
 
 **item:<item_name>** — which item (too many to list; use your OSRS knowledge)
 
-**minigame:<name>** — which minigame (e.g. theatre_of_blood, chambers_of_xeric, barbarian_assault, the_gauntlet, hallowed_sepulchre, tombs_of_amascut, motherlode_mine, blast_furnace, fortis_colosseum, last_man_standing, nightmare_zone, soul_wars, herblore_mixology, guardians_of_the_rift, pest_control, tithe_farm, volcanic_mine, wintertodt, tempoross, giants_foundry, mahogany_homes)
+**minigame:<name>** — which minigame or raid
+Known minigames: {minigame_list}
 
-**activity:<name>** — broad game systems not covered above (e.g. combat_achievements, collection_log, league, xp_tracker, pvp, adventure_path, fairy_rings, fossil_island, music, holiday_event, polls, deadman_mode, group_ironman, ports, clans, diary)
+**activity:<name>** — activities, bosses, forestry events, D&Ds, or broad game systems
+Known activities: {activity_list}
+Also use activity for systems without a DB entry: combat_achievements, collection_log, league, xp_tracker, pvp, adventure_path, fairy_rings, fossil_island, music, holiday_event, polls, deadman_mode, group_ironman, ports, clans, diary
 
 ## Functional tags
 
@@ -258,6 +283,12 @@ def build_entity_sets(conn: sqlite3.Connection) -> dict[str, set[str]]:
     rows = conn.execute("SELECT DISTINCT name FROM locations").fetchall()
     entities["location"] = {normalize(r[0]) for r in rows}
 
+    # Activities — minigames/raids validate as "minigame", others as "activity"
+    rows = conn.execute("SELECT DISTINCT name, type FROM activities").fetchall()
+    entities["minigame"] = {normalize(r[0]) for r in rows if r[1] in ("Minigame", "Raid")}
+    entities["activity"] = {normalize(r[0]) for r in rows if r[1] not in ("Minigame", "Raid", "Random event")}
+    entities["activity"].update(SYSTEM_ACTIVITIES)
+
     entities["skill"] = set(VALID_SKILLS)
 
     return entities
@@ -284,10 +315,6 @@ def validate_content_tags(
         category, value = tag.split(":", 1)
         if category not in CONTENT_CATEGORIES:
             flagged.append(tag)
-            continue
-        # activity and minigame don't have a DB table to validate against
-        if category in ("activity", "minigame"):
-            valid.append(tag)
             continue
         entity_set = entities.get(category)
         if entity_set is None:
