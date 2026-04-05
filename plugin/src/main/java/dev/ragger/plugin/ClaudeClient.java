@@ -97,6 +97,7 @@ public class ClaudeClient {
         command.add(message);
         command.add("--output-format");
         command.add("stream-json");
+        command.add("--include-partial-messages");
         command.add("--verbose");
         command.add("--model");
         command.add(model);
