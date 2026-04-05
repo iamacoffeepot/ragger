@@ -409,6 +409,8 @@ SCHEMAS: list[str] = [
         var_id INTEGER NOT NULL,
         var_type TEXT NOT NULL CHECK(var_type IN ('varp', 'varbit', 'varc_int', 'varc_str')),
         description TEXT,
+        content_tags TEXT,
+        functional_tags TEXT,
         UNIQUE(name, var_type)
     )
     """,
