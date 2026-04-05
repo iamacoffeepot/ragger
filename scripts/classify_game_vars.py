@@ -1,8 +1,9 @@
-"""Classify game variable names using Claude CLI (Haiku) and validate against the database.
+"""Classify game variable names using the Claude CLI and validate against the database.
 
-Sends batches of variable names to Claude Haiku via the `claude` CLI for
-content/functional tag classification, then validates content tags against
-real entity names in the quests, monsters, locations, items, and NPCs tables.
+Sends batches of variable names to Claude (Sonnet by default) via the `claude` CLI
+for content/functional tag classification. The prompt is seeded with real entity names
+from the database so the model prefers known names. Content tags are then validated
+against quests, monsters, locations, items, and NPCs tables.
 
 Requires the Claude CLI (`claude`) to be on PATH.
 """
@@ -26,54 +27,217 @@ from ragger.db import get_connection
 CONTENT_CATEGORIES = {"quest", "skill", "minigame", "item", "npc", "location", "activity"}
 FUNCTIONAL_CATEGORIES = {"progress", "toggle", "counter", "ui", "config", "storage", "timer", "cosmetic"}
 
-VALID_SKILLS = {
+VALID_SKILLS = [
     "attack", "strength", "defence", "ranged", "prayer", "magic", "runecraft",
     "construction", "hitpoints", "agility", "herblore", "thieving", "crafting",
     "fletching", "slayer", "hunter", "mining", "smithing", "fishing", "cooking",
     "firemaking", "woodcutting", "farming", "sailing",
+]
+
+# ---------------------------------------------------------------------------
+# Known abbreviation map (prefix -> decoded meaning)
+# Built from manual inspection of game_vars names and OSRS wiki quest/content names.
+# The model doesn't HAVE to use only these, but should prefer them.
+# ---------------------------------------------------------------------------
+
+ABBREVIATIONS = {
+    # Quests
+    "GOBDIP": "quest:goblin_diplomacy",
+    "HANDSAND": "quest:the_hand_in_the_sand",
+    "PMOON": "quest:perilous_moons",
+    "DS2": "quest:dragon_slayer_ii",
+    "SOTE": "quest:song_of_the_elves",
+    "MM": "quest:monkey_madness_i",
+    "MM2": "quest:monkey_madness_ii",
+    "MEP2": "quest:mournings_end_part_ii",
+    "DT2": "quest:desert_treasure_ii",
+    "RFD": "quest:recipe_for_disaster",
+    "WGS": "quest:while_guthix_sleeps",
+    "MOURNING": "quest:mournings_end_part_i",
+    "ENAKH": "quest:enakhras_lament",
+    "FORGET": "quest:forgettable_tale",
+    "LOVAQUEST": "quest:a_kingdom_divided",
+    "SLUG2": "quest:the_slug_menace",
+    "SOTN": "quest:secrets_of_the_north",
+    "ELEMENTAL": "quest:elemental_workshop_i",
+    "LUNAR": "quest:lunar_diplomacy",
+    "WANTED": "quest:wanted",
+    "HORRORQUEST": "quest:horror_from_the_deep",
+    "HORROR": "quest:horror_from_the_deep",
+    "WATERFALL": "quest:waterfall_quest",
+    "DEMONSLAYER": "quest:demon_slayer",
+    "SHEEPHERDER": "quest:sheep_herder",
+    "MYREQUE": "quest:in_aid_of_the_myreque",
+    "VIKINGEXILE": "quest:the_fremennik_exiles",
+    "VMQ3": "quest:the_path_of_glouphrie",
+    "EYEGLO": "quest:the_eyes_of_glouphrie",
+    "SHAYZIENQUEST": "quest:a_kingdom_divided",
+    "ATJUN": "quest:at_first_light",
+    "DOTI": "quest:death_on_the_isle",
+    "TOL": "quest:tower_of_life",
+    "HUNDRED": "quest:one_hundred_percent_favour",  # Kourend favour
+    "KR": "quest:kings_ransom",
+    "RESTLESS": "quest:the_restless_ghost",
+    "MISC": "quest:throne_of_miscellania",
+    "CAMDOZAAL": "quest:below_ice_mountain",
+    "FD_TROLLCHILD": "quest:troll_romance",
+    "TROLL": "quest:troll_stronghold",
+    # Minigames / Activities
+    "TOB": "minigame:theatre_of_blood",
+    "TOA": "minigame:tombs_of_amascut",
+    "COX": "minigame:chambers_of_xeric",
+    "RAIDS": "minigame:chambers_of_xeric",
+    "BA": "minigame:barbarian_assault",
+    "BARBASSULT": "minigame:barbarian_assault",
+    "NMZ": "minigame:nightmare_zone",
+    "LMS": "minigame:last_man_standing",
+    "GAUNTLET": "minigame:the_gauntlet",
+    "HALLOWED": "minigame:hallowed_sepulchre",
+    "COLOSSEUM": "minigame:fortis_colosseum",
+    "GIANTS": "minigame:sleeping_giants",
+    "BLAST": "minigame:blast_furnace",
+    "SOUL": "minigame:soul_wars",
+    "GIM": "activity:group_ironman",
+    "DEADMAN": "activity:deadman_mode",
+    "BOARDGAMES": "activity:board_games",
+    "BINGO": "activity:bingo",
+    "ENT": "activity:ent_totem_carving",
+    "MOTHERLODE": "minigame:motherlode_mine",
+    "MIXOLOGY": "minigame:herblore_mixology",
+    "FORESTRY": "activity:forestry",
+    # Activities / Systems
+    "CA": "activity:combat_achievements",
+    "LEAGUE": "activity:league",
+    "COLLECTION": "activity:collection_log",
+    "XPTRACKER": "activity:xp_tracker",
+    "ADVENTUREPATH": "activity:adventure_path",
+    "PVPA": "activity:pvp",
+    "BR": "activity:pvp",
+    "POLL": "activity:polls",
+    "MUSIC": "activity:music",
+    "FAIRYRINGS": "activity:fairy_rings",
+    "FAIRYRING": "activity:fairy_rings",
+    "PORT": "activity:ports",
+    "FOSSIL": "activity:fossil_island",
+    "HUNTING": "activity:hunter_rumours",
+    "HW19": "activity:holiday_event",
+    "HW20": "activity:holiday_event",
+    "HW21": "activity:holiday_event",
+    "HW22": "activity:holiday_event",
+    "HH": "activity:holiday_event",
+    "EASTER": "activity:holiday_event",
+    "EASTER07": "activity:holiday_event",
+    "PRIDE22": "activity:holiday_event",
+    "PRIDE23": "activity:holiday_event",
+    # Skills
+    "POH": "skill:construction",
+    "SLAYER": "skill:slayer",
+    "SAILING": "skill:sailing",
+    "FARMING": "skill:farming",
+    # Locations
+    "DORGESH": "location:dorgesh_kaan",
+    "KELDAGRIM": "location:keldagrim",
+    "PISCARILIUS": "location:piscarilius",
+    # NPCs / Bosses
+    "CORP": "npc:corporeal_beast",
+    "MUSPAH": "npc:phantom_muspah",
+    "KALPHITE": "npc:kalphite_queen",
+    "JUVINATE": "npc:vyrewatch",
 }
 
-CLASSIFICATION_PROMPT = """\
-You are classifying Old School RuneScape game variable names. Each variable has a NAME \
-that encodes what it tracks using abbreviated conventions.
 
-For each variable, output:
-1. **content**: What game content the variable relates to. Format: `category:specific_name`
-   Categories: quest, skill, minigame, item, npc, location, activity
-   Use snake_case for specific names. Decode abbreviations (e.g. GOBDIP = Goblin Diplomacy, \
-HANDSAND = Hand in the Sand, PMOON = Perilous Moons, DS2 = Dragon Slayer II, SOTE = Song of the Elves, \
-MM2 = Monkey Madness II, MEP2 = Mourning's End Part II, DT2 = Desert Treasure II, \
-RFD = Recipe for Disaster, TOB = Theatre of Blood, TOA = Tombs of Amascut, COX = Chambers of Xeric, \
-BA = Barbarian Assault, NMZ = Nightmare Zone, LMS = Last Man Standing, GWD = God Wars Dungeon, \
-ZULR = Zulrah, JADSIM = TzHaar Fight Cave, INFERNO = The Inferno, GAUNTLET = The Gauntlet).
-   A variable can have multiple content tags if it relates to multiple things.
-   Use "activity" for broad systems (collection_log, combat_achievements, league_tasks, pvp, xp_tracker, etc.).
+# ---------------------------------------------------------------------------
+# Prompt construction (seeded with DB entity names)
+# ---------------------------------------------------------------------------
 
-2. **functional**: What the variable does mechanically.
-   Values: progress, toggle, counter, ui, config, storage, timer, cosmetic
-   A variable can have multiple functional tags.
+def build_prompt(var_names: list[str], conn: sqlite3.Connection) -> str:
+    """Build the classification prompt seeded with real entity names from the DB."""
+    quest_names = sorted(
+        r[0] for r in conn.execute("SELECT DISTINCT name FROM quests ORDER BY name").fetchall()
+    )
+    location_names = sorted(
+        r[0] for r in conn.execute("SELECT DISTINCT name FROM locations ORDER BY name").fetchall()
+    )
+    # Bosses / notable NPCs: combat level > 100 or slayer category exists
+    npc_names = sorted(set(
+        r[0] for r in conn.execute(
+            "SELECT DISTINCT name FROM monsters WHERE combat_level > 100 OR slayer_category IS NOT NULL ORDER BY name"
+        ).fetchall()
+    ))
 
-Rules:
-- If you can't determine a content tag, use an empty array.
-- Prefer specific entity names over generic categories.
-- SAILING_* vars are skill:sailing (it's an official skill).
-- LEAGUE_TASK_* vars are activity:league_tasks plus whatever content they reference.
-- CA_TASK_* vars are activity:combat_achievements plus the NPC/boss they reference.
-- COLLECTION_* vars are activity:collection_log plus specific content if identifiable.
-- XPTRACKER_* vars are activity:xp_tracker plus the skill.
-- MUSIC_* vars are activity:music.
-- POH_* vars are skill:construction.
-- SLAYER_* vars are skill:slayer plus the NPC if identifiable.
-- HW19/HW20/HW21/HW22 = Halloween event years. Tag as activity:holiday_event.
-- FOSSIL_* = activity:fossil_island (Fossil Island activities).
-- BR_LOADOUT/PVPA_* = activity:pvp.
-- FAIRYRINGS_* = activity:fairy_rings.
-- PORT_* = activity:ports.
-- DORGESH_* = location:dorgesh_kaan.
+    abbrev_lines = "\n".join(f"  {prefix} = {meaning}" for prefix, meaning in sorted(ABBREVIATIONS.items()))
 
-Here are the variables to classify:
-"""
+    quest_list = ", ".join(quest_names)
+    skill_list = ", ".join(VALID_SKILLS)
+    location_list = ", ".join(location_names[:200])  # top 200 to keep prompt manageable
+    npc_list = ", ".join(npc_names[:200])
 
+    return f"""\
+Classify these Old School RuneScape game variable names.
+
+Variable names use UPPER_SNAKE_CASE with heavy abbreviation. A prefix usually identifies
+the content area, and suffixes describe the specific property being tracked.
+
+## Output format
+
+Output ONLY a JSON array. No explanation, no markdown fences.
+
+Each entry: {{"name": "VAR_NAME", "content": ["category:specific_name"], "functional": ["tag"]}}
+
+## Content tags (category:specific_name)
+
+Use snake_case for specific_name. Prefer names from the lists below. You may use names
+not on these lists if you're confident, but strongly prefer known names.
+
+**quest:<quest_name>** — which quest the var tracks
+Known quests: {quest_list}
+
+**skill:<skill_name>** — which skill
+Known skills: {skill_list}
+
+**npc:<npc_name>** — which NPC, boss, or monster
+Known NPCs/bosses (partial list): {npc_list}
+
+**location:<location_name>** — which location
+Known locations (partial list): {location_list}
+
+**item:<item_name>** — which item (too many to list; use your OSRS knowledge)
+
+**minigame:<name>** — which minigame (e.g. theatre_of_blood, chambers_of_xeric, barbarian_assault, the_gauntlet, hallowed_sepulchre, tombs_of_amascut, motherlode_mine, blast_furnace, fortis_colosseum, last_man_standing, nightmare_zone, soul_wars, herblore_mixology, guardians_of_the_rift, pest_control, tithe_farm, volcanic_mine, wintertodt, tempoross, giants_foundry, mahogany_homes)
+
+**activity:<name>** — broad game systems not covered above (e.g. combat_achievements, collection_log, league, xp_tracker, pvp, adventure_path, fairy_rings, fossil_island, music, holiday_event, polls, deadman_mode, group_ironman, ports, clans, diary)
+
+## Functional tags
+
+Values: progress, toggle, counter, ui, config, storage, timer, cosmetic
+
+## Known abbreviations
+
+These prefixes map to specific content. Apply them when you see the prefix:
+{abbrev_lines}
+
+## Rules
+
+- A variable can have multiple content tags (e.g. a league task about a quest gets both activity:league and quest:X).
+- If you can't determine content, use an empty array for content.
+- LEAGUE_TASK_* = activity:league + whatever content the task name references.
+- CA_TASK_* = activity:combat_achievements + the NPC/boss.
+- COLLECTION_* = activity:collection_log + specific content if identifiable.
+- XPTRACKER_* = activity:xp_tracker + the skill.
+- SLAYER_* = skill:slayer + the NPC if identifiable.
+- POH_* / POH_COS_* = skill:construction.
+- MUSIC_* = activity:music.
+- POTIONSTORE_* = activity:potionstore (NMZ potion storage).
+- BUFF_* = track buff duration/state.
+
+## Variables to classify
+
+{chr(10).join(var_names)}"""
+
+
+# ---------------------------------------------------------------------------
+# Entity loading & validation
+# ---------------------------------------------------------------------------
 
 def build_entity_sets(conn: sqlite3.Connection) -> dict[str, set[str]]:
     """Build sets of normalized entity names from the database for validation."""
@@ -94,7 +258,7 @@ def build_entity_sets(conn: sqlite3.Connection) -> dict[str, set[str]]:
     rows = conn.execute("SELECT DISTINCT name FROM locations").fetchall()
     entities["location"] = {normalize(r[0]) for r in rows}
 
-    entities["skill"] = VALID_SKILLS
+    entities["skill"] = set(VALID_SKILLS)
 
     return entities
 
@@ -140,10 +304,15 @@ def validate_content_tags(
     return valid, flagged
 
 
-def classify_batch(var_names: list[str], model: str, claude_bin: str) -> list[dict]:
-    """Send a batch of variable names to Haiku via Claude CLI."""
-    names_text = "\n".join(var_names)
-    prompt = CLASSIFICATION_PROMPT + names_text
+# ---------------------------------------------------------------------------
+# Claude CLI interaction
+# ---------------------------------------------------------------------------
+
+def classify_batch(
+    var_names: list[str], model: str, claude_bin: str, conn: sqlite3.Connection
+) -> list[dict]:
+    """Send a batch of variable names to Claude via CLI."""
+    prompt = build_prompt(var_names, conn)
 
     result = subprocess.run(
         [
@@ -151,14 +320,14 @@ def classify_batch(var_names: list[str], model: str, claude_bin: str) -> list[di
             "--print",
             "--model", model,
             "--output-format", "text",
-            "--system-prompt", "You classify OSRS game variable names. Output ONLY raw JSON, no markdown fences, no explanation.",
+            "--system-prompt", "You classify OSRS game variable names. Output ONLY raw JSON — no markdown fences, no explanation, no preamble.",
             "--no-session-persistence",
             "--allowedTools", "",
         ],
         input=prompt,
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=180,
     )
 
     if result.returncode != 0:
@@ -193,6 +362,10 @@ def classify_batch(var_names: list[str], model: str, claude_bin: str) -> list[di
     return []
 
 
+# ---------------------------------------------------------------------------
+# DB writes
+# ---------------------------------------------------------------------------
+
 def write_tags(
     conn: sqlite3.Connection,
     var_name: str,
@@ -222,13 +395,17 @@ def migrate_columns(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Classify game variable names with AI")
     parser.add_argument("--db", type=Path, default=Path("data/ragger.db"))
     parser.add_argument("--batch-size", type=int, default=100)
     parser.add_argument("--limit", type=int, default=None, help="Max vars to classify")
     parser.add_argument("--var-type", choices=["varp", "varbit", "varc_int", "varc_str"])
-    parser.add_argument("--model", default="haiku")
+    parser.add_argument("--model", default="sonnet")
     parser.add_argument("--reclassify", action="store_true", help="Re-classify already tagged vars")
     parser.add_argument("--dry-run", action="store_true", help="Print tags without writing to DB")
     args = parser.parse_args()
@@ -262,11 +439,11 @@ def main() -> None:
         print("No vars to classify.")
         return
 
-    print(f"Classifying {total} vars in batches of {args.batch_size}")
+    print(f"Classifying {total} vars in batches of {args.batch_size} using {args.model}")
 
     # Build validation entity sets
     entities = build_entity_sets(conn)
-    print(f"Loaded validation entities: {', '.join(f'{k}={len(v)}' for k, v in entities.items())}")
+    print(f"Validation entities: {', '.join(f'{k}={len(v)}' for k, v in entities.items())}")
 
     classified = 0
     flagged_total = 0
@@ -280,7 +457,7 @@ def main() -> None:
 
         print(f"\nBatch {batch_num}/{total_batches} ({len(batch)} vars)...")
 
-        results = classify_batch(var_names, args.model, claude_bin)
+        results = classify_batch(var_names, args.model, claude_bin, conn)
 
         # Index results by name
         result_map = {r["name"]: r for r in results if "name" in r}
