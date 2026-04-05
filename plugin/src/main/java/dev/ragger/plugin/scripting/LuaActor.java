@@ -69,6 +69,7 @@ public class LuaActor {
         new VarApi(client).register(lua);
         new JsonApi().register(lua);
         new Base64Api().register(lua);
+        new GeometryApi(client).register(lua);
 
         // Inject args table if provided
         if (args != null && !args.isEmpty()) {

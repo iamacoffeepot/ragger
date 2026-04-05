@@ -137,9 +137,10 @@ public class SilhouetteComputer {
             return null;
         }
 
-        WorldView wv = client.getTopLevelWorldView();
+        WorldView wv = actor.getWorldView();
         LocalPoint lp = actor.getLocalLocation();
-        int tileHeight = Perspective.getTileHeight(client, lp, client.getPlane());
+        int tileHeight = Perspective.getFootprintTileHeight(client, lp, wv.getPlane(), actor.getFootprintSize())
+                - actor.getAnimationHeightOffset();
 
         return computeOutline(wv, model, lp.getX(), lp.getY(), tileHeight, actor.getCurrentOrientation());
     }
@@ -155,9 +156,9 @@ public class SilhouetteComputer {
             return null;
         }
 
-        WorldView wv = client.getTopLevelWorldView();
+        WorldView wv = obj.getWorldView();
         LocalPoint lp = obj.getLocalLocation();
-        int tileHeight = Perspective.getTileHeight(client, lp, client.getPlane());
+        int tileHeight = obj.getZ() - renderable.getAnimationHeightOffset();
 
         return computeOutline(wv, model, lp.getX(), lp.getY(), tileHeight, obj.getModelOrientation());
     }
@@ -246,11 +247,27 @@ public class SilhouetteComputer {
             return null;
         }
 
-        List<Contour> contours = new ArrayList<>(rawContours.size());
-        for (List<int[]> raw : rawContours) {
-            contours.add(new Contour(raw));
+        // Filter out inner contours (holes) by signed area.
+        // Outer contours share the winding direction of the largest contour;
+        // inner holes wind the opposite way.
+        double largestArea = 0;
+        double[] areas = new double[rawContours.size()];
+        for (int i = 0; i < rawContours.size(); i++) {
+            areas[i] = signedArea(rawContours.get(i));
+            if (Math.abs(areas[i]) > Math.abs(largestArea)) {
+                largestArea = areas[i];
+            }
         }
-        return contours;
+
+        boolean outerPositive = largestArea > 0;
+        List<Contour> contours = new ArrayList<>();
+        for (int i = 0; i < rawContours.size(); i++) {
+            if ((areas[i] > 0) == outerPositive) {
+                contours.add(new Contour(rawContours.get(i)));
+            }
+        }
+
+        return contours.isEmpty() ? null : contours;
     }
 
     /**
@@ -268,6 +285,20 @@ public class SilhouetteComputer {
         } else if (faces[1] == -1) {
             faces[1] = faceIndex;
         }
+    }
+
+    /**
+     * Signed area of a screen-space contour (shoelace formula).
+     * Positive = clockwise in screen coords (Y-down), negative = counter-clockwise.
+     */
+    private static double signedArea(List<int[]> pts) {
+        double area = 0;
+        for (int i = 0, n = pts.size(); i < n; i++) {
+            int[] a = pts.get(i);
+            int[] b = pts.get((i + 1) % n);
+            area += (double) a[0] * b[1] - (double) b[0] * a[1];
+        }
+        return area / 2.0;
     }
 
     /**
