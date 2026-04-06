@@ -462,6 +462,92 @@ class FunctionalTag(str, Enum):
         raise ValueError(f"Unknown functional tag: {label}")
 
 
+class EquipmentSlot(str, Enum):
+    HEAD = "head"
+    WEAPON = "weapon"
+    BODY = "body"
+    LEGS = "legs"
+    SHIELD = "shield"
+    CAPE = "cape"
+    HANDS = "hands"
+    FEET = "feet"
+    NECK = "neck"
+    AMMO = "ammo"
+    RING = "ring"
+
+    @property
+    def label(self) -> str:
+        return EQUIPMENT_SLOT_LABELS[self]
+
+    @classmethod
+    def from_label(cls, label: str) -> "EquipmentSlot":
+        if not label:
+            raise ValueError("Empty equipment slot label")
+        cleaned = label.strip().lower()
+        if cleaned == "2h":
+            return cls.WEAPON
+        for member in cls:
+            if member.value == cleaned:
+                return member
+        raise ValueError(f"Unknown equipment slot: {label}")
+
+
+EQUIPMENT_SLOT_LABELS: dict["EquipmentSlot", str] = {
+    EquipmentSlot.HEAD: "Head",
+    EquipmentSlot.WEAPON: "Weapon",
+    EquipmentSlot.BODY: "Body",
+    EquipmentSlot.LEGS: "Legs",
+    EquipmentSlot.SHIELD: "Shield",
+    EquipmentSlot.CAPE: "Cape",
+    EquipmentSlot.HANDS: "Hands",
+    EquipmentSlot.FEET: "Feet",
+    EquipmentSlot.NECK: "Neck",
+    EquipmentSlot.AMMO: "Ammo",
+    EquipmentSlot.RING: "Ring",
+}
+
+
+class CombatStyle(str, Enum):
+    TWO_HANDED_SWORD = "2h Sword"
+    AXE = "Axe"
+    BANNER = "Banner"
+    BLADED_STAFF = "Bladed Staff"
+    BLASTER = "Blaster"
+    BLUDGEON = "Bludgeon"
+    BLUNT = "Blunt"
+    BOW = "Bow"
+    BULWARK = "Bulwark"
+    CHINCHOMPAS = "Chinchompas"
+    CLAW = "Claw"
+    CROSSBOW = "Crossbow"
+    GUN = "Gun"
+    MULTI_STYLE = "Multi-Style"
+    PICKAXE = "Pickaxe"
+    POLEARM = "Polearm"
+    POLESTAFF = "Polestaff"
+    POWERED_STAFF = "Powered Staff"
+    SALAMANDER = "Salamander"
+    SCYTHE = "Scythe"
+    SLASH_SWORD = "Slash Sword"
+    SPEAR = "Spear"
+    SPIKED = "Spiked"
+    STAB_SWORD = "Stab Sword"
+    STAFF = "Staff"
+    THROWN = "Thrown"
+    UNARMED = "Unarmed"
+    WHIP = "Whip"
+
+    @classmethod
+    def from_label(cls, label: str) -> "CombatStyle":
+        if not label:
+            raise ValueError("Empty combat style label")
+        cleaned = label.strip()
+        for member in cls:
+            if member.value.lower() == cleaned.lower():
+                return member
+        raise ValueError(f"Unknown combat style: {label}")
+
+
 class ActivityType(str, Enum):
     MINIGAME = "Minigame"
     RANDOM_EVENT = "Random event"

@@ -431,6 +431,40 @@ SCHEMAS: list[str] = [
         UNIQUE(name, var_type)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS equipment (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        version TEXT,
+        item_id INTEGER,
+        slot TEXT,
+        two_handed INTEGER NOT NULL DEFAULT 0,
+        members INTEGER,
+        tradeable INTEGER,
+        weight REAL,
+        game_id INTEGER,
+        examine TEXT,
+        attack_stab INTEGER,
+        attack_slash INTEGER,
+        attack_crush INTEGER,
+        attack_magic INTEGER,
+        attack_ranged INTEGER,
+        defence_stab INTEGER,
+        defence_slash INTEGER,
+        defence_crush INTEGER,
+        defence_magic INTEGER,
+        defence_ranged INTEGER,
+        melee_strength INTEGER,
+        ranged_strength INTEGER,
+        magic_damage INTEGER,
+        prayer INTEGER,
+        speed INTEGER,
+        attack_range INTEGER,
+        combat_style TEXT,
+        FOREIGN KEY (item_id) REFERENCES items(id),
+        UNIQUE(name, version)
+    )
+    """,
 ]
 
 

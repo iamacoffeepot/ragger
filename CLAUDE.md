@@ -28,24 +28,25 @@ uv run python scripts/fetch_all.py [--db data/ragger.db] [--league Raging_Echoes
 Pipeline order (managed by `fetch_all.py`):
 
 1. `fetch_items.py` — Pulls all item names from Category:Items
-2. `fetch_quests.py` — Pulls quests with points, XP/item rewards, skill/quest/QP requirements
-3. `fetch_quest_regions.py` — Parses `leagueRegion` infobox field to map quests to regions
-4. `fetch_diary_tasks.py` — Pulls diary tasks with skill and quest requirements
-5. `fetch_diary_items.py` — Pulls diary task item requirements from Achievement Diary page
-6. `fetch_shops.py` — Pulls shop data with items, stock, pricing, and shop type from Category:Shops
-7. `fetch_locations.py` — Pulls locations with adjacency graph, region, and map coordinates from Category:Locations
-8. `fetch_facilities.py` — Pulls facility coordinates (banks, furnaces, anvils, altars, spinning wheels, looms)
-9. `fetch_monsters.py` — Pulls monsters with full stat blocks, spawn locations, and drop tables from Category:Monsters (batched)
-10. `fetch_dungeon_entrances.py` — Extracts surface-to-underground entrance/exit map links from location pages
-11. `fetch_fairy_rings.py` — Parses fairy ring codes and coordinates, creates links between all 55 codes
-12. `fetch_quetzal.py` — Parses Quetzal Transport System stops and creates links between all stops
-13. `fetch_charter_ships.py` — Parses charter ship dock coordinates from Trader Stan's Trading Post
-14. `fetch_magic_teleports.py` — Parses all spellbook teleports (Standard, Ancient, Lunar) and item teleports (jewellery, etc.)
-15. `fetch_activities.py` — Pulls activities/minigames with type, coordinates, skills bitmask, and region from Category:Activities
-16. `link_shop_locations.py` — Links shops to locations by matching location text
-17. `link_activity_locations.py` — Links activities to locations by matching location text
-18. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
-19. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
+2. `fetch_equipment.py` — Pulls equipment stats (bonuses, slot, speed, combat style) and metadata from Category:Equipment (batched)
+3. `fetch_quests.py` — Pulls quests with points, XP/item rewards, skill/quest/QP requirements
+4. `fetch_quest_regions.py` — Parses `leagueRegion` infobox field to map quests to regions
+5. `fetch_diary_tasks.py` — Pulls diary tasks with skill and quest requirements
+6. `fetch_diary_items.py` — Pulls diary task item requirements from Achievement Diary page
+7. `fetch_shops.py` — Pulls shop data with items, stock, pricing, and shop type from Category:Shops
+8. `fetch_locations.py` — Pulls locations with adjacency graph, region, and map coordinates from Category:Locations
+9. `fetch_facilities.py` — Pulls facility coordinates (banks, furnaces, anvils, altars, spinning wheels, looms)
+10. `fetch_monsters.py` — Pulls monsters with full stat blocks, spawn locations, and drop tables from Category:Monsters (batched)
+11. `fetch_dungeon_entrances.py` — Extracts surface-to-underground entrance/exit map links from location pages
+12. `fetch_fairy_rings.py` — Parses fairy ring codes and coordinates, creates links between all 55 codes
+13. `fetch_quetzal.py` — Parses Quetzal Transport System stops and creates links between all stops
+14. `fetch_charter_ships.py` — Parses charter ship dock coordinates from Trader Stan's Trading Post
+15. `fetch_magic_teleports.py` — Parses all spellbook teleports (Standard, Ancient, Lunar) and item teleports (jewellery, etc.)
+16. `fetch_activities.py` — Pulls activities/minigames with type, coordinates, skills bitmask, and region from Category:Activities
+17. `link_shop_locations.py` — Links shops to locations by matching location text
+18. `link_activity_locations.py` — Links activities to locations by matching location text
+19. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
+20. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
 
 ### Utility scripts
 
@@ -150,6 +151,30 @@ from ragger.item import Item
 
 Item.all(conn) -> list[Item]
 Item.by_name(conn, name) -> Item | None
+```
+
+### Equipment (`src/ragger/equipment.py`)
+
+```python
+from ragger.equipment import Equipment
+
+Equipment.all(conn, slot?) -> list[Equipment]
+Equipment.by_name(conn, name, version?) -> Equipment | None
+Equipment.by_slot(conn, slot) -> list[Equipment]
+Equipment.search(conn, name) -> list[Equipment]
+Equipment.for_item(conn, item_id) -> list[Equipment]
+equipment.slot -> EquipmentSlot | None
+equipment.two_handed -> bool                           # True for 2h weapons
+equipment.combat_style -> CombatStyle | None
+equipment.members -> bool | None
+equipment.tradeable -> bool | None
+equipment.weight -> float | None
+equipment.game_id -> int | None
+equipment.item_id -> int | None                        # FK to items table
+# Attack bonuses: attack_stab, attack_slash, attack_crush, attack_magic, attack_ranged
+# Defence bonuses: defence_stab, defence_slash, defence_crush, defence_magic, defence_ranged
+# Other bonuses: melee_strength, ranged_strength, magic_damage, prayer
+# Weapon-only: speed, attack_range, combat_style
 ```
 
 ### DiaryTask (`src/ragger/diary.py`)
@@ -502,6 +527,8 @@ throttle()                                                                 # rat
 - `TaskDifficulty(int, Enum)` — Easy/Medium/Hard/Elite/Master with `label`, `points` properties
 - `DiaryLocation(str, Enum)` — 12 diary regions with `xp_reward(tier)`, `min_level(tier)` methods
 - `DiaryTier(str, Enum)` — Easy/Medium/Hard/Elite
+- `EquipmentSlot(str, Enum)` — 11 equipment slots (head, weapon, body, legs, shield, cape, hands, feet, neck, ammo, ring) with `label`, `from_label` (maps wiki `2h` to `WEAPON`)
+- `CombatStyle(str, Enum)` — 28 weapon combat styles (2h Sword, Axe, Bow, Crossbow, Slash Sword, Staff, Whip, etc.) with `from_label`
 - `ShopType(str, Enum)` — 36 shop types (General, Gem, Fishing, Magic, etc.) with `from_label` fuzzy matching
 - `ActivityType(str, Enum)` — Minigame, Random event, Forestry, Raid, Activity, Boss, Distraction and Diversion, Quest, Reward with `from_label` (falls back to Activity)
 - `VariableType(str, Enum)` — varp, varbit, varc_int, varc_str with `from_label`
