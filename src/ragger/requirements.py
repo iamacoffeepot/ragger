@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from ragger.enums import DiaryLocation, DiaryTier, Region, Skill
+from ragger.enums import DiaryLocation, DiaryTier, EquipmentSlot, Region, Skill
 
 
 @dataclass
@@ -103,6 +103,15 @@ class GroupRegionRequirement:
 
 
 @dataclass
+class GroupEquipmentRequirement:
+    id: int
+    group_id: int
+    item_id: int
+    slot: EquipmentSlot
+    quantity: int
+
+
+@dataclass
 class RequirementGroup:
     """A requirement group. All requirements within a group are OR'd (any one
     satisfies the group). Groups linked to an entity are AND'd (all must be
@@ -151,6 +160,13 @@ class RequirementGroup:
             (self.id,),
         ).fetchall()
         return [GroupRegionRequirement(r[0], r[1], Region(r[2])) for r in rows]
+
+    def equipment_requirements(self, conn: sqlite3.Connection) -> list[GroupEquipmentRequirement]:
+        rows = conn.execute(
+            "SELECT id, group_id, item_id, slot, quantity FROM group_equipment_requirements WHERE group_id = ?",
+            (self.id,),
+        ).fetchall()
+        return [GroupEquipmentRequirement(r[0], r[1], r[2], EquipmentSlot(r[3]), r[4]) for r in rows]
 
     @staticmethod
     def for_quest(conn: sqlite3.Connection, quest_id: int) -> list[RequirementGroup]:

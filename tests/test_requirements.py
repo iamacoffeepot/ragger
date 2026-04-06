@@ -1,8 +1,9 @@
 import sqlite3
 
-from ragger.enums import DiaryLocation, DiaryTier, Region, Skill
+from ragger.enums import DiaryLocation, DiaryTier, EquipmentSlot, Region, Skill
 from ragger.requirements import (
     GroupDiaryRequirement,
+    GroupEquipmentRequirement,
     GroupItemRequirement,
     GroupQuestPointRequirement,
     GroupQuestRequirement,
@@ -283,3 +284,30 @@ def test_complex_and_or(conn: sqlite3.Connection) -> None:
     assert len(skill_groups) == 1
     assert len(item_groups) == 1
     assert len(item_groups[0].item_requirements(conn)) == 2
+
+
+def test_equipment_requirement(conn: sqlite3.Connection) -> None:
+    """Equipment requirement — must have specific item equipped in a slot."""
+    _seed(conn)
+    conn.execute("INSERT INTO quests (name, points) VALUES ('GWD Quest', 1)")
+    quest_id = conn.execute("SELECT id FROM quests WHERE name = 'GWD Quest'").fetchone()[0]
+    shield_id = conn.execute("SELECT id FROM items WHERE name = 'Anti-dragon shield'").fetchone()[0]
+
+    link_group_requirement(
+        conn,
+        "group_equipment_requirements",
+        {"item_id": shield_id, "slot": EquipmentSlot.SHIELD.value, "quantity": 1},
+        "quest_requirement_groups",
+        "quest_id",
+        quest_id,
+    )
+    conn.commit()
+
+    groups = RequirementGroup.for_quest(conn, quest_id)
+    assert len(groups) == 1
+    reqs = groups[0].equipment_requirements(conn)
+    assert len(reqs) == 1
+    assert isinstance(reqs[0], GroupEquipmentRequirement)
+    assert reqs[0].item_id == shield_id
+    assert reqs[0].slot == EquipmentSlot.SHIELD
+    assert reqs[0].quantity == 1

@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from ragger.enums import ALL_REGIONS_MASK, ALL_SKILLS_MASK, ActivityType, DiaryLocation, DiaryTier, Region, ShopType, Skill, TaskDifficulty
+from ragger.enums import ALL_REGIONS_MASK, ALL_SKILLS_MASK, ActivityType, DiaryLocation, DiaryTier, EquipmentSlot, Region, ShopType, Skill, TaskDifficulty
 
 _skill_ids = ", ".join(str(s.value) for s in Skill)
 _region_ids = ", ".join(str(r.value) for r in Region)
@@ -9,6 +9,7 @@ _difficulty_ids = ", ".join(str(d.value) for d in TaskDifficulty)
 _activity_type_values = ", ".join(f"'{t.value}'" for t in ActivityType)
 _diary_location_values = ", ".join(f"'{l.value}'" for l in DiaryLocation)
 _diary_tier_values = ", ".join(f"'{t.value}'" for t in DiaryTier)
+_equipment_slot_values = ", ".join(f"'{s.value}'" for s in EquipmentSlot)
 
 SCHEMAS: list[str] = [
     """
@@ -195,6 +196,17 @@ SCHEMAS: list[str] = [
         group_id INTEGER NOT NULL,
         region INTEGER NOT NULL CHECK(region IN ({_region_ids})),
         FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
+    )
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS group_equipment_requirements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        item_id INTEGER NOT NULL,
+        slot TEXT NOT NULL CHECK(slot IN ({_equipment_slot_values})),
+        quantity INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (group_id) REFERENCES requirement_groups(id),
+        FOREIGN KEY (item_id) REFERENCES items(id)
     )
     """,
     """
