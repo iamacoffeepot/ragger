@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 from ragger.db import create_tables, get_connection
-from ragger.wiki import fetch_page_wikitext_with_attribution, link_requirement, strip_markup
+from ragger.wiki import fetch_page_wikitext_with_attribution, link_group_requirement, strip_markup
 
 # Pattern to extract wiki links from item text
 ITEM_LINK_PATTERN = re.compile(r"\[\[([^]|]+?)(?:\|([^]]+))?\]\]")
@@ -118,10 +118,15 @@ def ingest(db_path: Path) -> None:
     # Items table is the source of truth
     item_ids = dict(conn.execute("SELECT name, id FROM items").fetchall())
 
-    # Build diary task lookup: (location, tier, description) -> id
-    diary_tasks = {}
+    # Equipment slot lookup: item_id -> slot
+    equipment_slots: dict[int, str] = {}
+    for row in conn.execute("SELECT item_id, slot FROM equipment WHERE item_id IS NOT NULL AND slot IS NOT NULL").fetchall():
+        equipment_slots[row[0]] = row[1]
+
+    # Build diary task lookup: (location, tier, description) -> (id, description)
+    diary_tasks: dict[tuple[str, str, str], tuple[int, str]] = {}
     for row in conn.execute("SELECT id, location, tier, description FROM diary_tasks").fetchall():
-        diary_tasks[(row[1], row[2], row[3])] = row[0]
+        diary_tasks[(row[1], row[2], row[3])] = (row[0], row[3])
 
     print("Fetching Achievement Diary page...")
     wikitext = fetch_page_wikitext_with_attribution(conn, "Achievement Diary", "diary_task_item_requirements")
@@ -130,13 +135,16 @@ def ingest(db_path: Path) -> None:
     matched = 0
     unmatched = 0
     item_req_count = 0
+    equip_req_count = 0
 
     for description, location, tier, item_names in parsed:
         # Try to find matching diary task — fuzzy match on description start
         diary_task_id = None
-        for (loc, t, desc), tid in diary_tasks.items():
+        task_description = None
+        for (loc, t, desc), (tid, full_desc) in diary_tasks.items():
             if loc == location and t == tier and description[:30].lower() in desc[:30].lower():
                 diary_task_id = tid
+                task_description = full_desc
                 break
 
         if diary_task_id is None:
@@ -144,23 +152,41 @@ def ingest(db_path: Path) -> None:
             continue
         matched += 1
 
+        is_equip_task = any(w in task_description.lower() for w in ("equip", "wear"))
+
         for item_name in item_names:
             item_id = item_ids.get(item_name)
             if item_id is None:
                 continue
-            link_requirement(
-                conn,
-                table="item_requirements",
-                columns={"item_id": item_id, "quantity": 1},
-                junction_table="diary_task_item_requirements",
-                entity_column="diary_task_id",
-                entity_id=diary_task_id,
-                requirement_column="item_requirement_id",
-            )
-            item_req_count += 1
+
+            slot = equipment_slots.get(item_id) if is_equip_task else None
+            if slot is not None:
+                link_group_requirement(
+                    conn,
+                    "group_equipment_requirements",
+                    {"item_id": item_id, "slot": slot, "quantity": 1},
+                    "diary_task_requirement_groups",
+                    "diary_task_id",
+                    diary_task_id,
+                )
+                equip_req_count += 1
+            else:
+                link_group_requirement(
+                    conn,
+                    "group_item_requirements",
+                    {"item_id": item_id, "quantity": 1},
+                    "diary_task_requirement_groups",
+                    "diary_task_id",
+                    diary_task_id,
+                )
+                item_req_count += 1
 
     conn.commit()
-    print(f"Matched {matched} tasks, {unmatched} unmatched, {item_req_count} item requirements inserted into {db_path}")
+    print(
+        f"Matched {matched} tasks, {unmatched} unmatched, "
+        f"{item_req_count} item requirements, {equip_req_count} equipment requirements "
+        f"inserted into {db_path}"
+    )
     conn.close()
 
 

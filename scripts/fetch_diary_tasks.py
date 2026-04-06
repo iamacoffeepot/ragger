@@ -12,7 +12,7 @@ from ragger.db import create_tables, get_connection
 from ragger.enums import DiaryLocation
 from ragger.wiki import (
     fetch_page_wikitext,
-    link_requirement,
+    link_group_requirement,
     parse_skill_requirements,
     record_attributions_batch,
     strip_markup,
@@ -129,14 +129,13 @@ def ingest(db_path: Path) -> None:
             ).fetchone()[0]
 
             for skill_id, level in task.skill_reqs:
-                link_requirement(
+                link_group_requirement(
                     conn,
-                    table="skill_requirements",
-                    columns={"skill": skill_id, "level": level},
-                    junction_table="diary_task_skill_requirements",
-                    entity_column="diary_task_id",
-                    entity_id=diary_task_id,
-                    requirement_column="skill_requirement_id",
+                    "group_skill_requirements",
+                    {"skill": skill_id, "level": level},
+                    "diary_task_requirement_groups",
+                    "diary_task_id",
+                    diary_task_id,
                 )
                 skill_req_count += 1
 
@@ -144,14 +143,13 @@ def ingest(db_path: Path) -> None:
                 req_quest_id = quest_ids.get(quest_name)
                 if req_quest_id is None:
                     continue
-                link_requirement(
+                link_group_requirement(
                     conn,
-                    table="quest_requirements",
-                    columns={"required_quest_id": req_quest_id, "partial": 1 if partial else 0},
-                    junction_table="diary_task_quest_requirements",
-                    entity_column="diary_task_id",
-                    entity_id=diary_task_id,
-                    requirement_column="quest_requirement_id",
+                    "group_quest_requirements",
+                    {"required_quest_id": req_quest_id, "partial": 1 if partial else 0},
+                    "diary_task_requirement_groups",
+                    "diary_task_id",
+                    diary_task_id,
                 )
                 quest_req_count += 1
 

@@ -4,6 +4,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from ragger.enums import DiaryLocation, DiaryTier
+from ragger.requirements import RequirementGroup
 
 
 @dataclass
@@ -12,6 +13,9 @@ class DiaryTask:
     location: DiaryLocation
     tier: DiaryTier
     description: str
+
+    def requirement_groups(self, conn: sqlite3.Connection) -> list[RequirementGroup]:
+        return RequirementGroup.for_diary_task(conn, self.id)
 
     @classmethod
     def all(
