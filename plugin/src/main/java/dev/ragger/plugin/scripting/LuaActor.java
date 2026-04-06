@@ -118,7 +118,7 @@ public class LuaActor {
         }
     }
 
-    public void tick() {
+    public void frame(final boolean gameTick) {
         if (!running || !hasHooks) {
             return;
         }
@@ -127,7 +127,12 @@ public class LuaActor {
             uiApi.drainClicks();
         }
 
-        if (!callHook("on_tick")) {
+        if (!callHook("on_frame")) {
+            requestStop = true;
+            return;
+        }
+
+        if (gameTick && !callHook("on_tick")) {
             requestStop = true;
         }
     }

@@ -1,6 +1,7 @@
 package dev.ragger.plugin.scripting;
 
 import java.awt.Graphics2D;
+import javax.swing.SwingUtilities;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -78,6 +79,10 @@ public class ActorManager {
     private final ConcurrentLinkedQueue<LuaEvent> eventQueue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<PendingSpawn> spawnQueue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> unloadQueue = new ConcurrentLinkedQueue<>();
+
+    // --- Game tick flag (set by onGameTick, consumed by frame) ---
+
+    private volatile boolean gameTickPending;
 
     private record PendingSpawn(String name, String source, Map<String, Object> args) {}
 
@@ -171,7 +176,7 @@ public class ActorManager {
         }
 
         // Defer spawn to game thread if called from the EDT
-        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+        if (SwingUtilities.isEventDispatchThread()) {
             spawnQueue.add(new PendingSpawn(name, source, args));
             return name;
         }
@@ -202,7 +207,7 @@ public class ActorManager {
      */
     public void unload(final String name) {
         // Defer to game thread if called from the EDT
-        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+        if (SwingUtilities.isEventDispatchThread()) {
             unloadQueue.add(name);
             return;
         }
@@ -388,9 +393,19 @@ public class ActorManager {
     // -----------------------------------------------------------------------
 
     /**
-     * Called every game tick -- dispatches to all active scripts with hooks.
+     * Signal that a server game tick has occurred.
+     * The next frame() call will dispatch on_tick and drain events.
      */
-    public void tick() {
+    public void markGameTick() {
+        gameTickPending = true;
+    }
+
+    /**
+     * Primary heartbeat — called every client tick (~20ms).
+     * Drains deferred ops, dispatches on_frame to all actors, and if a game
+     * tick has occurred since the last frame, also dispatches on_tick and events.
+     */
+    public void frame() {
         // Drain deferred operations from the EDT
         String toUnload;
         while ((toUnload = unloadQueue.poll()) != null) {
@@ -402,12 +417,19 @@ public class ActorManager {
             spawnNow(spawn.name, spawn.source, spawn.args);
         }
 
+        // Consume game tick flag
+        final boolean gameTick = gameTickPending;
+        if (gameTick) {
+            gameTickPending = false;
+            drainMail();
+        }
+
         final var it = scripts.entrySet().iterator();
 
         while (it.hasNext()) {
             final var entry = it.next();
             final LuaActor script = entry.getValue();
-            script.tick();
+            script.frame(gameTick);
 
             if (script.shouldStop()) {
                 script.stop();
@@ -415,6 +437,10 @@ public class ActorManager {
                 log.info("Script self-stopped: {}", entry.getKey());
                 fireChange();
             }
+        }
+
+        if (gameTick) {
+            drainEvents();
         }
     }
 

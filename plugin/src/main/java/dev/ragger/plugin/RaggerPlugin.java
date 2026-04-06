@@ -18,6 +18,7 @@ import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameObjectDespawned;
 import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.GraphicChanged;
 import net.runelite.api.events.HitsplatApplied;
@@ -234,13 +235,16 @@ public class RaggerPlugin extends Plugin {
     }
 
     @Subscribe
+    public void onClientTick(final ClientTick event) {
+        actorManager.frame();
+    }
+
+    @Subscribe
     public void onGameTick(final GameTick event) {
         serviceManager.start(); // no-op after first call
         bridgeServer.tick();
-        actorManager.drainMail();
-        actorManager.tick();
         diffInventory();
-        actorManager.drainEvents();
+        actorManager.markGameTick();
         serviceManager.tick();
     }
 

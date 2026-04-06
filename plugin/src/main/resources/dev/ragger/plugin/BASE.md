@@ -842,31 +842,34 @@ return {
         chat:game("Script started!")
     end,
 
-    on_tick = function()
+    on_frame = function()
         counter = counter + 1
     end,
 
     on_render = function(g)
-        g:text(50, 50, "Ticks: " .. counter, 0xFFFF00)
+        g:text(50, 50, "Frames: " .. counter, 0xFFFF00)
     end,
 
     on_stop = function()
-        chat:game("Script stopped after " .. counter .. " ticks")
+        chat:game("Script stopped after " .. counter .. " frames")
     end
 }
 ```
 
 - `on_start` — called once when the actor is loaded
-- `on_tick` — called every game tick (600ms)
+- `on_frame` — called every client tick (~20ms, ~50 FPS) — primary logic hook
+- `on_tick` — called on game tick frames only (~600ms) — server-synced logic
 - `on_render` — called every render frame (use overlay API here)
 - `on_mail(from, data)` — called when another actor sends mail to this actor
 - `on_stop` — called when the actor is unloaded
 
+`on_frame` is the main heartbeat. `on_tick` is a sub-event that fires inline during the frame where a server game tick occurred — use it for things that only need to run once per 600ms tick.
+
 #### Event Hooks
 
-Event hooks fire after `on_tick` each tick, delivering buffered game events. Each receives a single table with the event data. Return `false` to self-stop the actor.
+Event hooks fire after `on_tick` on game tick frames, delivering buffered game events. Each receives a single table with the event data. Return `false` to self-stop the actor.
 
-**Tick dispatch order:** `on_mail` → `on_tick` → event hooks (`on_hitsplat`, `on_chat`, etc.) → `on_render` (each frame)
+**Frame dispatch order:** `on_frame` → (on game tick frames: `on_mail` → `on_tick` → event hooks) → `on_render`
 
 **Combat & damage:**
 - `on_hitsplat(data)` — `{amount, type, is_mine, target_type, target_name, target_id?}`
@@ -1039,7 +1042,8 @@ scratch/
 - One-shot actors run top-to-bottom immediately.
 - Persistent actors return a hooks table and run until unloaded.
 - Keep actors focused on a single task.
-- Do not use infinite loops — use `on_tick` for recurring work.
-- Return `false` from `on_tick` to self-terminate the actor.
-- Fetch data (scene:npcs(), scene:players()) in `on_tick` and store in locals. Only draw in `on_render` — it runs every frame (~50 FPS) so keep it lightweight.
+- Do not use infinite loops — use `on_frame` for recurring work.
+- Return `false` from `on_frame` or `on_tick` to self-terminate the actor.
+- Put responsive logic in `on_frame` (~20ms). Use `on_tick` only for server-tick-rate work (600ms).
+- Only draw in `on_render` — it runs every frame so keep it lightweight.
 - Use stable, descriptive kebab-case names (e.g. "npc-highlighter", "tick-counter"). Do NOT append random hashes or suffixes — the plugin replaces actors with the same name automatically. Use `RaggerActorSource` to read an actor's source before modifying it.
