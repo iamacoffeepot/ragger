@@ -1,5 +1,10 @@
 package dev.ragger.plugin.scripting;
 
+import dev.ragger.plugin.scripting.ui.ButtonBuilder;
+import dev.ragger.plugin.scripting.ui.ItemBuilder;
+import dev.ragger.plugin.scripting.ui.RectBuilder;
+import dev.ragger.plugin.scripting.ui.SpriteBuilder;
+import dev.ragger.plugin.scripting.ui.TextBuilder;
 import net.runelite.api.Client;
 import net.runelite.api.Point;
 import net.runelite.api.gameval.InterfaceID;
@@ -151,7 +156,7 @@ public class UiApi {
         final UiElement elem = new UiElement(elemId, UiElement.TEXT, config);
         panel.elements.put(elemId, elem);
 
-        buildTextWidget(panel, elem);
+        TextBuilder.build(panel, elem);
 
         lua.push(elemId);
         return 1;
@@ -171,7 +176,7 @@ public class UiApi {
         final UiElement elem = new UiElement(elemId, UiElement.RECT, config);
         panel.elements.put(elemId, elem);
 
-        buildRectWidget(panel, elem);
+        RectBuilder.build(panel, elem);
 
         lua.push(elemId);
         return 1;
@@ -243,7 +248,7 @@ public class UiApi {
 
         panel.elements.put(elemId, elem);
 
-        buildButtonWidget(panel, elem);
+        ButtonBuilder.build(panel, elem, (pId, eId, op) -> clickQueue.add(new ClickEvent(pId, eId, op)));
 
         lua.push(elemId);
         return 1;
@@ -262,7 +267,7 @@ public class UiApi {
         final UiElement elem = new UiElement(elemId, UiElement.SPRITE, config);
         panel.elements.put(elemId, elem);
 
-        buildSpriteWidget(panel, elem);
+        SpriteBuilder.build(panel, elem);
 
         lua.push(elemId);
         return 1;
@@ -281,7 +286,7 @@ public class UiApi {
         final UiElement elem = new UiElement(elemId, UiElement.ITEM, config);
         panel.elements.put(elemId, elem);
 
-        buildItemWidget(panel, elem);
+        ItemBuilder.build(panel, elem);
 
         lua.push(elemId);
         return 1;
@@ -652,189 +657,13 @@ public class UiApi {
 
     private void buildElementWidget(final UiPanel panel, final UiElement elem) {
         switch (elem.elementType) {
-            case UiElement.TEXT -> buildTextWidget(panel, elem);
-            case UiElement.RECT -> buildRectWidget(panel, elem);
-            case UiElement.BUTTON -> buildButtonWidget(panel, elem);
-            case UiElement.SPRITE -> buildSpriteWidget(panel, elem);
-            case UiElement.ITEM -> buildItemWidget(panel, elem);
+            case UiElement.TEXT -> TextBuilder.build(panel, elem);
+            case UiElement.RECT -> RectBuilder.build(panel, elem);
+            case UiElement.BUTTON -> ButtonBuilder.build(panel, elem,
+                    (pId, eId, op) -> clickQueue.add(new ClickEvent(pId, eId, op)));
+            case UiElement.SPRITE -> SpriteBuilder.build(panel, elem);
+            case UiElement.ITEM -> ItemBuilder.build(panel, elem);
         }
-    }
-
-    private void buildTextWidget(final UiPanel panel, final UiElement elem) {
-        if (panel.rootLayer == null) {
-            return;
-        }
-
-        final Map<String, Object> c = elem.config;
-        final int ex = LuaUtils.intVal(c, "x", 0);
-        final int ey = LuaUtils.intVal(c, "y", 0) + panel.contentOffsetY();
-        final String text = LuaUtils.strVal(c, "text", "");
-        final int color = LuaUtils.intVal(c, "color", 0xFFFFFF);
-        final int fontSize = LuaUtils.intVal(c, "font_size", 0);
-
-        final Widget w = panel.rootLayer.createChild(-1, WidgetType.TEXT);
-        w.setOriginalX(ex);
-        w.setOriginalY(ey);
-        w.setOriginalWidth(panel.width - ex);
-        w.setOriginalHeight(16);
-        w.setWidthMode(WidgetSizeMode.ABSOLUTE);
-        w.setHeightMode(WidgetSizeMode.ABSOLUTE);
-        w.setText(text);
-        w.setTextColor(color);
-        w.setTextShadowed(true);
-        w.setFontId(fontSize > 0 ? 495 : 494);
-        w.setYTextAlignment(WidgetTextAlignment.CENTER);
-        w.revalidate();
-
-        elem.widget = w;
-    }
-
-    private void buildRectWidget(final UiPanel panel, final UiElement elem) {
-        if (panel.rootLayer == null) {
-            return;
-        }
-
-        final Map<String, Object> c = elem.config;
-        final int ex = LuaUtils.intVal(c, "x", 0);
-        final int ey = LuaUtils.intVal(c, "y", 0) + panel.contentOffsetY();
-        final int ew = LuaUtils.intVal(c, "w", panel.width);
-        final int eh = LuaUtils.intVal(c, "h", 1);
-        final int color = LuaUtils.intVal(c, "color", 0x333333);
-        final boolean filled = LuaUtils.boolVal(c, "filled", true);
-        final int opacity = LuaUtils.intVal(c, "opacity", 0);
-
-        final Widget w = panel.rootLayer.createChild(-1, WidgetType.RECTANGLE);
-        w.setOriginalX(ex);
-        w.setOriginalY(ey);
-        w.setOriginalWidth(ew);
-        w.setOriginalHeight(eh);
-        w.setWidthMode(WidgetSizeMode.ABSOLUTE);
-        w.setHeightMode(WidgetSizeMode.ABSOLUTE);
-        w.setTextColor(color);
-        w.setFilled(filled);
-        w.setOpacity(opacity);
-        w.revalidate();
-
-        elem.widget = w;
-    }
-
-    @SuppressWarnings("unchecked")
-    private void buildButtonWidget(final UiPanel panel, final UiElement elem) {
-        if (panel.rootLayer == null) {
-            return;
-        }
-
-        final Map<String, Object> c = elem.config;
-        final int ex = LuaUtils.intVal(c, "x", 0);
-        final int ey = LuaUtils.intVal(c, "y", 0) + panel.contentOffsetY();
-        final int ew = LuaUtils.intVal(c, "w", 80);
-        final int eh = LuaUtils.intVal(c, "h", 24);
-        final String text = LuaUtils.strVal(c, "text", "Button");
-        final int color = LuaUtils.intVal(c, "color", 0xFFFFFF);
-
-        // Button background
-        final Widget bg = panel.rootLayer.createChild(-1, WidgetType.RECTANGLE);
-        bg.setOriginalX(ex);
-        bg.setOriginalY(ey);
-        bg.setOriginalWidth(ew);
-        bg.setOriginalHeight(eh);
-        bg.setWidthMode(WidgetSizeMode.ABSOLUTE);
-        bg.setHeightMode(WidgetSizeMode.ABSOLUTE);
-        bg.setTextColor(0x3E3529);
-        bg.setFilled(true);
-        bg.setOpacity(0);
-        bg.revalidate();
-
-        // Button text (this is the clickable widget)
-        final Widget w = panel.rootLayer.createChild(-1, WidgetType.TEXT);
-        w.setOriginalX(ex);
-        w.setOriginalY(ey);
-        w.setOriginalWidth(ew);
-        w.setOriginalHeight(eh);
-        w.setWidthMode(WidgetSizeMode.ABSOLUTE);
-        w.setHeightMode(WidgetSizeMode.ABSOLUTE);
-        w.setText(text);
-        w.setTextColor(color);
-        w.setTextShadowed(true);
-        w.setFontId(494);
-        w.setXTextAlignment(WidgetTextAlignment.CENTER);
-        w.setYTextAlignment(WidgetTextAlignment.CENTER);
-
-        // Set up actions
-        final int pId = panel.id;
-        final int eId = elem.id;
-
-        if (elem.clickRef != UiElement.NO_REF) {
-            w.setAction(0, text);
-        }
-
-        final Object actionLabelsObj = c.get("action_labels");
-        if (actionLabelsObj instanceof List<?> actionLabels) {
-            for (int i = 0; i < actionLabels.size(); i++) {
-                w.setAction(i + 1, (String) actionLabels.get(i));
-            }
-        }
-
-        w.setOnOpListener((JavaScriptCallback) ev -> {
-            final int op = ev.getOp();
-            clickQueue.add(new ClickEvent(pId, eId, op));
-        });
-        w.setHasListener(true);
-        w.revalidate();
-
-        elem.widget = w;
-    }
-
-    private void buildSpriteWidget(final UiPanel panel, final UiElement elem) {
-        if (panel.rootLayer == null) {
-            return;
-        }
-
-        final Map<String, Object> c = elem.config;
-        final int ex = LuaUtils.intVal(c, "x", 0);
-        final int ey = LuaUtils.intVal(c, "y", 0) + panel.contentOffsetY();
-        final int ew = LuaUtils.intVal(c, "w", 20);
-        final int eh = LuaUtils.intVal(c, "h", 20);
-        final int spriteId = LuaUtils.intVal(c, "sprite", 0);
-
-        final Widget w = panel.rootLayer.createChild(-1, WidgetType.GRAPHIC);
-        w.setOriginalX(ex);
-        w.setOriginalY(ey);
-        w.setOriginalWidth(ew);
-        w.setOriginalHeight(eh);
-        w.setWidthMode(WidgetSizeMode.ABSOLUTE);
-        w.setHeightMode(WidgetSizeMode.ABSOLUTE);
-        w.setSpriteId(spriteId);
-        w.revalidate();
-
-        elem.widget = w;
-    }
-
-    private void buildItemWidget(final UiPanel panel, final UiElement elem) {
-        if (panel.rootLayer == null) {
-            return;
-        }
-
-        final Map<String, Object> c = elem.config;
-        final int ex = LuaUtils.intVal(c, "x", 0);
-        final int ey = LuaUtils.intVal(c, "y", 0) + panel.contentOffsetY();
-        final int ew = LuaUtils.intVal(c, "w", 36);
-        final int eh = LuaUtils.intVal(c, "h", 32);
-        final int itemId = LuaUtils.intVal(c, "item_id", 0);
-        final int quantity = LuaUtils.intVal(c, "quantity", 1);
-
-        final Widget w = panel.rootLayer.createChild(-1, WidgetType.GRAPHIC);
-        w.setOriginalX(ex);
-        w.setOriginalY(ey);
-        w.setOriginalWidth(ew);
-        w.setOriginalHeight(eh);
-        w.setWidthMode(WidgetSizeMode.ABSOLUTE);
-        w.setHeightMode(WidgetSizeMode.ABSOLUTE);
-        w.setItemId(itemId);
-        w.setItemQuantity(quantity);
-        w.revalidate();
-
-        elem.widget = w;
     }
 
     // -----------------------------------------------------------------------
