@@ -179,6 +179,24 @@ def strip_markup(text: str) -> str:
     return text.strip()
 
 
+_FRAGMENT_SUFFIX = re.compile(r"#.*$")
+_TEMPLATE_ARTIFACT = re.compile(r"\{\{[^}]*\}\}?")
+
+
+def clean_page_reference(text: str, page_name: str | None = None) -> str:
+    """Clean wiki artifacts from a page/item reference.
+
+    - Substitutes {{PAGENAME}} with the actual page name (if provided)
+    - Strips #fragment suffixes (e.g. "Teapot#Clay" -> "Teapot")
+    - Strips residual template artifacts (e.g. "{{!}}")
+    """
+    if page_name:
+        text = text.replace("{{PAGENAME}}", page_name).replace("{{PAGENAME", page_name)
+    text = _FRAGMENT_SUFFIX.sub("", text)
+    text = _TEMPLATE_ARTIFACT.sub("", text)
+    return text.strip()
+
+
 def strip_wiki_links(text: str) -> str:
     """Replace [[Link|Display]] or [[Link]] with just the display text."""
     return WIKI_LINK_PATTERN.sub(r"\1", text)

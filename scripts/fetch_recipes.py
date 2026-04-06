@@ -13,6 +13,7 @@ from pathlib import Path
 from ragger.db import create_tables, get_connection
 from ragger.enums import Skill
 from ragger.wiki import (
+    clean_page_reference,
     extract_all_templates,
     fetch_pages_wikitext_batch,
     fetch_template_users,
@@ -81,21 +82,6 @@ def parse_skill_name(val: str) -> int | None:
         return None
 
 
-_WIKI_TEMPLATE_ARTIFACT = re.compile(r"\{\{[^}]*\}\}?")
-_FRAGMENT_SUFFIX = re.compile(r"#.*$")
-
-
-def clean_item_name(name: str, page_name: str) -> str:
-    """Clean wiki artifacts from an item/output name."""
-    # Replace {{PAGENAME}} with actual page name
-    name = name.replace("{{PAGENAME}}", page_name).replace("{{PAGENAME", page_name)
-    # Strip page fragment anchors (e.g. "Teapot#Clay" -> "Teapot")
-    name = _FRAGMENT_SUFFIX.sub("", name)
-    # Strip any remaining wiki template artifacts (e.g. "{{!}}")
-    name = _WIKI_TEMPLATE_ARTIFACT.sub("", name)
-    return name.strip()
-
-
 def parse_recipe(block: str, page_name: str) -> dict | None:
     """Parse a single {{Recipe}} block into a recipe dict."""
     recipe: dict = {
@@ -132,7 +118,7 @@ def parse_recipe(block: str, page_name: str) -> dict | None:
         mat = parse_template_param(block, f"mat{i}")
         if not mat:
             break
-        item_name = clean_item_name(strip_wiki_links(mat.strip()), page_name)
+        item_name = clean_page_reference(strip_wiki_links(mat.strip()), page_name)
         if item_name:
             quantity = parse_int(parse_template_param(block, f"mat{i}quantity")) or 1
             recipe["inputs"].append({
@@ -145,7 +131,7 @@ def parse_recipe(block: str, page_name: str) -> dict | None:
     output1 = parse_template_param(block, "output1")
     if not output1:
         return None
-    recipe["name"] = clean_item_name(strip_wiki_links(output1.strip()), page_name)
+    recipe["name"] = clean_page_reference(strip_wiki_links(output1.strip()), page_name)
     if not recipe["name"]:
         return None
 
@@ -155,7 +141,7 @@ def parse_recipe(block: str, page_name: str) -> dict | None:
         output = parse_template_param(block, f"output{i}")
         if not output:
             break
-        item_name = clean_item_name(strip_wiki_links(output.strip()), page_name)
+        item_name = clean_page_reference(strip_wiki_links(output.strip()), page_name)
         if item_name:
             quantity = parse_int(parse_template_param(block, f"output{i}quantity")) or 1
             recipe["outputs"].append({
@@ -168,7 +154,7 @@ def parse_recipe(block: str, page_name: str) -> dict | None:
     tools_str = parse_template_param(block, "tools")
     if tools_str:
         for group_idx, tool in enumerate(tools_str.split(",")):
-            tool_name = clean_item_name(strip_wiki_links(tool.strip()), page_name)
+            tool_name = clean_page_reference(strip_wiki_links(tool.strip()), page_name)
             if tool_name:
                 recipe["tools"].append({
                     "tool_group": group_idx,
