@@ -14,7 +14,7 @@ from ragger.db import create_tables, get_connection
 from ragger.enums import Region
 from ragger.wiki import fetch_page_wikitext, link_group_requirement, record_attributions_batch, throttle
 
-REGION_REQ_PATTERN = re.compile(r"\{\{RE\|(\w[\w\s]*)\}\}")
+REGION_REQ_PATTERN = re.compile(r"\{\{(?:RE|LeagueRegion)\|(\w[\w\s]*)\}\}")
 
 
 def parse_league_region(wikitext: str) -> int:
