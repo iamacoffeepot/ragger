@@ -161,4 +161,51 @@ public final class LuaUtils {
             lua.setField(-2, entry.getKey());
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Lua table field readers (get + pop with default)
+    // -----------------------------------------------------------------------
+
+    public static String getStringField(final Lua lua, final int tableIndex, final String field) {
+        lua.getField(tableIndex, field);
+        final String val = lua.type(-1) == Lua.LuaType.STRING ? lua.toString(-1) : null;
+        lua.pop(1);
+        return val;
+    }
+
+    public static int getIntField(final Lua lua, final int tableIndex, final String field,
+                                  final int defaultVal) {
+        lua.getField(tableIndex, field);
+        final int val = lua.type(-1) == Lua.LuaType.NUMBER ? (int) lua.toInteger(-1) : defaultVal;
+        lua.pop(1);
+        return val;
+    }
+
+    public static boolean getBoolField(final Lua lua, final int tableIndex, final String field,
+                                       final boolean defaultVal) {
+        lua.getField(tableIndex, field);
+        final boolean val = lua.type(-1) == Lua.LuaType.BOOLEAN ? lua.toBoolean(-1) : defaultVal;
+        lua.pop(1);
+        return val;
+    }
+
+    // -----------------------------------------------------------------------
+    // Map value extractors (typed get with default)
+    // -----------------------------------------------------------------------
+
+    public static int intVal(final Map<String, Object> map, final String key, final int def) {
+        final Object v = map.get(key);
+        return v instanceof Number n ? n.intValue() : def;
+    }
+
+    public static String strVal(final Map<String, Object> map, final String key, final String def) {
+        final Object v = map.get(key);
+        return v instanceof String s ? s : def;
+    }
+
+    public static boolean boolVal(final Map<String, Object> map, final String key,
+                                  final boolean def) {
+        final Object v = map.get(key);
+        return v instanceof Boolean b ? b : def;
+    }
 }

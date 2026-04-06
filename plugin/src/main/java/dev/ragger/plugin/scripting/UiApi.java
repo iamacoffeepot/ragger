@@ -81,13 +81,13 @@ public class UiApi {
 
         final int optsIndex = 2;
 
-        final String title = getStringField(lua, optsIndex, "title");
-        final int x = getIntField(lua, optsIndex, "x", 0);
-        final int y = getIntField(lua, optsIndex, "y", 0);
-        final int width = getIntField(lua, optsIndex, "width", 200);
-        final int height = getIntField(lua, optsIndex, "height", 150);
-        final boolean closeable = getBoolField(lua, optsIndex, "closeable", false);
-        final boolean draggable = getBoolField(lua, optsIndex, "draggable", false);
+        final String title = LuaUtils.getStringField(lua, optsIndex, "title");
+        final int x = LuaUtils.getIntField(lua, optsIndex, "x", 0);
+        final int y = LuaUtils.getIntField(lua, optsIndex, "y", 0);
+        final int width = LuaUtils.getIntField(lua, optsIndex, "width", 200);
+        final int height = LuaUtils.getIntField(lua, optsIndex, "height", 150);
+        final boolean closeable = LuaUtils.getBoolField(lua, optsIndex, "closeable", false);
+        final boolean draggable = LuaUtils.getBoolField(lua, optsIndex, "draggable", false);
 
         final int panelId = nextPanelId++;
         final UiPanel panel = new UiPanel(panelId, title, x, y, width, height, closeable, draggable);
@@ -189,12 +189,12 @@ public class UiApi {
         // Read config but handle callback refs manually before tableToMap
         // (tableToMap would stringify functions)
         final Map<String, Object> config = new LinkedHashMap<>();
-        config.put("x", getIntField(lua, optsIndex, "x", 0));
-        config.put("y", getIntField(lua, optsIndex, "y", 0));
-        config.put("w", getIntField(lua, optsIndex, "w", 80));
-        config.put("h", getIntField(lua, optsIndex, "h", 24));
-        config.put("text", getStringField(lua, optsIndex, "text"));
-        config.put("color", getIntField(lua, optsIndex, "color", 0xFFFFFF));
+        config.put("x", LuaUtils.getIntField(lua, optsIndex, "x", 0));
+        config.put("y", LuaUtils.getIntField(lua, optsIndex, "y", 0));
+        config.put("w", LuaUtils.getIntField(lua, optsIndex, "w", 80));
+        config.put("h", LuaUtils.getIntField(lua, optsIndex, "h", 24));
+        config.put("text", LuaUtils.getStringField(lua, optsIndex, "text"));
+        config.put("color", LuaUtils.getIntField(lua, optsIndex, "color", 0xFFFFFF));
 
         final int elemId = panel.nextElementId++;
         final UiElement elem = new UiElement(elemId, UiElement.BUTTON, config);
@@ -666,11 +666,11 @@ public class UiApi {
         }
 
         final Map<String, Object> c = elem.config;
-        final int ex = intVal(c, "x", 0);
-        final int ey = intVal(c, "y", 0) + panel.contentOffsetY();
-        final String text = strVal(c, "text", "");
-        final int color = intVal(c, "color", 0xFFFFFF);
-        final int fontSize = intVal(c, "font_size", 0);
+        final int ex = LuaUtils.intVal(c, "x", 0);
+        final int ey = LuaUtils.intVal(c, "y", 0) + panel.contentOffsetY();
+        final String text = LuaUtils.strVal(c, "text", "");
+        final int color = LuaUtils.intVal(c, "color", 0xFFFFFF);
+        final int fontSize = LuaUtils.intVal(c, "font_size", 0);
 
         final Widget w = panel.rootLayer.createChild(-1, WidgetType.TEXT);
         w.setOriginalX(ex);
@@ -695,13 +695,13 @@ public class UiApi {
         }
 
         final Map<String, Object> c = elem.config;
-        final int ex = intVal(c, "x", 0);
-        final int ey = intVal(c, "y", 0) + panel.contentOffsetY();
-        final int ew = intVal(c, "w", panel.width);
-        final int eh = intVal(c, "h", 1);
-        final int color = intVal(c, "color", 0x333333);
-        final boolean filled = boolVal(c, "filled", true);
-        final int opacity = intVal(c, "opacity", 0);
+        final int ex = LuaUtils.intVal(c, "x", 0);
+        final int ey = LuaUtils.intVal(c, "y", 0) + panel.contentOffsetY();
+        final int ew = LuaUtils.intVal(c, "w", panel.width);
+        final int eh = LuaUtils.intVal(c, "h", 1);
+        final int color = LuaUtils.intVal(c, "color", 0x333333);
+        final boolean filled = LuaUtils.boolVal(c, "filled", true);
+        final int opacity = LuaUtils.intVal(c, "opacity", 0);
 
         final Widget w = panel.rootLayer.createChild(-1, WidgetType.RECTANGLE);
         w.setOriginalX(ex);
@@ -725,12 +725,12 @@ public class UiApi {
         }
 
         final Map<String, Object> c = elem.config;
-        final int ex = intVal(c, "x", 0);
-        final int ey = intVal(c, "y", 0) + panel.contentOffsetY();
-        final int ew = intVal(c, "w", 80);
-        final int eh = intVal(c, "h", 24);
-        final String text = strVal(c, "text", "Button");
-        final int color = intVal(c, "color", 0xFFFFFF);
+        final int ex = LuaUtils.intVal(c, "x", 0);
+        final int ey = LuaUtils.intVal(c, "y", 0) + panel.contentOffsetY();
+        final int ew = LuaUtils.intVal(c, "w", 80);
+        final int eh = LuaUtils.intVal(c, "h", 24);
+        final String text = LuaUtils.strVal(c, "text", "Button");
+        final int color = LuaUtils.intVal(c, "color", 0xFFFFFF);
 
         // Button background
         final Widget bg = panel.rootLayer.createChild(-1, WidgetType.RECTANGLE);
@@ -791,11 +791,11 @@ public class UiApi {
         }
 
         final Map<String, Object> c = elem.config;
-        final int ex = intVal(c, "x", 0);
-        final int ey = intVal(c, "y", 0) + panel.contentOffsetY();
-        final int ew = intVal(c, "w", 20);
-        final int eh = intVal(c, "h", 20);
-        final int spriteId = intVal(c, "sprite", 0);
+        final int ex = LuaUtils.intVal(c, "x", 0);
+        final int ey = LuaUtils.intVal(c, "y", 0) + panel.contentOffsetY();
+        final int ew = LuaUtils.intVal(c, "w", 20);
+        final int eh = LuaUtils.intVal(c, "h", 20);
+        final int spriteId = LuaUtils.intVal(c, "sprite", 0);
 
         final Widget w = panel.rootLayer.createChild(-1, WidgetType.GRAPHIC);
         w.setOriginalX(ex);
@@ -816,12 +816,12 @@ public class UiApi {
         }
 
         final Map<String, Object> c = elem.config;
-        final int ex = intVal(c, "x", 0);
-        final int ey = intVal(c, "y", 0) + panel.contentOffsetY();
-        final int ew = intVal(c, "w", 36);
-        final int eh = intVal(c, "h", 32);
-        final int itemId = intVal(c, "item_id", 0);
-        final int quantity = intVal(c, "quantity", 1);
+        final int ex = LuaUtils.intVal(c, "x", 0);
+        final int ey = LuaUtils.intVal(c, "y", 0) + panel.contentOffsetY();
+        final int ew = LuaUtils.intVal(c, "w", 36);
+        final int eh = LuaUtils.intVal(c, "h", 32);
+        final int itemId = LuaUtils.intVal(c, "item_id", 0);
+        final int quantity = LuaUtils.intVal(c, "quantity", 1);
 
         final Widget w = panel.rootLayer.createChild(-1, WidgetType.GRAPHIC);
         w.setOriginalX(ex);
@@ -1084,42 +1084,4 @@ public class UiApi {
     // Helpers for reading opts tables
     // -----------------------------------------------------------------------
 
-    private static String getStringField(final Lua lua, final int tableIndex, final String field) {
-        lua.getField(tableIndex, field);
-        final String val = lua.type(-1) == Lua.LuaType.STRING ? lua.toString(-1) : null;
-        lua.pop(1);
-        return val;
-    }
-
-    private static int getIntField(final Lua lua, final int tableIndex, final String field,
-                                   final int defaultVal) {
-        lua.getField(tableIndex, field);
-        final int val = lua.type(-1) == Lua.LuaType.NUMBER ? (int) lua.toInteger(-1) : defaultVal;
-        lua.pop(1);
-        return val;
-    }
-
-    private static boolean getBoolField(final Lua lua, final int tableIndex, final String field,
-                                        final boolean defaultVal) {
-        lua.getField(tableIndex, field);
-        final boolean val = lua.type(-1) == Lua.LuaType.BOOLEAN ? lua.toBoolean(-1) : defaultVal;
-        lua.pop(1);
-        return val;
-    }
-
-    private static int intVal(final Map<String, Object> map, final String key, final int def) {
-        final Object v = map.get(key);
-        return v instanceof Number n ? n.intValue() : def;
-    }
-
-    private static String strVal(final Map<String, Object> map, final String key, final String def) {
-        final Object v = map.get(key);
-        return v instanceof String s ? s : def;
-    }
-
-    private static boolean boolVal(final Map<String, Object> map, final String key,
-                                   final boolean def) {
-        final Object v = map.get(key);
-        return v instanceof Boolean b ? b : def;
-    }
 }
