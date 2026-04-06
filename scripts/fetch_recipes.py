@@ -7,6 +7,7 @@ Requires: fetch_items.py to have been run first (for item_id cross-referencing).
 """
 
 import argparse
+import re
 from pathlib import Path
 
 from ragger.db import create_tables, get_connection
@@ -178,9 +179,20 @@ def ingest(db_path: Path) -> None:
     pages = fetch_template_users("Recipe")
     print(f"Found {len(pages)} pages")
 
-    # Build item name -> id lookup
+    # Build item name -> id lookup with dose/charge suffix fallback
     item_rows = conn.execute("SELECT id, name FROM items").fetchall()
     item_lookup: dict[str, int] = {name: id for id, name in item_rows}
+    _dose_pattern = re.compile(r"^(.+?)\s*\((\d+)\)$")
+
+    def resolve_item(name: str) -> int | None:
+        item_id = item_lookup.get(name)
+        if item_id is not None:
+            return item_id
+        # Strip dose/charge suffix: "Super restore(4)" -> "Super restore"
+        m = _dose_pattern.match(name)
+        if m:
+            return item_lookup.get(m.group(1).strip())
+        return None
 
     # Clear existing recipe data for clean re-import
     conn.execute("DELETE FROM recipe_tools")
@@ -220,19 +232,19 @@ def ingest(db_path: Path) -> None:
             for inp in recipe["inputs"]:
                 conn.execute(
                     "INSERT INTO recipe_inputs (recipe_id, item_id, item_name, quantity) VALUES (?, ?, ?, ?)",
-                    (recipe_id, item_lookup.get(inp["item_name"]), inp["item_name"], inp["quantity"]),
+                    (recipe_id, resolve_item(inp["item_name"]), inp["item_name"], inp["quantity"]),
                 )
 
             for out in recipe["outputs"]:
                 conn.execute(
                     "INSERT INTO recipe_outputs (recipe_id, item_id, item_name, quantity) VALUES (?, ?, ?, ?)",
-                    (recipe_id, item_lookup.get(out["item_name"]), out["item_name"], out["quantity"]),
+                    (recipe_id, resolve_item(out["item_name"]), out["item_name"], out["quantity"]),
                 )
 
             for tool in recipe["tools"]:
                 conn.execute(
                     "INSERT INTO recipe_tools (recipe_id, tool_group, item_id, item_name) VALUES (?, ?, ?, ?)",
-                    (recipe_id, tool["tool_group"], item_lookup.get(tool["item_name"]), tool["item_name"]),
+                    (recipe_id, tool["tool_group"], resolve_item(tool["item_name"]), tool["item_name"]),
                 )
 
             recipe_count += 1
