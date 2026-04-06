@@ -113,6 +113,13 @@ def parse_recipe(block: str, page_name: str) -> dict | None:
             })
         i += 1
 
+    # Names that appear in mat1 but are actually currencies
+    currency_overrides = {
+        "Nightmare Zone points",
+        "Void Knight commendation points",
+        "Zeal Tokens",
+    }
+
     # Parse inputs (mat1, mat2, ...) — route to items or currencies
     i = 1
     while True:
@@ -129,10 +136,16 @@ def parse_recipe(block: str, page_name: str) -> dict | None:
         elif mat:
             item_name = clean_page_reference(strip_wiki_links(mat.strip()), page_name)
             if item_name:
-                recipe["input_items"].append({
-                    "item_name": item_name,
-                    "quantity": quantity,
-                })
+                if item_name in currency_overrides:
+                    recipe["input_currencies"].append({
+                        "currency": item_name,
+                        "quantity": quantity,
+                    })
+                else:
+                    recipe["input_items"].append({
+                        "item_name": item_name,
+                        "quantity": quantity,
+                    })
         i += 1
 
     # Recipe name from output1 (what this recipe creates)
