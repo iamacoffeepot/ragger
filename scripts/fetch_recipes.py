@@ -126,6 +126,14 @@ def parse_recipe(block: str) -> dict | None:
             })
         i += 1
 
+    # Recipe name from output1 (what this recipe creates)
+    output1 = parse_template_param(block, "output1")
+    if not output1:
+        return None
+    recipe["name"] = strip_wiki_links(output1.strip())
+    if not recipe["name"]:
+        return None
+
     # Parse outputs (output1, output2, ...)
     i = 1
     while True:
@@ -151,10 +159,6 @@ def parse_recipe(block: str) -> dict | None:
                     "tool_group": group_idx,
                     "item_name": tool_name,
                 })
-
-    # Skip recipes with no outputs (malformed)
-    if not recipe["outputs"]:
-        return None
 
     return recipe
 
@@ -218,8 +222,8 @@ def ingest(db_path: Path) -> None:
 
         for recipe in recipes:
             cursor = conn.execute(
-                "INSERT INTO recipes (members, ticks, notes, facilities) VALUES (?, ?, ?, ?)",
-                (recipe["members"], recipe["ticks"], recipe["notes"], recipe["facilities"]),
+                "INSERT INTO recipes (name, members, ticks, notes, facilities) VALUES (?, ?, ?, ?, ?)",
+                (recipe["name"], recipe["members"], recipe["ticks"], recipe["notes"], recipe["facilities"]),
             )
             recipe_id = cursor.lastrowid
 
@@ -236,10 +240,14 @@ def ingest(db_path: Path) -> None:
                 )
 
             for out in recipe["outputs"]:
+                item_id = resolve_item(out["item_name"])
+                if item_id is None:
+                    continue
                 conn.execute(
                     "INSERT INTO recipe_outputs (recipe_id, item_id, item_name, quantity) VALUES (?, ?, ?, ?)",
-                    (recipe_id, resolve_item(out["item_name"]), out["item_name"], out["quantity"]),
+                    (recipe_id, item_id, out["item_name"], out["quantity"]),
                 )
+
 
             for tool in recipe["tools"]:
                 conn.execute(

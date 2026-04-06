@@ -475,6 +475,7 @@ SCHEMAS: list[str] = [
     """
     CREATE TABLE IF NOT EXISTS recipes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
         members INTEGER NOT NULL DEFAULT 1,
         ticks INTEGER,
         notes TEXT,
