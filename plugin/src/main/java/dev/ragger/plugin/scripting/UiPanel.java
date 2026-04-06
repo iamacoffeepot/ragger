@@ -29,7 +29,12 @@ final class UiPanel {
     int width;
     int height;
     boolean closeable;
+    boolean draggable;
     int closeCallbackRef = UiElement.NO_REF;
+
+    // Drag offset (set when drag starts, used by UiApi.tickDrag)
+    int dragOffsetX;
+    int dragOffsetY;
 
     // Widget references (null before build or after viewport destroy)
     Widget rootLayer;
@@ -44,7 +49,8 @@ final class UiPanel {
     int nextElementId = 1;
 
     UiPanel(final int id, final String title, final int x, final int y,
-            final int width, final int height, final boolean closeable) {
+            final int width, final int height, final boolean closeable,
+            final boolean draggable) {
         this.id = id;
         this.title = title;
         this.x = x;
@@ -52,6 +58,7 @@ final class UiPanel {
         this.width = width;
         this.height = height;
         this.closeable = closeable;
+        this.draggable = draggable;
     }
 
     /**

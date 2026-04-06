@@ -1,6 +1,7 @@
 package dev.ragger.plugin.scripting;
 
 import net.runelite.api.Client;
+import net.runelite.api.Point;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.JavaScriptCallback;
 import net.runelite.api.widgets.Widget;
@@ -40,6 +41,7 @@ public class UiApi {
     private final Map<Integer, UiPanel> panels = new LinkedHashMap<>();
     private final ConcurrentLinkedQueue<ClickEvent> clickQueue = new ConcurrentLinkedQueue<>();
     private int nextPanelId = 1;
+    private UiPanel draggingPanel;
 
     private record ClickEvent(int panelId, int elementId, int actionIndex) {}
 
@@ -85,9 +87,10 @@ public class UiApi {
         final int width = getIntField(lua, optsIndex, "width", 200);
         final int height = getIntField(lua, optsIndex, "height", 150);
         final boolean closeable = getBoolField(lua, optsIndex, "closeable", false);
+        final boolean draggable = getBoolField(lua, optsIndex, "draggable", false);
 
         final int panelId = nextPanelId++;
-        final UiPanel panel = new UiPanel(panelId, title, x, y, width, height, closeable);
+        final UiPanel panel = new UiPanel(panelId, title, x, y, width, height, closeable, draggable);
 
         // Store on_close callback ref if provided
         lua.getField(optsIndex, "on_close");
@@ -539,6 +542,8 @@ public class UiApi {
         root.setYPositionMode(WidgetPositionMode.ABSOLUTE_TOP);
         root.setWidthMode(WidgetSizeMode.ABSOLUTE);
         root.setHeightMode(WidgetSizeMode.ABSOLUTE);
+        root.setNoClickThrough(true);
+        root.setNoScrollThrough(true);
         root.revalidate();
         panel.rootLayer = root;
 
@@ -571,6 +576,20 @@ public class UiApi {
             titleBg.setOpacity(0);
             titleBg.revalidate();
             panel.titleBg = titleBg;
+
+            // Start drag on mouse-down in title bar. Ongoing tracking and
+            // release detection happen in tickDrag() every frame.
+            if (panel.draggable) {
+                titleBg.setOnMouseRepeatListener((JavaScriptCallback) ev -> {
+                    if (draggingPanel == null && client.getMouseCurrentButton() == 1) {
+                        final Point mouse = client.getMouseCanvasPosition();
+                        panel.dragOffsetX = mouse.getX() - panel.x;
+                        panel.dragOffsetY = mouse.getY() - panel.y;
+                        draggingPanel = panel;
+                    }
+                });
+                titleBg.setHasListener(true);
+            }
 
             // Title text
             final Widget titleText = root.createChild(WidgetType.TEXT);
@@ -821,6 +840,46 @@ public class UiApi {
     }
 
     // -----------------------------------------------------------------------
+    // Drag tracking
+    // -----------------------------------------------------------------------
+
+    /**
+     * Update the actively dragged panel's position, or end the drag if the
+     * mouse button was released. Called every frame from LuaActor.frame().
+     */
+    public void tickDrag() {
+        if (draggingPanel == null) {
+            return;
+        }
+
+        if (client.getMouseCurrentButton() != 1) {
+            draggingPanel = null;
+            return;
+        }
+
+        final Point mouse = client.getMouseCanvasPosition();
+        int newX = mouse.getX() - draggingPanel.dragOffsetX;
+        int newY = mouse.getY() - draggingPanel.dragOffsetY;
+
+        // Clamp to parent bounds
+        if (draggingPanel.rootLayer != null) {
+            final Widget parent = draggingPanel.rootLayer.getParent();
+            if (parent != null) {
+                final int maxX = parent.getWidth() - draggingPanel.width;
+                final int maxY = parent.getHeight() - draggingPanel.height;
+                newX = Math.max(0, Math.min(newX, maxX));
+                newY = Math.max(0, Math.min(newY, maxY));
+            }
+
+            draggingPanel.x = newX;
+            draggingPanel.y = newY;
+            draggingPanel.rootLayer.setOriginalX(newX);
+            draggingPanel.rootLayer.setOriginalY(newY);
+            draggingPanel.rootLayer.revalidate();
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Click queue processing
     // -----------------------------------------------------------------------
 
@@ -924,6 +983,9 @@ public class UiApi {
     private void destroyPanelById(final int panelId) {
         final UiPanel panel = panels.remove(panelId);
         if (panel != null) {
+            if (draggingPanel == panel) {
+                draggingPanel = null;
+            }
             destroyPanelWidgets(panel);
             unrefPanel(panel);
         }

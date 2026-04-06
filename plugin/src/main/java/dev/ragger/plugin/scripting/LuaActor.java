@@ -124,6 +124,7 @@ public class LuaActor {
         }
 
         if (uiApi != null) {
+            uiApi.tickDrag();
             uiApi.drainClicks();
         }
 
