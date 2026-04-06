@@ -21,7 +21,7 @@ from ragger.wiki import (
 def parse_int(val: str | None) -> int | None:
     if not val:
         return None
-    val = val.strip().replace(",", "").replace("+", "")
+    val = val.strip().split(",")[0].replace("+", "")
     try:
         return int(val)
     except ValueError:
@@ -51,7 +51,7 @@ def parse_bool(val: str | None) -> int | None:
 
 def parse_item(name: str, wikitext: str) -> dict:
     """Parse item metadata from a page's wikitext."""
-    item: dict = {"name": name}
+    item: dict = {"name": name, "game_ids": []}
 
     block = extract_template(wikitext, "Infobox Item")
     if not block:
@@ -60,7 +60,15 @@ def parse_item(name: str, wikitext: str) -> dict:
     item["members"] = parse_bool(parse_template_param(block, "members"))
     item["tradeable"] = parse_bool(parse_template_param(block, "tradeable"))
     item["weight"] = parse_float(parse_template_param(block, "weight"))
-    item["game_id"] = parse_int(parse_template_param(block, "id"))
+
+    raw_id = parse_template_param(block, "id")
+    game_ids: list[int] = []
+    if raw_id:
+        for part in raw_id.split(","):
+            gid = parse_int(part)
+            if gid is not None:
+                game_ids.append(gid)
+    item["game_ids"] = game_ids
 
     examine = parse_template_param(block, "examine")
     if examine:
@@ -99,22 +107,37 @@ def ingest(db_path: Path) -> None:
 
     print(f"Fetched {len(all_wikitext)} pages, parsing...")
 
+    # Build name → id lookup for game_id inserts
+    item_lookup: dict[str, int] = {
+        name: id for id, name in conn.execute("SELECT id, name FROM items").fetchall()
+    }
+
     updated = 0
+    game_id_count = 0
     for page_name, wikitext in all_wikitext.items():
         item = parse_item(page_name, wikitext)
 
-        # Only update if we parsed at least one field
-        if any(item.get(k) is not None for k in ("members", "tradeable", "weight", "game_id", "examine")):
+        # Update metadata columns
+        if any(item.get(k) is not None for k in ("members", "tradeable", "weight", "examine")):
             conn.execute(
-                """UPDATE items SET members = ?, tradeable = ?, weight = ?, game_id = ?, examine = ?
+                """UPDATE items SET members = ?, tradeable = ?, weight = ?, examine = ?
                    WHERE name = ?""",
                 (item.get("members"), item.get("tradeable"), item.get("weight"),
-                 item.get("game_id"), item.get("examine"), page_name),
+                 item.get("examine"), page_name),
             )
             updated += 1
 
+        # Insert game IDs into junction table
+        item_id = item_lookup.get(page_name)
+        if item_id and item["game_ids"]:
+            conn.executemany(
+                "INSERT OR IGNORE INTO item_game_ids (item_id, game_id) VALUES (?, ?)",
+                [(item_id, gid) for gid in item["game_ids"]],
+            )
+            game_id_count += len(item["game_ids"])
+
     conn.commit()
-    print(f"Updated metadata for {updated} items")
+    print(f"Updated metadata for {updated} items, inserted {game_id_count} game IDs")
 
     # Record attributions
     record_attributions_batch(conn, "items", list(all_wikitext.keys()))

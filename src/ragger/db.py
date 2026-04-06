@@ -25,8 +25,15 @@ SCHEMAS: list[str] = [
         members INTEGER,
         tradeable INTEGER,
         weight REAL,
-        game_id INTEGER,
         examine TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS item_game_ids (
+        item_id INTEGER NOT NULL,
+        game_id INTEGER NOT NULL,
+        PRIMARY KEY (item_id, game_id),
+        FOREIGN KEY (item_id) REFERENCES items(id)
     )
     """,
     f"""
