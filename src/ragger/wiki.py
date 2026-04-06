@@ -366,6 +366,64 @@ def link_requirement(
     return req_id
 
 
+# ---------------------------------------------------------------------------
+# Generic requirement group utilities
+# ---------------------------------------------------------------------------
+
+
+def create_requirement_group(conn: sqlite3.Connection) -> int:
+    """Create a new requirement group and return its id."""
+    conn.execute("INSERT INTO requirement_groups DEFAULT VALUES")
+    return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+def add_group_requirement(
+    conn: sqlite3.Connection,
+    group_id: int,
+    table: str,
+    columns: dict[str, object],
+) -> int:
+    """Add a typed requirement to a group. Returns the requirement row id."""
+    all_cols = {"group_id": group_id, **columns}
+    col_names = ", ".join(all_cols.keys())
+    placeholders = ", ".join("?" * len(all_cols))
+    values = list(all_cols.values())
+    conn.execute(f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})", values)
+    return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+def link_requirement_group(
+    conn: sqlite3.Connection,
+    junction_table: str,
+    entity_column: str,
+    entity_id: int,
+    group_id: int,
+) -> None:
+    """Link an entity to a requirement group via a junction table."""
+    conn.execute(
+        f"INSERT OR IGNORE INTO {junction_table} ({entity_column}, group_id) VALUES (?, ?)",
+        (entity_id, group_id),
+    )
+
+
+def link_group_requirement(
+    conn: sqlite3.Connection,
+    table: str,
+    columns: dict[str, object],
+    junction_table: str,
+    entity_column: str,
+    entity_id: int,
+) -> int:
+    """Convenience: create a group with a single requirement and link it to an entity.
+
+    This is the common AND case — one requirement per group. Returns the group id.
+    """
+    group_id = create_requirement_group(conn)
+    add_group_requirement(conn, group_id, table, columns)
+    link_requirement_group(conn, junction_table, entity_column, entity_id, group_id)
+    return group_id
+
+
 def fetch_contributors_batch(pages: list[str]) -> dict[str, list[str]]:
     """Fetch contributors for up to 50 pages in a single API call.
 

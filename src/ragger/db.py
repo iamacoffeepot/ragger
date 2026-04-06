@@ -137,6 +137,93 @@ SCHEMAS: list[str] = [
         FOREIGN KEY (region_requirement_id) REFERENCES region_requirements(id)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS requirement_groups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT
+    )
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS group_skill_requirements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        skill INTEGER NOT NULL CHECK(skill IN ({_skill_ids})),
+        level INTEGER NOT NULL CHECK(level BETWEEN 1 AND 99),
+        boostable INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS group_quest_requirements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        required_quest_id INTEGER NOT NULL,
+        partial INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (group_id) REFERENCES requirement_groups(id),
+        FOREIGN KEY (required_quest_id) REFERENCES quests(id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS group_quest_point_requirements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        points INTEGER NOT NULL,
+        FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS group_item_requirements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        item_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (group_id) REFERENCES requirement_groups(id),
+        FOREIGN KEY (item_id) REFERENCES items(id)
+    )
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS group_diary_requirements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        location TEXT NOT NULL CHECK(location IN ({_diary_location_values})),
+        tier TEXT NOT NULL CHECK(tier IN ({_diary_tier_values})),
+        FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
+    )
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS group_region_requirements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        region INTEGER NOT NULL CHECK(region IN ({_region_ids})),
+        FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS quest_requirement_groups (
+        quest_id INTEGER NOT NULL,
+        group_id INTEGER NOT NULL,
+        PRIMARY KEY (quest_id, group_id),
+        FOREIGN KEY (quest_id) REFERENCES quests(id),
+        FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS league_task_requirement_groups (
+        league_task_id INTEGER NOT NULL,
+        group_id INTEGER NOT NULL,
+        PRIMARY KEY (league_task_id, group_id),
+        FOREIGN KEY (league_task_id) REFERENCES league_tasks(id),
+        FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS diary_task_requirement_groups (
+        diary_task_id INTEGER NOT NULL,
+        group_id INTEGER NOT NULL,
+        PRIMARY KEY (diary_task_id, group_id),
+        FOREIGN KEY (diary_task_id) REFERENCES diary_tasks(id),
+        FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
+    )
+    """,
     f"""
     CREATE TABLE IF NOT EXISTS experience_rewards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
