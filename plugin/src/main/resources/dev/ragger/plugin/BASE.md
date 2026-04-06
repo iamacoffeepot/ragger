@@ -638,6 +638,7 @@ local panel = ui:create({
     x = 100, y = 50,            -- position on screen
     width = 220, height = 160,  -- size in pixels
     closeable = true,            -- show X button (default false)
+    draggable = true,            -- drag title bar to move (default false)
     on_close = function()        -- called when X clicked
         chat:game("Closed!")
     end
