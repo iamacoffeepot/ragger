@@ -19,6 +19,7 @@ from ragger.wiki import (
     fetch_category_members,
     fetch_pages_wikitext_batch,
     link_group_requirement,
+    parse_int,
     parse_template_param,
     record_attributions_batch,
     resolve_region,
@@ -53,13 +54,9 @@ def parse_monster_requirements(
     if block:
         slaylvl = parse_template_param(block, "slaylvl")
         if slaylvl:
-            slaylvl = slaylvl.strip().replace(",", "")
-            try:
-                slayer_level = int(slaylvl)
-                if slayer_level < 1 or slayer_level > 99:
-                    slayer_level = None
-            except ValueError:
-                slayer_level = None
+            lvl = parse_int(slaylvl)
+            if lvl is not None and 1 <= lvl <= 99:
+                slayer_level = lvl
 
     # --- Quest requirements from prose ---
     intro = _get_intro(wikitext)
@@ -78,16 +75,6 @@ def parse_versioned_param(block: str, param: str, version: str) -> str | None:
     if val is None:
         val = parse_template_param(block, param)
     return val
-
-
-def parse_int(val: str | None) -> int | None:
-    if not val:
-        return None
-    val = val.strip().replace(",", "")
-    try:
-        return int(val)
-    except ValueError:
-        return None
 
 
 def parse_float(val: str | None) -> float | None:

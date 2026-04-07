@@ -362,10 +362,10 @@ def parse_template_param(text: str, param: str) -> str | None:
 
 
 def parse_int(val: str | None) -> int | None:
-    """Parse an optional integer string, stripping commas."""
+    """Parse an optional integer string, stripping commas, +, and %."""
     if not val:
         return None
-    val = val.strip().replace(",", "")
+    val = val.strip().replace(",", "").replace("+", "").replace("%", "")
     try:
         return int(val)
     except ValueError:

@@ -20,6 +20,7 @@ from ragger.wiki import (
     fetch_category_members,
     fetch_pages_wikitext_batch,
     link_group_requirement,
+    parse_int,
     parse_template_param,
     record_attributions_batch,
     strip_wiki_links,
@@ -32,16 +33,6 @@ def parse_versioned_param(block: str, param: str, version: str) -> str | None:
     if val is None:
         val = parse_template_param(block, param)
     return val
-
-
-def parse_int(val: str | None) -> int | None:
-    if not val:
-        return None
-    val = val.strip().replace(",", "").replace("+", "").replace("%", "")
-    try:
-        return int(val)
-    except ValueError:
-        return None
 
 
 def get_versions(block: str) -> list[str]:

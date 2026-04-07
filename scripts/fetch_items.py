@@ -12,20 +12,11 @@ from ragger.wiki import (
     extract_template,
     fetch_category_members,
     fetch_pages_wikitext_batch,
+    parse_int,
     parse_template_param,
     record_attributions_batch,
     strip_wiki_links,
 )
-
-
-def parse_int(val: str | None) -> int | None:
-    if not val:
-        return None
-    val = val.strip().split(",")[0].replace("+", "")
-    try:
-        return int(val)
-    except ValueError:
-        return None
 
 
 def parse_float(val: str | None) -> float | None:
