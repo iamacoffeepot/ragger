@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from ragger.enums import Skill
+from ragger.enums import Skill, TriggerType
 from ragger.requirements import (
     GroupQuestRequirement,
     GroupSkillRequirement,
@@ -61,8 +61,9 @@ class Action:
     ticks: int | None
     notes: str | None
     at: str | None
+    trigger_types: int
 
-    _COLS = "id, name, members, ticks, notes, at"
+    _COLS = "id, name, members, ticks, notes, at, trigger_types"
 
     # --- Core queries ---
 
@@ -99,6 +100,21 @@ class Action:
             (f"%{name}%",),
         ).fetchall()
         return [cls._from_row(row) for row in rows]
+
+    @classmethod
+    def by_trigger_type(cls, conn: sqlite3.Connection, trigger_type: TriggerType) -> list[Action]:
+        """Find actions that have a given trigger type in their bitmask."""
+        rows = conn.execute(
+            f"SELECT {cls._COLS} FROM actions WHERE trigger_types & ? != 0 ORDER BY id",
+            (trigger_type.mask,),
+        ).fetchall()
+        return [cls._from_row(row) for row in rows]
+
+    def has_trigger_type(self, trigger_type: TriggerType) -> bool:
+        return bool(self.trigger_types & trigger_type.mask)
+
+    def trigger_type_list(self) -> list[TriggerType]:
+        return [t for t in TriggerType if self.trigger_types & t.mask]
 
     # --- Producing queries ---
 
@@ -336,4 +352,5 @@ class Action:
             ticks=row[3],
             notes=row[4],
             at=row[5],
+            trigger_types=row[6],
         )

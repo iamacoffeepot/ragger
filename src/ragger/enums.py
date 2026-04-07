@@ -221,6 +221,35 @@ _KARAMJA_DIARY_MIN_LEVEL: dict[DiaryTier, int] = {
 }
 
 
+class TriggerType(int, Enum):
+    """Action trigger types corresponding to client interaction packets (oploc, opnpc, etc.)."""
+
+    CLICK_OBJECT = 0
+    CLICK_NPC = 1
+    CLICK_ITEM = 2
+    USE_ITEM_ON_OBJECT = 3
+    USE_ITEM_ON_NPC = 4
+    USE_ITEM_ON_ITEM = 5
+
+    @property
+    def mask(self) -> int:
+        return 1 << self.value
+
+    @property
+    def label(self) -> str:
+        return TRIGGER_TYPE_LABELS[self]
+
+
+TRIGGER_TYPE_LABELS: dict["TriggerType", str] = {
+    TriggerType.CLICK_OBJECT: "Click object",
+    TriggerType.CLICK_NPC: "Click NPC",
+    TriggerType.CLICK_ITEM: "Click item",
+    TriggerType.USE_ITEM_ON_OBJECT: "Use item on object",
+    TriggerType.USE_ITEM_ON_NPC: "Use item on NPC",
+    TriggerType.USE_ITEM_ON_ITEM: "Use item on item",
+}
+
+
 class Facility(int, Enum):
     BANK = 0
     FURNACE = 1

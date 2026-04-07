@@ -440,7 +440,8 @@ SCHEMAS: list[str] = [
         members INTEGER NOT NULL DEFAULT 1,
         ticks INTEGER,
         notes TEXT,
-        at TEXT
+        at TEXT,
+        trigger_types INTEGER NOT NULL DEFAULT 0
     )
     """,
     f"""

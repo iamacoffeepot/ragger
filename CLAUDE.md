@@ -470,6 +470,7 @@ Action.all(conn) -> list[Action]
 Action.by_name(conn, name) -> list[Action]             # multiple methods for same output
 Action.at_object(conn, at) -> list[Action]             # performed at world object
 Action.search(conn, name) -> list[Action]              # partial name match
+Action.by_trigger_type(conn, trigger_type) -> list[Action]  # bitmask match
 
 # Producing queries
 Action.producing_item(conn, item_name) -> list[Action]
@@ -503,6 +504,9 @@ action.members -> bool
 action.ticks -> int | None                             # game ticks per action (NULL for gathering)
 action.notes -> str | None                             # quest/other requirements
 action.at -> str | None                                # world object (Furnace, Anvil, etc.) or NULL
+action.trigger_types -> int                            # TriggerType bitmask (oploc, opnpc, opheld, etc.)
+action.has_trigger_type(trigger_type) -> bool
+action.trigger_type_list() -> list[TriggerType]
 ```
 
 ### Npc (`src/ragger/npc.py`)
@@ -693,6 +697,7 @@ throttle()                                                                 # rat
 - `VariableType(str, Enum)` — varp, varbit, varc_int, varc_str with `from_label`
 - `ContentCategory(str, Enum)` — quest, skill, npc, location, item, minigame, activity with `from_label`
 - `FunctionalTag(str, Enum)` — progress, toggle, counter, ui, config, storage, timer, cosmetic with `from_label`
+- `TriggerType(int, Enum)` — CLICK_OBJECT, CLICK_NPC, CLICK_ITEM, USE_ITEM_ON_OBJECT, USE_ITEM_ON_NPC, USE_ITEM_ON_ITEM with `mask`, `label` properties
 - `Facility(int, Enum)` — Bank, Furnace, Anvil, Range, Altar, Spinning wheel, Loom with `mask`, `label` properties
 - `Immunity(int, Enum)` — Poison, Venom, Cannon, Thrall, Burn with `mask`, `label` properties
 - `MapLinkType(str, Enum)` — entrance, exit, fairy_ring, charter_ship, spirit_tree, gnome_glider, canoe, teleport, minecart, ship, quetzal, walkable, npc_transport
