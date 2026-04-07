@@ -16,8 +16,9 @@ from ragger.db import create_tables, get_connection
 from ragger.enums import Skill
 from ragger.wiki import (
     add_group_requirement,
-    clean_page_reference,
+    clean_name,
     create_requirement_group,
+    detect_versions,
     extract_all_templates,
     fetch_pages_wikitext_batch,
     fetch_template_users,
@@ -27,8 +28,6 @@ from ragger.wiki import (
     parse_template_param,
     parse_xp,
     record_attributions_batch,
-    strip_plinks,
-    strip_wiki_links,
     throttle,
 )
 
@@ -39,24 +38,6 @@ from ragger.wiki import (
 FISHING_POLL_TICKS = 5
 
 _PAREN_SUFFIX = re.compile(r"^(.+?)\s*\([^)]+\)$")
-
-
-def clean_name(text: str, page_name: str) -> str:
-    """Strip wiki links, plinks, and clean page references."""
-    return clean_page_reference(strip_wiki_links(strip_plinks(text.strip())), page_name)
-
-
-def detect_versions(block: str) -> list[str]:
-    """Detect version names from version1, version2, ... params."""
-    versions = []
-    i = 1
-    while True:
-        v = parse_template_param(block, f"version{i}")
-        if not v:
-            break
-        versions.append(v.strip())
-        i += 1
-    return versions
 
 
 def parse_fishing_actions(block: str, page_name: str) -> list[dict]:

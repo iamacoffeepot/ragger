@@ -15,7 +15,7 @@ from ragger.db import create_tables, get_connection
 from ragger.enums import Skill
 from ragger.wiki import (
     add_group_requirement,
-    clean_page_reference,
+    clean_name,
     create_requirement_group,
     extract_all_templates,
     fetch_pages_wikitext_batch,
@@ -26,8 +26,6 @@ from ragger.wiki import (
     parse_template_param,
     parse_xp,
     record_attributions_batch,
-    strip_plinks,
-    strip_wiki_links,
     throttle,
 )
 
@@ -37,11 +35,6 @@ from ragger.wiki import (
 WOODCUTTING_POLL_TICKS = 4
 
 _PAREN_SUFFIX = re.compile(r"^(.+?)\s*\([^)]+\)$")
-
-
-def clean_name(text: str, page_name: str) -> str:
-    """Strip wiki links, plinks, and clean page references."""
-    return clean_page_reference(strip_wiki_links(strip_plinks(text.strip())), page_name)
 
 
 def parse_woodcutting_actions(block: str, page_name: str) -> list[dict]:

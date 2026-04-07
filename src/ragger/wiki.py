@@ -208,6 +208,24 @@ def strip_plinks(text: str) -> str:
     return _PLINK_PATTERN.sub(r"\1", text)
 
 
+def clean_name(text: str, page_name: str) -> str:
+    """Strip wiki links, plinks, and clean page references."""
+    return clean_page_reference(strip_wiki_links(strip_plinks(text.strip())), page_name)
+
+
+def detect_versions(block: str) -> list[str]:
+    """Detect version names from version1, version2, ... params in a template block."""
+    versions = []
+    i = 1
+    while True:
+        v = parse_template_param(block, f"version{i}")
+        if not v:
+            break
+        versions.append(v.strip())
+        i += 1
+    return versions
+
+
 def extract_template(wikitext: str, template_name: str) -> str | None:
     """Extract a template block handling nested braces.
 

@@ -572,6 +572,8 @@ from ragger.wiki import (
     strip_markup,
     strip_wiki_links,
     strip_plinks,
+    clean_name,
+    detect_versions,
     extract_template,
     extract_section,
     parse_template_param,
@@ -600,6 +602,8 @@ record_attributions_batch(conn, table_names, pages)                        # bat
 strip_markup(text) -> str                                                  # remove wiki markup
 strip_wiki_links(text) -> str                                              # [[Link|Display]] -> Display
 strip_plinks(text) -> str                                                  # {{plink|Name}} -> Name
+clean_name(text, page_name) -> str                                         # strip links + plinks + clean page ref
+detect_versions(block) -> list[str]                                        # version1, version2, ... from template block
 extract_template(wikitext, template_name) -> str | None                    # nested brace-aware
 extract_section(wikitext, field_name) -> str                               # |field= section
 parse_template_param(text, param) -> str | None                            # brace-aware param extraction
