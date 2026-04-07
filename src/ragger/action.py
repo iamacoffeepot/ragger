@@ -48,6 +48,12 @@ class ActionOutputObject:
 
 
 @dataclass
+class ActionTrigger:
+    target_id: int
+    op: str
+
+
+@dataclass
 class Action:
     id: int
     name: str
@@ -222,6 +228,15 @@ class Action:
         ).fetchall()
         return [ActionInputCurrency(currency=row[0], quantity=row[1]) for row in rows]
 
+    # --- Trigger methods ---
+
+    def triggers(self, conn: sqlite3.Connection) -> list[ActionTrigger]:
+        rows = conn.execute(
+            "SELECT target_id, op FROM action_triggers WHERE action_id = ? ORDER BY target_id, op",
+            (self.id,),
+        ).fetchall()
+        return [ActionTrigger(target_id=row[0], op=row[1]) for row in rows]
+
     # --- Requirement methods ---
 
     def requirement_groups(self, conn: sqlite3.Connection) -> list[RequirementGroup]:
@@ -278,6 +293,7 @@ class Action:
 
         # Delete action-dependent rows
         for table in (
+            "action_triggers",
             "action_requirement_groups",
             "action_output_objects",
             "action_output_items",

@@ -495,6 +495,14 @@ SCHEMAS: list[str] = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS action_triggers (
+        action_id INTEGER NOT NULL,
+        target_id INTEGER NOT NULL,
+        op TEXT NOT NULL,
+        FOREIGN KEY (action_id) REFERENCES actions(id)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS action_requirement_groups (
         action_id INTEGER NOT NULL,
         group_id INTEGER NOT NULL,
