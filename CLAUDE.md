@@ -46,22 +46,12 @@ Pipeline order (managed by `fetch_all.py`):
 15. `fetch_magic_teleports.py` — Parses all spellbook teleports (Standard, Ancient, Lunar) and item teleports (jewellery, etc.)
 16. `fetch_activities.py` — Pulls activities/minigames with type, coordinates, skills bitmask, and region from Category:Activities
 17. `fetch_npcs.py` — Pulls non-combat NPC data (name, version, location, options, region) from Category:Non-player characters
-18. `fetch_recipes.py` — Pulls actions from all pages using {{Recipe}} template. Skill levels and tools become requirement groups; XP becomes output experience.
-19. `fetch_fishing_actions.py` — Pulls fishing actions from {{Fishing info}} templates. Handles versioned methods (harpoon vs bare-handed), multi-skill (barbarian fishing), bait as input items, tools as requirement groups.
-20. `fetch_mining_actions.py` — Pulls mining actions from {{Mining info}} templates. Handles versioned outputs (e.g. Granite 500g/2kg/5kg), deduplicates ore/rock page overlap, ticks NULL (varies by pickaxe).
-21. `fetch_woodcutting_actions.py` — Pulls woodcutting actions from {{Woodcutting info}} templates. Deduplicates log/tree page overlap, 4-tick poll interval.
-22. `fetch_firemaking_actions.py` — Pulls firemaking actions from {{Firemaking info}} templates. Handles versioned methods (tinderbox, bow, barbarian pyre, bonfire), pyre cremation with shade remains, secondary skill XP (Crafting/Prayer), 4-tick burn interval.
-23. `fetch_hunter_actions.py` — Pulls hunter actions from {{Hunter info}} templates. Modelled as instant catch (ticks NULL). Trap items as tool requirements, bait as input items, caught creatures as output items. Handles versioned templates (Herbiboar: Hunting/Harvesting with secondary Herblore skill).
-24. `fetch_thieving_actions.py` — Pulls thieving actions from {{Thieving info}} templates. Handles pickpocketing, stalls, chests, doors, and versioned templates (Pick-lock/Force with Strength skill, Regular/Flashing arrow with different XP). Tool items (lockpick, stethoscope) as requirements. Modelled as instant (ticks NULL).
-25. `fetch_agility_actions.py` — Pulls agility actions from {{Agility info}} templates. Handles obstacles, shortcuts, and completion bonuses. Course name and type stored in notes. Secondary skills (e.g. Barbarian Outpost Strength XP). Modelled as instant (ticks NULL).
-26. `fetch_farming_actions.py` — Pulls farming actions from {{Farming info}} templates. Each crop produces up to three actions: plant (consumes seeds, plantxp), check health (checkxp for trees/bushes), and harvest (produces crops, harvestxp). Patch type as `at` field. Growth time and payment in notes. No versioned templates. Ticks NULL (async growth).
-27. `fetch_prayer_actions.py` — Pulls prayer actions from {{Prayer info}} templates. Bones produce up to four actions per method: bury (1x), altar (3.5x), ectofuntus (4x), sinister offering (3x). Ashes produce scatter (1x) and demonic offering (3x). Also handles bonemeal, fossils, reanimated creatures, and spectral monsters. Input items are consumed bones/ashes. Ticks NULL (instant).
-28. `link_action_triggers_by_drop_sources.py` — Links actions to in-game interaction targets (NPC/object IDs + menu ops) by expanding {{Drop sources}} for each output item. Filters by trigger_types bitmask so NPC actions only get NPC triggers and vice versa.
-29. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
-30. `link_shop_locations.py` — Links shops to locations by matching location text
-31. `link_activity_locations.py` — Links activities to locations by matching location text
-32. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
-33. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
+18. `fetch_actions.py` — Universal action ingestion from {{Skill table}} templates. One API call per skill expands the table and parses name, level, XP, materials, tools, facilities, and secondary skills. Entity/facility pages are batch-fetched for Infobox NPC/Scenery game IDs, with ops resolved from cache dump definitions. Replaces all individual fetch_*_actions.py scripts and trigger linking scripts. Supports `--skill` to run a single skill.
+19. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
+20. `link_shop_locations.py` — Links shops to locations by matching location text
+21. `link_activity_locations.py` — Links activities to locations by matching location text
+22. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
+23. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
 
 ### Import scripts (`scripts/import/`)
 
