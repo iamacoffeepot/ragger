@@ -37,8 +37,6 @@ from ragger.wiki import (
 # chance layer on top of actions will model the per-roll probability.
 FISHING_POLL_TICKS = 5
 
-_PAREN_SUFFIX = re.compile(r"^(.+?)\s*\([^)]+\)$")
-
 
 def parse_fishing_actions(block: str, page_name: str) -> list[dict]:
     """Parse a {{Fishing info}} block into one or more action dicts.
@@ -180,13 +178,7 @@ def ingest(db_path: Path) -> None:
     item_lookup: dict[str, int] = {name: id for id, name in item_rows}
 
     def resolve_item(name: str) -> int | None:
-        item_id = item_lookup.get(name)
-        if item_id is not None:
-            return item_id
-        m = _PAREN_SUFFIX.match(name)
-        if m:
-            return item_lookup.get(m.group(1).strip())
-        return None
+        return item_lookup.get(name)
 
     # Clear existing fishing actions for clean re-import
     old_ids = [r[0] for r in conn.execute(

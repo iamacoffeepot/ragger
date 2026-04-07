@@ -9,7 +9,6 @@ Requires: fetch_items.py to have been run first (for item_id cross-referencing).
 """
 
 import argparse
-import re
 from pathlib import Path
 
 from ragger.db import create_tables, get_connection
@@ -36,8 +35,6 @@ from ragger.wiki import (
 # Store the worst-case (bronze) as the base; a polymorphic layer will reduce
 # this based on the equipped pickaxe at query time.
 MINING_POLL_TICKS = 8
-
-_PAREN_SUFFIX = re.compile(r"^(.+?)\s*\([^)]+\)$")
 
 
 def parse_mining_actions(block: str, page_name: str) -> list[dict]:
@@ -116,13 +113,7 @@ def ingest(db_path: Path) -> None:
     item_lookup: dict[str, int] = {name: id for id, name in item_rows}
 
     def resolve_item(name: str) -> int | None:
-        item_id = item_lookup.get(name)
-        if item_id is not None:
-            return item_id
-        m = _PAREN_SUFFIX.match(name)
-        if m:
-            return item_lookup.get(m.group(1).strip())
-        return None
+        return item_lookup.get(name)
 
     # Clear existing mining actions for clean re-import
     old_ids = [r[0] for r in conn.execute(
