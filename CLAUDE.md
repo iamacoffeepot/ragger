@@ -51,11 +51,12 @@ Pipeline order (managed by `fetch_all.py`):
 22. `fetch_firemaking_actions.py` — Pulls firemaking actions from {{Firemaking info}} templates. Handles versioned methods (tinderbox, bow, barbarian pyre, bonfire), pyre cremation with shade remains, secondary skill XP (Crafting/Prayer), 4-tick burn interval.
 23. `fetch_hunter_actions.py` — Pulls hunter actions from {{Hunter info}} templates. Modelled as instant catch (ticks NULL). Trap items as tool requirements, bait as input items, caught creatures as output items. Handles versioned templates (Herbiboar: Hunting/Harvesting with secondary Herblore skill).
 24. `fetch_thieving_actions.py` — Pulls thieving actions from {{Thieving info}} templates. Handles pickpocketing, stalls, chests, doors, and versioned templates (Pick-lock/Force with Strength skill, Regular/Flashing arrow with different XP). Tool items (lockpick, stethoscope) as requirements. Modelled as instant (ticks NULL).
-25. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
-26. `link_shop_locations.py` — Links shops to locations by matching location text
-27. `link_activity_locations.py` — Links activities to locations by matching location text
-28. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
-29. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
+25. `fetch_agility_actions.py` — Pulls agility actions from {{Agility info}} templates. Handles obstacles, shortcuts, and completion bonuses. Course name and type stored in notes. Secondary skills (e.g. Barbarian Outpost Strength XP). Modelled as instant (ticks NULL).
+26. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
+27. `link_shop_locations.py` — Links shops to locations by matching location text
+28. `link_activity_locations.py` — Links activities to locations by matching location text
+29. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
+30. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
 
 ### Utility scripts
 
