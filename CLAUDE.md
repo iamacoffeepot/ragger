@@ -88,10 +88,13 @@ Requires JDK 21+. Run from `tools/cache-dump/`:
 
 # Dump NPC definitions (id, name, size, combatLevel, ops, conditionalOps) to JSON
 ./gradlew dumpNpcDefinitions [--args="--output ../../data/cache-dump/npc-definitions.json"]
+
+# Dump object definitions (id, name, sizeX, sizeY, ops, conditionalOps) to JSON
+./gradlew dumpObjectDefinitions [--args="--output ../../data/cache-dump/object-definitions.json"]
 ```
 
 Output: `data/cache-dump/{collision,water,map-tiles}/{plane}_{rx}_{ry}.png`
-Output: `data/cache-dump/npc-definitions.json`
+Output: `data/cache-dump/{npc,object}-definitions.json`
 Output: `data/game-vars/{varp,varbit,varc_int}.json`
 
 ### DumpMapTiles flags
