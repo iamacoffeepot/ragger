@@ -252,6 +252,63 @@ class Action:
         ).fetchall()
         return [GroupQuestRequirement(r[0], r[1], r[2], bool(r[3])) for r in rows]
 
+    # --- Deletion ---
+
+    @staticmethod
+    def delete_by_source(conn: sqlite3.Connection, source: str) -> list[int]:
+        """Delete all actions for a source and their dependent rows.
+
+        Cleans up input/output tables, requirement group junctions, orphaned
+        requirement groups and their child requirements, source_actions, and
+        the actions themselves. Returns the deleted action IDs.
+        """
+        old_ids = [r[0] for r in conn.execute(
+            "SELECT action_id FROM source_actions WHERE source = ?", (source,),
+        ).fetchall()]
+        if not old_ids:
+            return []
+
+        ph = ",".join("?" * len(old_ids))
+
+        # Collect requirement group IDs before deleting junctions
+        group_ids = [r[0] for r in conn.execute(
+            f"SELECT group_id FROM action_requirement_groups WHERE action_id IN ({ph})",
+            old_ids,
+        ).fetchall()]
+
+        # Delete action-dependent rows
+        for table in (
+            "action_requirement_groups",
+            "action_output_objects",
+            "action_output_items",
+            "action_output_experience",
+            "action_input_currencies",
+            "action_input_objects",
+            "action_input_items",
+        ):
+            conn.execute(f"DELETE FROM {table} WHERE action_id IN ({ph})", old_ids)
+
+        # Delete orphaned requirement groups and their children
+        if group_ids:
+            gph = ",".join("?" * len(group_ids))
+            for table in (
+                "group_skill_requirements",
+                "group_quest_requirements",
+                "group_quest_point_requirements",
+                "group_item_requirements",
+                "group_diary_requirements",
+                "group_region_requirements",
+                "group_equipment_requirements",
+            ):
+                conn.execute(f"DELETE FROM {table} WHERE group_id IN ({gph})", group_ids)
+            conn.execute(
+                f"DELETE FROM requirement_groups WHERE id IN ({gph})", group_ids,
+            )
+
+        conn.execute("DELETE FROM source_actions WHERE source = ?", (source,))
+        conn.execute(f"DELETE FROM actions WHERE id IN ({ph})", old_ids)
+        return old_ids
+
     # --- Private ---
 
     @classmethod

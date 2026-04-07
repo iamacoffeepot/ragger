@@ -18,6 +18,7 @@ import argparse
 import re
 from pathlib import Path
 
+from ragger.action import Action
 from ragger.db import create_tables, get_connection
 from ragger.enums import Skill
 from ragger.wiki import (
@@ -207,20 +208,7 @@ def ingest(db_path: Path) -> None:
     def resolve_item(name: str) -> int | None:
         return item_lookup.get(name)
 
-    # Clear existing farming actions for clean re-import
-    old_ids = [r[0] for r in conn.execute(
-        "SELECT action_id FROM source_actions WHERE source = 'farming'"
-    ).fetchall()]
-    if old_ids:
-        placeholders = ",".join("?" * len(old_ids))
-        for table in (
-            "action_requirement_groups", "action_output_objects", "action_output_items",
-            "action_output_experience", "action_input_currencies", "action_input_objects",
-            "action_input_items",
-        ):
-            conn.execute(f"DELETE FROM {table} WHERE action_id IN ({placeholders})", old_ids)
-        conn.execute("DELETE FROM source_actions WHERE source = 'farming'")
-        conn.execute(f"DELETE FROM actions WHERE id IN ({placeholders})", old_ids)
+    Action.delete_by_source(conn, "farming")
     conn.commit()
 
     # Fetch wikitext in batches of 50
