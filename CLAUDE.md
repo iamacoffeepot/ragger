@@ -45,10 +45,10 @@ Pipeline order (managed by `fetch_all.py`):
 16. `fetch_activities.py` — Pulls activities/minigames with type, coordinates, skills bitmask, and region from Category:Activities
 17. `fetch_npcs.py` — Pulls non-combat NPC data (name, version, location, options, region) from Category:Non-player characters
 18. `fetch_recipes.py` — Pulls actions from all pages using {{Recipe}} template. Skill levels and tools become requirement groups; XP becomes output experience.
-19. `fetch_fishing.py` — Pulls fishing actions from {{Fishing info}} templates. Handles versioned methods (harpoon vs bare-handed), multi-skill (barbarian fishing), bait as input items, tools as requirement groups.
-20. `fetch_mining.py` — Pulls mining actions from {{Mining info}} templates. Handles versioned outputs (e.g. Granite 500g/2kg/5kg), deduplicates ore/rock page overlap, ticks NULL (varies by pickaxe).
-21. `fetch_woodcutting.py` — Pulls woodcutting actions from {{Woodcutting info}} templates. Deduplicates log/tree page overlap, 4-tick poll interval.
-22. `fetch_firemaking.py` — Pulls firemaking actions from {{Firemaking info}} templates. Handles versioned methods (tinderbox, bow, barbarian pyre, bonfire), pyre cremation with shade remains, secondary skill XP (Crafting/Prayer), 4-tick burn interval.
+19. `fetch_fishing_actions.py` — Pulls fishing actions from {{Fishing info}} templates. Handles versioned methods (harpoon vs bare-handed), multi-skill (barbarian fishing), bait as input items, tools as requirement groups.
+20. `fetch_mining_actions.py` — Pulls mining actions from {{Mining info}} templates. Handles versioned outputs (e.g. Granite 500g/2kg/5kg), deduplicates ore/rock page overlap, ticks NULL (varies by pickaxe).
+21. `fetch_woodcutting_actions.py` — Pulls woodcutting actions from {{Woodcutting info}} templates. Deduplicates log/tree page overlap, 4-tick poll interval.
+22. `fetch_firemaking_actions.py` — Pulls firemaking actions from {{Firemaking info}} templates. Handles versioned methods (tinderbox, bow, barbarian pyre, bonfire), pyre cremation with shade remains, secondary skill XP (Crafting/Prayer), 4-tick burn interval.
 23. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
 24. `link_shop_locations.py` — Links shops to locations by matching location text
 25. `link_activity_locations.py` — Links activities to locations by matching location text
