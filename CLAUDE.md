@@ -53,11 +53,12 @@ Pipeline order (managed by `fetch_all.py`):
 24. `fetch_thieving_actions.py` — Pulls thieving actions from {{Thieving info}} templates. Handles pickpocketing, stalls, chests, doors, and versioned templates (Pick-lock/Force with Strength skill, Regular/Flashing arrow with different XP). Tool items (lockpick, stethoscope) as requirements. Modelled as instant (ticks NULL).
 25. `fetch_agility_actions.py` — Pulls agility actions from {{Agility info}} templates. Handles obstacles, shortcuts, and completion bonuses. Course name and type stored in notes. Secondary skills (e.g. Barbarian Outpost Strength XP). Modelled as instant (ticks NULL).
 26. `fetch_farming_actions.py` — Pulls farming actions from {{Farming info}} templates. Each crop produces up to three actions: plant (consumes seeds, plantxp), check health (checkxp for trees/bushes), and harvest (produces crops, harvestxp). Patch type as `at` field. Growth time and payment in notes. No versioned templates. Ticks NULL (async growth).
-27. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
-28. `link_shop_locations.py` — Links shops to locations by matching location text
-29. `link_activity_locations.py` — Links activities to locations by matching location text
-30. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
-31. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
+27. `fetch_prayer_actions.py` — Pulls prayer actions from {{Prayer info}} templates. Bones produce up to four actions per method: bury (1x), altar (3.5x), ectofuntus (4x), sinister offering (3x). Ashes produce scatter (1x) and demonic offering (3x). Also handles bonemeal, fossils, reanimated creatures, and spectral monsters. Input items are consumed bones/ashes. Ticks NULL (instant).
+28. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
+29. `link_shop_locations.py` — Links shops to locations by matching location text
+30. `link_activity_locations.py` — Links activities to locations by matching location text
+31. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
+32. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
 
 ### Utility scripts
 

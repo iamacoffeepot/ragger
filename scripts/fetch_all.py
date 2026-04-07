@@ -38,6 +38,7 @@ SCRIPTS = [
     "scripts/fetch_thieving_actions.py",
     "scripts/fetch_agility_actions.py",
     "scripts/fetch_farming_actions.py",
+    "scripts/fetch_prayer_actions.py",
     "scripts/fetch_wiki_vars.py",
     # Linking passes (depend on multiple tables)
     "scripts/link_shop_locations.py",
