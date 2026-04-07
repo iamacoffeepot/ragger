@@ -21,61 +21,16 @@ from ragger.wiki import (
     fetch_pages_wikitext_batch,
     fetch_template_users,
     link_requirement_group,
+    parse_boostable,
+    parse_int,
+    parse_members,
     parse_template_param,
+    parse_ticks,
+    parse_xp,
     record_attributions_batch,
     strip_wiki_links,
     throttle,
 )
-
-
-def parse_int(val: str | None) -> int | None:
-    if not val:
-        return None
-    val = val.strip().replace(",", "")
-    try:
-        return int(val)
-    except ValueError:
-        return None
-
-
-def parse_xp(val: str | None) -> float:
-    if not val:
-        return 0.0
-    val = val.strip().replace(",", "")
-    try:
-        return float(val)
-    except ValueError:
-        return 0.0
-
-
-def parse_ticks(val: str | None) -> int | None:
-    if not val:
-        return None
-    cleaned = val.strip().lower()
-    if cleaned in ("na", "n/a", "?", "varies", ""):
-        return None
-    cleaned = cleaned.replace(",", "")
-    try:
-        return int(cleaned)
-    except ValueError:
-        return None
-
-
-def parse_members(val: str | None) -> int:
-    if not val:
-        return 1
-    return 0 if val.strip().lower() == "no" else 1
-
-
-def parse_boostable(val: str | None) -> int | None:
-    if not val:
-        return None
-    lower = val.strip().lower()
-    if lower == "yes":
-        return 1
-    if lower == "no":
-        return 0
-    return None
 
 
 def parse_skill_name(val: str) -> int | None:

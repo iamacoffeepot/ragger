@@ -22,7 +22,10 @@ from ragger.wiki import (
     fetch_pages_wikitext_batch,
     fetch_template_users,
     link_requirement_group,
+    parse_int,
+    parse_members,
     parse_template_param,
+    parse_xp,
     record_attributions_batch,
     strip_plinks,
     strip_wiki_links,
@@ -41,34 +44,6 @@ _PAREN_SUFFIX = re.compile(r"^(.+?)\s*\([^)]+\)$")
 def clean_name(text: str, page_name: str) -> str:
     """Strip wiki links, plinks, and clean page references."""
     return clean_page_reference(strip_wiki_links(strip_plinks(text.strip())), page_name)
-
-
-def parse_int(val: str | None) -> int | None:
-    if not val:
-        return None
-    val = val.strip().replace(",", "")
-    try:
-        return int(val)
-    except ValueError:
-        return None
-
-
-def parse_xp(val: str | None) -> float:
-    if not val:
-        return 0.0
-    val = val.strip().replace(",", "")
-    if val == "-1":
-        return 0.0
-    try:
-        return float(val)
-    except ValueError:
-        return 0.0
-
-
-def parse_members(val: str | None) -> int:
-    if not val:
-        return 1
-    return 0 if val.strip().lower() == "no" else 1
 
 
 def detect_versions(block: str) -> list[str]:

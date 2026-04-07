@@ -361,6 +361,63 @@ def parse_template_param(text: str, param: str) -> str | None:
     return val if val else None
 
 
+def parse_int(val: str | None) -> int | None:
+    """Parse an optional integer string, stripping commas."""
+    if not val:
+        return None
+    val = val.strip().replace(",", "")
+    try:
+        return int(val)
+    except ValueError:
+        return None
+
+
+def parse_xp(val: str | None) -> float:
+    """Parse an XP value, returning 0.0 for missing/invalid. Treats -1 as 0 (wiki hides cell)."""
+    if not val:
+        return 0.0
+    val = val.strip().replace(",", "")
+    if val == "-1":
+        return 0.0
+    try:
+        return float(val)
+    except ValueError:
+        return 0.0
+
+
+def parse_ticks(val: str | None) -> int | None:
+    """Parse a tick count, returning None for missing/varies/N/A."""
+    if not val:
+        return None
+    cleaned = val.strip().lower()
+    if cleaned in ("na", "n/a", "?", "varies", ""):
+        return None
+    cleaned = cleaned.replace(",", "")
+    try:
+        return int(cleaned)
+    except ValueError:
+        return None
+
+
+def parse_members(val: str | None) -> int:
+    """Parse a members field, defaulting to 1 (members) if missing."""
+    if not val:
+        return 1
+    return 0 if val.strip().lower() == "no" else 1
+
+
+def parse_boostable(val: str | None) -> int | None:
+    """Parse a boostable yes/no field."""
+    if not val:
+        return None
+    lower = val.strip().lower()
+    if lower == "yes":
+        return 1
+    if lower == "no":
+        return 0
+    return None
+
+
 def parse_skill_requirements(text: str) -> list[tuple[int, int]]:
     """Parse {{SCP|Skill|Level}} patterns into (skill_id, level) tuples."""
     reqs: list[tuple[int, int]] = []
