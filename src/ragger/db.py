@@ -439,8 +439,7 @@ SCHEMAS: list[str] = [
         name TEXT NOT NULL,
         members INTEGER NOT NULL DEFAULT 1,
         ticks INTEGER,
-        notes TEXT,
-        trigger_types INTEGER NOT NULL DEFAULT 0
+        notes TEXT
     )
     """,
     f"""
@@ -497,6 +496,8 @@ SCHEMAS: list[str] = [
     """
     CREATE TABLE IF NOT EXISTS action_triggers (
         action_id INTEGER NOT NULL,
+        trigger_type INTEGER NOT NULL,
+        source_id INTEGER,
         target_id INTEGER NOT NULL,
         op TEXT NOT NULL,
         FOREIGN KEY (action_id) REFERENCES actions(id)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from ragger.enums import Skill, TriggerType
+from ragger.enums import Skill, ActionTriggerType
 from ragger.requirements import (
     GroupQuestRequirement,
     GroupSkillRequirement,
@@ -49,6 +49,8 @@ class ActionOutputObject:
 
 @dataclass
 class ActionTrigger:
+    trigger_type: ActionTriggerType
+    source_id: int | None
     target_id: int
     op: str
 
@@ -60,9 +62,8 @@ class Action:
     members: bool
     ticks: int | None
     notes: str | None
-    trigger_types: int
 
-    _COLS = "id, name, members, ticks, notes, trigger_types"
+    _COLS = "id, name, members, ticks, notes"
 
     # --- Core queries ---
 
@@ -92,49 +93,46 @@ class Action:
         return [cls._from_row(row) for row in rows]
 
     @classmethod
-    def by_trigger_type(cls, conn: sqlite3.Connection, trigger_type: TriggerType) -> list[Action]:
-        """Find actions that have a given trigger type in their bitmask."""
+    def by_trigger_type(cls, conn: sqlite3.Connection, trigger_type: ActionTriggerType) -> list[Action]:
+        """Find actions that have triggers of a given type."""
         rows = conn.execute(
-            f"SELECT {cls._COLS} FROM actions WHERE trigger_types & ? != 0 ORDER BY id",
-            (trigger_type.mask,),
+            f"""SELECT DISTINCT a.{cls._COLS.replace(', ', ', a.')}
+                FROM actions a
+                JOIN action_triggers at ON at.action_id = a.id
+                WHERE at.trigger_type = ?
+                ORDER BY a.id""",
+            (trigger_type.value,),
         ).fetchall()
         return [cls._from_row(row) for row in rows]
 
     @classmethod
     def by_trigger(
-        cls, conn: sqlite3.Connection, trigger_type: TriggerType, target_id: int, op: str | None = None,
+        cls, conn: sqlite3.Connection, trigger_type: ActionTriggerType, target_id: int, op: str | None = None,
     ) -> list[Action]:
         """Find actions matching a game interaction event.
 
-        Looks up actions whose action_triggers contain the given target_id
-        (and optionally op) and whose trigger_types bitmask includes the
-        given trigger type.
+        Looks up actions whose action_triggers match the given trigger_type
+        and target_id (and optionally op).
         """
         if op is not None:
             rows = conn.execute(
                 f"""SELECT DISTINCT a.{cls._COLS.replace(', ', ', a.')}
                     FROM actions a
                     JOIN action_triggers at ON at.action_id = a.id
-                    WHERE at.target_id = ? AND at.op = ? AND a.trigger_types & ? != 0
+                    WHERE at.trigger_type = ? AND at.target_id = ? AND at.op = ?
                     ORDER BY a.id""",
-                (target_id, op, trigger_type.mask),
+                (trigger_type.value, target_id, op),
             ).fetchall()
         else:
             rows = conn.execute(
                 f"""SELECT DISTINCT a.{cls._COLS.replace(', ', ', a.')}
                     FROM actions a
                     JOIN action_triggers at ON at.action_id = a.id
-                    WHERE at.target_id = ? AND a.trigger_types & ? != 0
+                    WHERE at.trigger_type = ? AND at.target_id = ?
                     ORDER BY a.id""",
-                (target_id, trigger_type.mask),
+                (trigger_type.value, target_id),
             ).fetchall()
         return [cls._from_row(row) for row in rows]
-
-    def has_trigger_type(self, trigger_type: TriggerType) -> bool:
-        return bool(self.trigger_types & trigger_type.mask)
-
-    def trigger_type_list(self) -> list[TriggerType]:
-        return [t for t in TriggerType if self.trigger_types & t.mask]
 
     # --- Producing queries ---
 
@@ -268,10 +266,10 @@ class Action:
 
     def triggers(self, conn: sqlite3.Connection) -> list[ActionTrigger]:
         rows = conn.execute(
-            "SELECT target_id, op FROM action_triggers WHERE action_id = ? ORDER BY target_id, op",
+            "SELECT trigger_type, source_id, target_id, op FROM action_triggers WHERE action_id = ? ORDER BY trigger_type, target_id, op",
             (self.id,),
         ).fetchall()
-        return [ActionTrigger(target_id=row[0], op=row[1]) for row in rows]
+        return [ActionTrigger(trigger_type=ActionTriggerType(row[0]), source_id=row[1], target_id=row[2], op=row[3]) for row in rows]
 
     # --- Requirement methods ---
 
@@ -371,5 +369,4 @@ class Action:
             members=bool(row[2]),
             ticks=row[3],
             notes=row[4],
-            trigger_types=row[5],
         )

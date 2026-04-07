@@ -221,7 +221,7 @@ _KARAMJA_DIARY_MIN_LEVEL: dict[DiaryTier, int] = {
 }
 
 
-class TriggerType(int, Enum):
+class ActionTriggerType(int, Enum):
     """Action trigger types corresponding to client interaction packets (oploc, opnpc, etc.)."""
 
     CLICK_OBJECT = 0
@@ -231,6 +231,7 @@ class TriggerType(int, Enum):
     USE_ITEM_ON_NPC = 4
     USE_ITEM_ON_ITEM = 5
     CLICK_WIDGET = 6
+    WIDGET_ON_ITEM = 7
 
     @property
     def mask(self) -> int:
@@ -241,14 +242,15 @@ class TriggerType(int, Enum):
         return TRIGGER_TYPE_LABELS[self]
 
 
-TRIGGER_TYPE_LABELS: dict["TriggerType", str] = {
-    TriggerType.CLICK_OBJECT: "Click object",
-    TriggerType.CLICK_NPC: "Click NPC",
-    TriggerType.CLICK_ITEM: "Click item",
-    TriggerType.USE_ITEM_ON_OBJECT: "Use item on object",
-    TriggerType.USE_ITEM_ON_NPC: "Use item on NPC",
-    TriggerType.USE_ITEM_ON_ITEM: "Use item on item",
-    TriggerType.CLICK_WIDGET: "Click widget",
+TRIGGER_TYPE_LABELS: dict["ActionTriggerType", str] = {
+    ActionTriggerType.CLICK_OBJECT: "Click object",
+    ActionTriggerType.CLICK_NPC: "Click NPC",
+    ActionTriggerType.CLICK_ITEM: "Click item",
+    ActionTriggerType.USE_ITEM_ON_OBJECT: "Use item on object",
+    ActionTriggerType.USE_ITEM_ON_NPC: "Use item on NPC",
+    ActionTriggerType.USE_ITEM_ON_ITEM: "Use item on item",
+    ActionTriggerType.CLICK_WIDGET: "Click widget",
+    ActionTriggerType.WIDGET_ON_ITEM: "Widget on item",
 }
 
 
