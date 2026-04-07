@@ -22,7 +22,9 @@ from ragger.wiki import (
     fetch_pages_wikitext_batch,
     fetch_template_users,
     link_requirement_group,
+    parse_template_param,
     record_attributions_batch,
+    strip_plinks,
     strip_wiki_links,
     throttle,
 )
@@ -33,47 +35,7 @@ from ragger.wiki import (
 # chance layer on top of actions will model the per-roll probability.
 FISHING_POLL_TICKS = 5
 
-_PLINK = re.compile(r"\{\{[Pp]link\|([^}|]+)(?:\|[^}]*)?\}\}")
 _PAREN_SUFFIX = re.compile(r"^(.+?)\s*\([^)]+\)$")
-
-
-def parse_param(text: str, param: str) -> str | None:
-    """Brace-aware extraction of |param=value from template text.
-
-    Unlike wiki.parse_template_param, this correctly handles nested templates
-    like {{plink|Fishing bait}} inside parameter values.
-    """
-    pattern = re.compile(rf"\|\s*{re.escape(param)}\s*=\s*")
-    m = pattern.search(text)
-    if not m:
-        return None
-    start = m.end()
-    depth = 0
-    i = start
-    while i < len(text):
-        ch = text[i]
-        if ch == '{' and i + 1 < len(text) and text[i + 1] == '{':
-            depth += 1
-            i += 2
-            continue
-        if ch == '}' and i + 1 < len(text) and text[i + 1] == '}':
-            if depth == 0:
-                break
-            depth -= 1
-            i += 2
-            continue
-        if ch == '|' and depth == 0:
-            break
-        if ch == '\n' and depth == 0:
-            break
-        i += 1
-    val = text[start:i].strip()
-    return val if val else None
-
-
-def strip_plinks(text: str) -> str:
-    """Replace {{plink|Name}} or {{Plink|Name}} with just the name."""
-    return _PLINK.sub(r"\1", text)
 
 
 def clean_name(text: str, page_name: str) -> str:
@@ -114,7 +76,7 @@ def detect_versions(block: str) -> list[str]:
     versions = []
     i = 1
     while True:
-        v = parse_param(block, f"version{i}")
+        v = parse_template_param(block, f"version{i}")
         if not v:
             break
         versions.append(v.strip())
@@ -128,15 +90,15 @@ def parse_fishing_actions(block: str, page_name: str) -> list[dict]:
     Versioned templates (e.g. shark: harpoon vs bare-handed) produce
     one action per version. Unversioned produce a single action.
     """
-    name_raw = parse_param(block, "name")
+    name_raw = parse_template_param(block, "name")
     if not name_raw:
         return []
     fish_name = clean_name(name_raw, page_name)
     if not fish_name:
         return []
 
-    members = parse_members(parse_param(block, "members"))
-    spot = parse_param(block, "spot")
+    members = parse_members(parse_template_param(block, "members"))
+    spot = parse_template_param(block, "spot")
     at = clean_name(spot, page_name) if spot else None
 
     versions = detect_versions(block)
@@ -182,9 +144,9 @@ def _parse_single_version(
             skill = Skill.FISHING
         else:
             # Check versioned skill name first (e.g. skill2name2), then unversioned (skill2name)
-            skill_name = parse_param(block, f"skill{i}name{suffix}")
+            skill_name = parse_template_param(block, f"skill{i}name{suffix}")
             if not skill_name:
-                skill_name = parse_param(block, f"skill{i}name")
+                skill_name = parse_template_param(block, f"skill{i}name")
             if not skill_name:
                 break
             try:
@@ -194,24 +156,24 @@ def _parse_single_version(
                 continue
 
         # Level: versioned first (skill1lvl2), then unversioned (skill1lvl)
-        level_str = parse_param(block, f"skill{i}lvl{suffix}")
+        level_str = parse_template_param(block, f"skill{i}lvl{suffix}")
         if level_str is None:
-            level_str = parse_param(block, f"skill{i}lvl")
+            level_str = parse_template_param(block, f"skill{i}lvl")
         level = parse_int(level_str)
         if level is None and i == 1:
             # Fishing level from shorthand "level" param
-            level = parse_int(parse_param(block, "level"))
+            level = parse_int(parse_template_param(block, "level"))
         if level is None:
             i += 1
             continue
 
         # XP: versioned first (skill1exp2), then unversioned (skill1exp)
-        xp_str = parse_param(block, f"skill{i}exp{suffix}")
+        xp_str = parse_template_param(block, f"skill{i}exp{suffix}")
         if xp_str is None:
-            xp_str = parse_param(block, f"skill{i}exp")
+            xp_str = parse_template_param(block, f"skill{i}exp")
         # Shorthand "xp" param for fishing XP
         if xp_str is None and i == 1:
-            xp_str = parse_param(block, "xp")
+            xp_str = parse_template_param(block, "xp")
         xp = parse_xp(xp_str)
 
         action["skills"].append({
@@ -225,18 +187,18 @@ def _parse_single_version(
         return None
 
     # Tool: versioned (tool2), then unversioned (tool)
-    tool_str = parse_param(block, f"tool{suffix}")
+    tool_str = parse_template_param(block, f"tool{suffix}")
     if tool_str is None:
-        tool_str = parse_param(block, "tool")
+        tool_str = parse_template_param(block, "tool")
     if tool_str and tool_str.strip().lower() not in ("no", "none", "n/a"):
         tool_name = clean_name(tool_str, page_name)
         if tool_name:
             action["tools"].append(tool_name)
 
     # Bait: versioned (bait2), then unversioned (bait) — becomes input item
-    bait_str = parse_param(block, f"bait{suffix}")
+    bait_str = parse_template_param(block, f"bait{suffix}")
     if bait_str is None:
-        bait_str = parse_param(block, "bait")
+        bait_str = parse_template_param(block, "bait")
     if bait_str and bait_str.strip().lower() not in ("no", "none", "n/a"):
         # Bait can be comma/or-separated list: "Fishing bait, Fish offcuts, Feather, Roe, or Caviar"
         # These are OR options — any one works. Store as separate input items (they'll be in same group).

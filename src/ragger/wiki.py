@@ -20,6 +20,7 @@ SKILL_NAME_MAP: dict[str, Skill] = {s.label.lower(): s for s in Skill}
 
 SKILL_REQ_PATTERN = re.compile(r"\{\{SCP\|(\w+)\|(\d+)")
 WIKI_LINK_PATTERN = re.compile(r"\[\[([^\]|]*?)(?:\|[^\]]*?)?\]\]")
+_PLINK_PATTERN = re.compile(r"\{\{[Pp]link\|([^}|]+)(?:\|[^}]*)?\}\}")
 
 _COORD_X_PARAM = re.compile(r"\|x\s*=\s*(\d+)")
 _COORD_Y_PARAM = re.compile(r"\|y\s*=\s*(\d+)")
@@ -202,6 +203,11 @@ def strip_wiki_links(text: str) -> str:
     return WIKI_LINK_PATTERN.sub(r"\1", text)
 
 
+def strip_plinks(text: str) -> str:
+    """Replace {{plink|Name}} or {{Plink|Name}} with just the name."""
+    return _PLINK_PATTERN.sub(r"\1", text)
+
+
 def extract_template(wikitext: str, template_name: str) -> str | None:
     """Extract a template block handling nested braces.
 
@@ -322,9 +328,37 @@ def extract_section(wikitext: str, field_name: str) -> str:
 
 
 def parse_template_param(text: str, param: str) -> str | None:
-    """Extract a single |param=value from template text."""
-    match = re.search(rf"\|\s*{param}\s*=\s*([^\n|}}]*)", text)
-    return match.group(1).strip() if match else None
+    """Extract a single |param=value from template text.
+
+    Brace-aware: correctly handles nested templates like {{plink|Name}}
+    inside parameter values.
+    """
+    pattern = re.compile(rf"\|\s*{re.escape(param)}\s*=\s*")
+    m = pattern.search(text)
+    if not m:
+        return None
+    start = m.end()
+    depth = 0
+    i = start
+    while i < len(text):
+        ch = text[i]
+        if ch == '{' and i + 1 < len(text) and text[i + 1] == '{':
+            depth += 1
+            i += 2
+            continue
+        if ch == '}' and i + 1 < len(text) and text[i + 1] == '}':
+            if depth == 0:
+                break
+            depth -= 1
+            i += 2
+            continue
+        if ch == '|' and depth == 0:
+            break
+        if ch == '\n' and depth == 0:
+            break
+        i += 1
+    val = text[start:i].strip()
+    return val if val else None
 
 
 def parse_skill_requirements(text: str) -> list[tuple[int, int]]:
