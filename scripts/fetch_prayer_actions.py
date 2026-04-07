@@ -24,7 +24,7 @@ from pathlib import Path
 
 from ragger.action import Action
 from ragger.db import create_tables, get_connection
-from ragger.enums import Skill
+from ragger.enums import Skill, TriggerType
 from ragger.wiki import (
     WIKI_BATCH_SIZE,
     add_group_requirement,
@@ -70,17 +70,17 @@ def _is_no(val: str | None) -> bool:
 
 # XP multipliers for bone offering methods
 _BONE_METHODS = [
-    # (suffix, multiplier, flag_to_check)
-    ("Bury", 1.0, "burying"),
-    ("Altar", 3.5, "altar"),
-    ("Ectofuntus", 4.0, "ectofuntus"),
-    ("Sinister Offering", 3.0, "sinister"),
+    # (suffix, multiplier, flag_to_check, trigger_types)
+    ("Bury", 1.0, "burying", TriggerType.CLICK_ITEM.mask),
+    ("Altar", 3.5, "altar", TriggerType.USE_ITEM_ON_OBJECT.mask),
+    ("Ectofuntus", 4.0, "ectofuntus", TriggerType.USE_ITEM_ON_OBJECT.mask),
+    ("Sinister Offering", 3.0, "sinister", TriggerType.CLICK_WIDGET.mask),
 ]
 
 _ASH_METHODS = [
-    # (suffix, multiplier, flag_to_check)
-    ("Scatter", 1.0, None),
-    ("Demonic Offering", 3.0, None),
+    # (suffix, multiplier, flag_to_check, trigger_types)
+    ("Scatter", 1.0, None, TriggerType.CLICK_ITEM.mask),
+    ("Demonic Offering", 3.0, None, TriggerType.CLICK_WIDGET.mask),
 ]
 
 
@@ -150,7 +150,7 @@ def _parse_single_version(
     actions = []
 
     if prayer_type == "bone":
-        for method_name, multiplier, flag in _BONE_METHODS:
+        for method_name, multiplier, flag, trigger in _BONE_METHODS:
             if flag and _is_no(parse_template_param(block, flag)):
                 continue
             xp = round(base_xp * multiplier, 1)
@@ -161,12 +161,13 @@ def _parse_single_version(
                 "members": members,
                 "ticks": None,
                 "notes": f"bone — {method_name}",
+                "trigger_types": trigger,
                 "level": level,
                 "xp": xp,
             })
 
     elif prayer_type == "ashes":
-        for method_name, multiplier, _flag in _ASH_METHODS:
+        for method_name, multiplier, _flag, trigger in _ASH_METHODS:
             xp = round(base_xp * multiplier, 1)
             actions.append({
                 "name": f"{target_name} ({method_name})",
@@ -175,6 +176,7 @@ def _parse_single_version(
                 "members": members,
                 "ticks": None,
                 "notes": f"ashes — {method_name}",
+                "trigger_types": trigger,
                 "level": level,
                 "xp": xp,
             })
@@ -187,6 +189,7 @@ def _parse_single_version(
             "members": members,
             "ticks": None,
             "notes": "bonemeal",
+            "trigger_types": TriggerType.USE_ITEM_ON_OBJECT.mask,
             "level": level,
             "xp": base_xp,
         })
@@ -199,6 +202,7 @@ def _parse_single_version(
             "members": members,
             "ticks": None,
             "notes": "reanimated",
+            "trigger_types": TriggerType.CLICK_WIDGET.mask,
             "level": level,
             "xp": base_xp,
         })
@@ -211,6 +215,7 @@ def _parse_single_version(
             "members": members,
             "ticks": None,
             "notes": "spectral — Ectoplasmator",
+            "trigger_types": 0,
             "level": level,
             "xp": base_xp,
         })
@@ -223,6 +228,7 @@ def _parse_single_version(
             "members": members,
             "ticks": None,
             "notes": "fossil",
+            "trigger_types": TriggerType.USE_ITEM_ON_OBJECT.mask,
             "level": level,
             "xp": base_xp,
         })
@@ -235,6 +241,7 @@ def _parse_single_version(
             "members": members,
             "ticks": None,
             "notes": prayer_type,
+            "trigger_types": 0,
             "level": level,
             "xp": base_xp,
         })
@@ -292,8 +299,8 @@ def ingest(db_path: Path) -> None:
 
     for action in deduped_actions:
         cursor = conn.execute(
-            "INSERT INTO actions (name, members, ticks, notes) VALUES (?, ?, ?, ?)",
-            (action["name"], action["members"], action["ticks"], action["notes"]),
+            "INSERT INTO actions (name, members, ticks, notes, trigger_types) VALUES (?, ?, ?, ?, ?)",
+            (action["name"], action["members"], action["ticks"], action["notes"], action["trigger_types"]),
         )
         action_id = cursor.lastrowid
         conn.execute(

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from ragger.action import Action
 from ragger.db import create_tables, get_connection
-from ragger.enums import Skill
+from ragger.enums import Skill, TriggerType
 from ragger.wiki import (
     WIKI_BATCH_SIZE,
     add_group_requirement,
@@ -86,12 +86,19 @@ def _parse_single_version(
     suffix: str,
 ) -> dict | None:
     """Parse one version of a Thieving info block."""
+    # Pickpocketing targets NPCs; stalls/chests/doors are world objects
+    if thieving_type and thieving_type.strip().lower() == "pickpocket":
+        trigger = TriggerType.CLICK_NPC.mask
+    else:
+        trigger = TriggerType.CLICK_OBJECT.mask
+
     action: dict = {
         "name": target_name,
         "page": page_name,
         "members": members,
         "ticks": None,
         "notes": thieving_type,
+        "trigger_types": trigger,
         "skills": [],
         "tools": [],
     }
@@ -217,8 +224,8 @@ def ingest(db_path: Path) -> None:
 
     for action in deduped_actions:
         cursor = conn.execute(
-            "INSERT INTO actions (name, members, ticks, notes) VALUES (?, ?, ?, ?)",
-            (action["name"], action["members"], action["ticks"], action["notes"]),
+            "INSERT INTO actions (name, members, ticks, notes, trigger_types) VALUES (?, ?, ?, ?, ?)",
+            (action["name"], action["members"], action["ticks"], action["notes"], action["trigger_types"]),
         )
         action_id = cursor.lastrowid
         conn.execute(

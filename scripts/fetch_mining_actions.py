@@ -13,7 +13,7 @@ from pathlib import Path
 
 from ragger.action import Action
 from ragger.db import create_tables, get_connection
-from ragger.enums import Skill
+from ragger.enums import Skill, TriggerType
 from ragger.wiki import (
     WIKI_BATCH_SIZE,
     add_group_requirement,
@@ -99,6 +99,7 @@ def _build_action(
         "members": members,
         "ticks": MINING_POLL_TICKS,
         "notes": notes,
+        "trigger_types": TriggerType.CLICK_OBJECT.mask,
         "source_object": at,
         "level": level,
         "xp": xp,
@@ -162,8 +163,8 @@ def ingest(db_path: Path) -> None:
 
     for action in deduped_actions:
                 cursor = conn.execute(
-                    "INSERT INTO actions (name, members, ticks, notes) VALUES (?, ?, ?, ?)",
-                    (action["name"], action["members"], action["ticks"], action["notes"]),
+                    "INSERT INTO actions (name, members, ticks, notes, trigger_types) VALUES (?, ?, ?, ?, ?)",
+                    (action["name"], action["members"], action["ticks"], action["notes"], action["trigger_types"]),
                 )
                 action_id = cursor.lastrowid
                 conn.execute(

@@ -13,7 +13,7 @@ from pathlib import Path
 
 from ragger.action import Action
 from ragger.db import create_tables, get_connection
-from ragger.enums import Skill
+from ragger.enums import Skill, TriggerType
 from ragger.wiki import (
     WIKI_BATCH_SIZE,
     add_group_requirement,
@@ -38,6 +38,41 @@ from ragger.wiki import (
 _SOURCE = "wiki-recipe"
 # Wiki template name whose transclusions are fetched and parsed.
 _TEMPLATE = "Recipe"
+
+
+# Tools that imply the action is performed by using one item on another
+_ITEM_ON_ITEM_TOOLS = {"Needle", "Chisel", "Glassblowing pipe", "Knife"}
+
+# Default trigger type by primary skill
+_SKILL_TRIGGER_DEFAULTS: dict[Skill, int] = {
+    Skill.COOKING: TriggerType.CLICK_OBJECT.mask,
+    Skill.SMITHING: TriggerType.CLICK_OBJECT.mask,
+    Skill.CRAFTING: TriggerType.CLICK_OBJECT.mask,
+    Skill.CONSTRUCTION: TriggerType.CLICK_OBJECT.mask,
+    Skill.RUNECRAFT: TriggerType.CLICK_OBJECT.mask,
+    Skill.FLETCHING: TriggerType.USE_ITEM_ON_ITEM.mask,
+    Skill.HERBLORE: TriggerType.USE_ITEM_ON_ITEM.mask,
+    Skill.MAGIC: TriggerType.CLICK_WIDGET.mask,
+    Skill.FIREMAKING: TriggerType.USE_ITEM_ON_ITEM.mask,
+    Skill.PRAYER: TriggerType.CLICK_ITEM.mask,
+}
+
+
+def _determine_recipe_trigger(action: dict) -> int:
+    """Determine trigger_types bitmask for a recipe action."""
+    # If any tool is a known use-on-item tool, override to USE_ITEM_ON_ITEM
+    tool_names = {t["item_name"] for t in action["tools"]}
+    if tool_names & _ITEM_ON_ITEM_TOOLS:
+        return TriggerType.USE_ITEM_ON_ITEM.mask
+
+    # Fall back to primary skill default
+    if action["skills"]:
+        try:
+            skill = Skill(action["skills"][0]["skill"])
+            return _SKILL_TRIGGER_DEFAULTS.get(skill, 0)
+        except ValueError:
+            pass
+    return 0
 
 
 def parse_skill_name(val: str) -> int | None:
@@ -147,6 +182,7 @@ def parse_action(block: str, page_name: str) -> dict | None:
                     "item_name": tool_name,
                 })
 
+    action["trigger_types"] = _determine_recipe_trigger(action)
     return action
 
 
@@ -208,8 +244,8 @@ def ingest(db_path: Path) -> None:
 
         for action in actions:
             cursor = conn.execute(
-                "INSERT INTO actions (name, members, ticks, notes) VALUES (?, ?, ?, ?)",
-                (action["name"], action["members"], action["ticks"], action["notes"]),
+                "INSERT INTO actions (name, members, ticks, notes, trigger_types) VALUES (?, ?, ?, ?, ?)",
+                (action["name"], action["members"], action["ticks"], action["notes"], action["trigger_types"]),
             )
             action_id = cursor.lastrowid
             conn.execute(
