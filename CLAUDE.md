@@ -139,6 +139,7 @@ All scripts that fetch wiki data **must** record attributions. Use `record_attri
 - Prefer batched API calls where possible — `fetch_contributors_batch()` handles up to 50 pages per call
 - User-Agent includes project URL per wiki API policy
 - Wikitext must be fetched one page at a time (`action=parse`), but contributor lookups support batching (`action=query`)
+- Wiki page cache: set `RAGGER_WIKI_CACHE=data/wiki-cache.db` to cache wikitext in a separate SQLite database. Validates cached pages against current revision IDs — only re-fetches stale or missing pages. `WikiCache` class can also be passed directly to fetch functions via the `cache` parameter.
 
 ## Database
 
@@ -626,6 +627,10 @@ str(tag) -> "quest:troll_stronghold"
 ```python
 from ragger.wiki import (
     WIKI_BATCH_SIZE,
+    WikiCache,
+    set_wiki_cache,
+    get_wiki_cache,
+    default_cache,
     fetch_category_members,
     fetch_page_wikitext,
     fetch_pages_wikitext_batch,
@@ -655,10 +660,16 @@ from ragger.wiki import (
 # Constants
 WIKI_BATCH_SIZE = 50                                                       # max pages per MediaWiki API batch request
 
-# Fetching
+# Cache
+WikiCache(path)                                                            # SQLite-backed wikitext cache with revid validation
+set_wiki_cache(path) -> None                                               # set default cache instance (or None to disable)
+get_wiki_cache() -> WikiCache | None                                       # get default cache instance
+default_cache: WikiCache | None                                            # module-level default (from RAGGER_WIKI_CACHE env var)
+
+# Fetching (accept optional cache=WikiCache parameter)
 fetch_category_members(category, ...) -> list[str]                         # paginated category listing
-fetch_page_wikitext(page) -> str                                           # raw wikitext for one page
-fetch_pages_wikitext_batch(pages) -> dict[str, str]                        # batch fetch up to 50 pages
+fetch_page_wikitext(page, cache?) -> str                                   # raw wikitext for one page
+fetch_pages_wikitext_batch(pages, cache?) -> dict[str, str]                # batch fetch up to 50 pages
 fetch_page_wikitext_with_attribution(conn, page, table_name) -> str        # wikitext + record attribution
 fetch_contributors_batch(pages) -> dict[str, list[str]]                    # contributors for up to 50 pages
 

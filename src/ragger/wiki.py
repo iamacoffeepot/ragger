@@ -1,9 +1,12 @@
 """Shared utilities for fetching and parsing OSRS wiki data."""
 
+from __future__ import annotations
+
 import os
 import re
 import sqlite3
 import time
+from pathlib import Path
 
 import requests
 
@@ -11,6 +14,88 @@ DEFAULT_THROTTLE = 1.0
 THROTTLE_DELAY = float(os.environ.get("RAGGER_THROTTLE", DEFAULT_THROTTLE))
 
 from ragger.enums import Region, Skill
+
+class WikiCache:
+    """SQLite-backed cache for wiki page wikitext.
+
+    Stores wikitext alongside the MediaWiki revision ID. On cache hit,
+    a cheap rev-ID-only API call checks whether the cached revision is
+    still current. Only stale or missing pages are re-fetched with full
+    content.
+    """
+
+    def __init__(self, path: Path | str) -> None:
+        self.conn = sqlite3.connect(str(path))
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS wiki_pages (
+                title TEXT PRIMARY KEY,
+                wikitext TEXT NOT NULL,
+                revid INTEGER NOT NULL,
+                fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        self.conn.commit()
+
+    def close(self) -> None:
+        self.conn.close()
+
+    def get(self, title: str) -> tuple[str, int] | None:
+        """Return (wikitext, revid) for a cached page, or None."""
+        row = self.conn.execute(
+            "SELECT wikitext, revid FROM wiki_pages WHERE title = ?", (title,),
+        ).fetchone()
+        return (row[0], row[1]) if row else None
+
+    def get_batch(self, titles: list[str]) -> dict[str, tuple[str, int]]:
+        """Return {title: (wikitext, revid)} for all cached pages in the list."""
+        if not titles:
+            return {}
+        placeholders = ",".join("?" * len(titles))
+        rows = self.conn.execute(
+            f"SELECT title, wikitext, revid FROM wiki_pages WHERE title IN ({placeholders})",
+            titles,
+        ).fetchall()
+        return {title: (wikitext, revid) for title, wikitext, revid in rows}
+
+    def put(self, title: str, wikitext: str, revid: int) -> None:
+        self.conn.execute(
+            "INSERT OR REPLACE INTO wiki_pages (title, wikitext, revid, fetched_at) VALUES (?, ?, ?, datetime('now'))",
+            (title, wikitext, revid),
+        )
+        self.conn.commit()
+
+    def put_batch(self, pages: dict[str, tuple[str, int]]) -> None:
+        """Store multiple pages. pages: {title: (wikitext, revid)}."""
+        if not pages:
+            return
+        self.conn.executemany(
+            "INSERT OR REPLACE INTO wiki_pages (title, wikitext, revid, fetched_at) VALUES (?, ?, ?, datetime('now'))",
+            [(title, wikitext, revid) for title, (wikitext, revid) in pages.items()],
+        )
+        self.conn.commit()
+
+
+# Default cache instance, initialized from RAGGER_WIKI_CACHE env var.
+default_cache: WikiCache | None = None
+
+
+def set_wiki_cache(path: Path | str | None) -> None:
+    """Set the default wiki cache instance."""
+    global default_cache
+    if default_cache is not None:
+        default_cache.close()
+        default_cache = None
+    if path is not None:
+        default_cache = WikiCache(path)
+
+
+def get_wiki_cache() -> WikiCache | None:
+    """Return the default wiki cache instance, or None if not configured."""
+    return default_cache
+
+
+if os.environ.get("RAGGER_WIKI_CACHE"):
+    set_wiki_cache(os.environ["RAGGER_WIKI_CACHE"])
 
 # Maximum pages per MediaWiki API batch request (action=query limit).
 WIKI_BATCH_SIZE = 50
@@ -129,32 +214,130 @@ def fetch_category_members(
     return sorted(pages)
 
 
-def fetch_page_wikitext(page: str) -> str:
-    """Fetch the raw wikitext for a wiki page."""
+def fetch_page_wikitext(page: str, cache: WikiCache | None = ...) -> str:
+    """Fetch the raw wikitext for a wiki page.
+
+    Uses the provided cache (or the default if not specified) to avoid
+    redundant API calls. Validates cached pages against the current
+    revision ID.
+    """
+    if cache is ...:
+        cache = default_cache
+
+    if cache is not None:
+        cached = cache.get(page)
+        if cached is not None:
+            cached_text, cached_revid = cached
+            # Check if cached revision is still current
+            current_revid = _fetch_revid(page)
+            if current_revid is not None and current_revid == cached_revid:
+                return cached_text
+
     resp = requests.get(
         API_URL,
         params={"action": "parse", "page": page, "prop": "wikitext", "format": "json"},
         headers=HEADERS,
     )
     resp.raise_for_status()
-    return resp.json().get("parse", {}).get("wikitext", {}).get("*", "")
+    parse_data = resp.json().get("parse", {})
+    wikitext = parse_data.get("wikitext", {}).get("*", "")
+    revid = parse_data.get("revid", 0)
+
+    if cache is not None and revid:
+        cache.put(page, wikitext, revid)
+
+    return wikitext
 
 
-def fetch_pages_wikitext_batch(pages: list[str]) -> dict[str, str]:
-    """Fetch raw wikitext for up to WIKI_BATCH_SIZE pages in a single API call.
+def _fetch_revid(page: str) -> int | None:
+    """Fetch the latest revision ID for a page (cheap, no content)."""
+    resp = requests.get(
+        API_URL,
+        params={
+            "action": "query",
+            "titles": page,
+            "prop": "revisions",
+            "rvprop": "ids",
+            "format": "json",
+        },
+        headers=HEADERS,
+    )
+    resp.raise_for_status()
+    for _, page_data in resp.json().get("query", {}).get("pages", {}).items():
+        revisions = page_data.get("revisions", [])
+        if revisions:
+            return revisions[0].get("revid")
+    return None
+
+
+def _fetch_revids_batch(pages: list[str]) -> dict[str, int]:
+    """Fetch latest revision IDs for up to WIKI_BATCH_SIZE pages (no content)."""
+    result: dict[str, int] = {}
+    for i in range(0, len(pages), WIKI_BATCH_SIZE):
+        batch = pages[i:i + WIKI_BATCH_SIZE]
+        resp = requests.get(
+            API_URL,
+            params={
+                "action": "query",
+                "titles": "|".join(batch),
+                "prop": "revisions",
+                "rvprop": "ids",
+                "format": "json",
+            },
+            headers=HEADERS,
+        )
+        resp.raise_for_status()
+        for _, page_data in resp.json().get("query", {}).get("pages", {}).items():
+            title = page_data.get("title", "")
+            revisions = page_data.get("revisions", [])
+            if revisions:
+                result[title] = revisions[0]["revid"]
+        throttle()
+    return result
+
+
+def fetch_pages_wikitext_batch(
+    pages: list[str], cache: WikiCache | None = ...,
+) -> dict[str, str]:
+    """Fetch raw wikitext for multiple pages, batched in groups of 50.
 
     Returns a dict mapping page title to wikitext.
     Uses action=query with revisions prop (supports batching).
-    """
-    result: dict[str, str] = {}
 
-    for i in range(0, len(pages), WIKI_BATCH_SIZE):
-        batch = pages[i:i + WIKI_BATCH_SIZE]
+    When a cache is available, fetches current revision IDs first (cheap,
+    no content) and only re-fetches pages whose cached revid is stale or
+    missing.
+    """
+    if cache is ...:
+        cache = default_cache
+
+    result: dict[str, str] = {}
+    need_fetch: list[str] = list(pages)
+
+    if cache is not None:
+        cached = cache.get_batch(pages)
+        if cached:
+            # Check which cached pages are still current
+            current_revids = _fetch_revids_batch(list(cached.keys()))
+            fresh = 0
+            stale = 0
+            for title, (wikitext, cached_revid) in cached.items():
+                current = current_revids.get(title)
+                if current is not None and current == cached_revid:
+                    result[title] = wikitext
+                    fresh += 1
+                else:
+                    stale += 1
+            need_fetch = [p for p in pages if p not in result]
+            print(f"  Cache: {fresh} fresh, {stale} stale, {len(need_fetch) - stale} new")
+
+    for i in range(0, len(need_fetch), WIKI_BATCH_SIZE):
+        batch = need_fetch[i:i + WIKI_BATCH_SIZE]
         params = {
             "action": "query",
             "titles": "|".join(batch),
             "prop": "revisions",
-            "rvprop": "content",
+            "rvprop": "content|ids",
             "rvslots": "main",
             "format": "json",
         }
@@ -162,12 +345,20 @@ def fetch_pages_wikitext_batch(pages: list[str]) -> dict[str, str]:
         resp.raise_for_status()
         data = resp.json()
 
+        to_cache: dict[str, tuple[str, int]] = {}
         for _, page_data in data.get("query", {}).get("pages", {}).items():
             title = page_data.get("title", "")
             revisions = page_data.get("revisions", [])
             if revisions:
-                content = revisions[0].get("slots", {}).get("main", {}).get("*", "")
+                rev = revisions[0]
+                content = rev.get("slots", {}).get("main", {}).get("*", "")
+                revid = rev.get("revid", 0)
                 result[title] = content
+                if revid:
+                    to_cache[title] = (content, revid)
+
+        if cache is not None:
+            cache.put_batch(to_cache)
 
         throttle()
 
