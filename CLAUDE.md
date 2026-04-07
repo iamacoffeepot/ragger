@@ -696,7 +696,7 @@ throttle()                                                                 # rat
 - `VariableType(str, Enum)` — varp, varbit, varc_int, varc_str with `from_label`
 - `ContentCategory(str, Enum)` — quest, skill, npc, location, item, minigame, activity with `from_label`
 - `FunctionalTag(str, Enum)` — progress, toggle, counter, ui, config, storage, timer, cosmetic with `from_label`
-- `TriggerType(int, Enum)` — CLICK_OBJECT, CLICK_NPC, CLICK_ITEM, USE_ITEM_ON_OBJECT, USE_ITEM_ON_NPC, USE_ITEM_ON_ITEM with `mask`, `label` properties
+- `TriggerType(int, Enum)` — CLICK_OBJECT, CLICK_NPC, CLICK_ITEM, USE_ITEM_ON_OBJECT, USE_ITEM_ON_NPC, USE_ITEM_ON_ITEM, CLICK_WIDGET with `mask`, `label` properties
 - `Facility(int, Enum)` — Bank, Furnace, Anvil, Range, Altar, Spinning wheel, Loom with `mask`, `label` properties
 - `Immunity(int, Enum)` — Poison, Venom, Cannon, Thrall, Burn with `mask`, `label` properties
 - `MapLinkType(str, Enum)` — entrance, exit, fairy_ring, charter_ship, spirit_tree, gnome_glider, canoe, teleport, minecart, ship, quetzal, walkable, npc_transport

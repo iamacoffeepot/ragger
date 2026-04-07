@@ -230,6 +230,7 @@ class TriggerType(int, Enum):
     USE_ITEM_ON_OBJECT = 3
     USE_ITEM_ON_NPC = 4
     USE_ITEM_ON_ITEM = 5
+    CLICK_WIDGET = 6
 
     @property
     def mask(self) -> int:
@@ -247,6 +248,7 @@ TRIGGER_TYPE_LABELS: dict["TriggerType", str] = {
     TriggerType.USE_ITEM_ON_OBJECT: "Use item on object",
     TriggerType.USE_ITEM_ON_NPC: "Use item on NPC",
     TriggerType.USE_ITEM_ON_ITEM: "Use item on item",
+    TriggerType.CLICK_WIDGET: "Click widget",
 }
 
 
