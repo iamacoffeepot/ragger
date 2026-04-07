@@ -11,18 +11,65 @@ import re
 from pathlib import Path
 
 from ragger.db import create_tables, get_connection
-from ragger.enums import Immunity
+from ragger.enums import Immunity, Skill
 from ragger.wiki import (
+    WIKI_LINK_PATTERN,
     extract_coords,
     extract_template,
     fetch_category_members,
     fetch_pages_wikitext_batch,
+    link_group_requirement,
     parse_template_param,
     record_attributions_batch,
     resolve_region,
     strip_wiki_links,
 )
 DROPS_LINE_PATTERN = re.compile(r"\{\{DropsLine([^}]*)\}\}")
+
+# Matches quest links following "completion of" or "completed"
+_QUEST_COMPLETION_PATTERN = re.compile(
+    r"complet(?:ion of|ed?)\s+(?:the\s+)?(?:\[\[quest\]\]\s*)?\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]",
+    re.IGNORECASE,
+)
+
+
+def _get_intro(wikitext: str) -> str:
+    """Extract the intro text before the first == section heading ==."""
+    match = re.search(r"^==\s*\w", wikitext, re.MULTILINE)
+    return wikitext[:match.start()] if match else wikitext
+
+
+def parse_monster_requirements(
+    wikitext: str,
+) -> tuple[int | None, list[str]]:
+    """Parse slayer level and quest requirements from monster page.
+
+    Returns (slayer_level, quest_names) where slayer_level comes from the
+    Infobox Monster |slaylvl= param and quest_names from prose patterns.
+    """
+    # --- Slayer level from template ---
+    slayer_level = None
+    block = extract_template(wikitext, "Infobox Monster")
+    if block:
+        slaylvl = parse_template_param(block, "slaylvl")
+        if slaylvl:
+            slaylvl = slaylvl.strip().replace(",", "")
+            try:
+                slayer_level = int(slaylvl)
+                if slayer_level < 1 or slayer_level > 99:
+                    slayer_level = None
+            except ValueError:
+                slayer_level = None
+
+    # --- Quest requirements from prose ---
+    intro = _get_intro(wikitext)
+    quest_reqs: list[str] = []
+    for match in _QUEST_COMPLETION_PATTERN.finditer(intro):
+        quest_name = match.group(1).strip()
+        if quest_name not in quest_reqs:
+            quest_reqs.append(quest_name)
+
+    return slayer_level, quest_reqs
 
 
 def parse_versioned_param(block: str, param: str, version: str) -> str | None:
@@ -290,14 +337,67 @@ def ingest(db_path: Path) -> None:
 
             monster_count += 1
 
+    conn.commit()
+    print(f"Inserted {monster_count} monsters, {location_count} spawn locations, {drop_count} drop entries")
+
+    # --- Link requirements ---
+    # Build monster (name, version) → id lookup
+    monster_rows = conn.execute("SELECT id, name, version FROM monsters").fetchall()
+    monster_lookup: dict[tuple[str, str | None], int] = {
+        (name, version): mid for mid, name, version in monster_rows
+    }
+
+    # Build quest name → id lookup
+    quest_ids: dict[str, int] = dict(
+        conn.execute("SELECT name, id FROM quests").fetchall()
+    )
+
+    skill_req_count = 0
+    quest_req_count = 0
+
+    for page_name, wikitext in all_wikitext.items():
+        slayer_level, quest_reqs = parse_monster_requirements(wikitext)
+        if slayer_level is None and not quest_reqs:
+            continue
+
+        monsters = parse_monster(page_name, wikitext)
+        for monster in monsters:
+            mid = monster_lookup.get((monster["name"], monster["version"]))
+            if mid is None:
+                continue
+
+            if slayer_level is not None:
+                link_group_requirement(
+                    conn,
+                    "group_skill_requirements",
+                    {"skill": Skill.SLAYER.value, "level": slayer_level},
+                    "monster_requirement_groups",
+                    "monster_id",
+                    mid,
+                )
+                skill_req_count += 1
+
+            for quest_name in quest_reqs:
+                quest_id = quest_ids.get(quest_name)
+                if quest_id is None:
+                    continue
+                link_group_requirement(
+                    conn,
+                    "group_quest_requirements",
+                    {"required_quest_id": quest_id},
+                    "monster_requirement_groups",
+                    "monster_id",
+                    mid,
+                )
+                quest_req_count += 1
+
+    conn.commit()
+    print(f"Linked {skill_req_count} slayer requirements, {quest_req_count} quest requirements")
+
     print("Recording attributions...")
     record_attributions_batch(conn, ["monsters", "monster_locations", "monster_drops"], pages)
 
     conn.commit()
-    print(
-        f"Inserted {monster_count} monsters, {location_count} spawn locations, "
-        f"{drop_count} drop entries into {db_path}"
-    )
     conn.close()
 
 

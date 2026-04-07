@@ -137,9 +137,11 @@ Quest.all(conn) -> list[Quest]
 Quest.by_name(conn, name) -> Quest | None
 quest.xp_rewards(conn) -> list[ExperienceReward]
 quest.item_rewards(conn) -> list[ItemReward]
-quest.skill_requirements(conn) -> list[SkillRequirement]
-quest.quest_requirements(conn) -> list[QuestRequirement]
-quest.quest_point_requirement(conn) -> QuestPointRequirement | None
+quest.requirement_groups(conn) -> list[RequirementGroup]
+quest.skill_requirements(conn) -> list[GroupSkillRequirement]
+quest.quest_requirements(conn) -> list[GroupQuestRequirement]
+quest.quest_point_requirement(conn) -> GroupQuestPointRequirement | None
+quest.region_requirements(conn) -> list[GroupRegionRequirement]
 quest.requirement_chain(conn) -> list[Quest]       # flat list, bottom-up order
 quest.requirement_tree(conn) -> str                 # indented tree string
 quest.game_vars(conn) -> list[GameVariable]             # associated game variables
@@ -184,12 +186,35 @@ equipment.item_id -> int | None                        # FK to items table
 # Weapon-only: speed, attack_range, combat_style
 ```
 
+### RequirementGroup (`src/ragger/requirements.py`)
+
+Shared requirement system used by Quest, Equipment, DiaryTask, LeagueTask, and Monster. Groups linked to an entity are AND'd (all must be satisfied). Requirements within a group are OR'd (any one satisfies the group).
+
+```python
+from ragger.requirements import RequirementGroup
+
+group.skill_requirements(conn) -> list[GroupSkillRequirement]
+group.quest_requirements(conn) -> list[GroupQuestRequirement]
+group.quest_point_requirements(conn) -> list[GroupQuestPointRequirement]
+group.item_requirements(conn) -> list[GroupItemRequirement]
+group.diary_requirements(conn) -> list[GroupDiaryRequirement]
+group.region_requirements(conn) -> list[GroupRegionRequirement]
+group.equipment_requirements(conn) -> list[GroupEquipmentRequirement]
+
+RequirementGroup.for_quest(conn, quest_id) -> list[RequirementGroup]
+RequirementGroup.for_equipment(conn, equipment_id) -> list[RequirementGroup]
+RequirementGroup.for_monster(conn, monster_id) -> list[RequirementGroup]
+RequirementGroup.for_diary_task(conn, diary_task_id) -> list[RequirementGroup]
+RequirementGroup.for_league_task(conn, league_task_id) -> list[RequirementGroup]
+```
+
 ### DiaryTask (`src/ragger/diary.py`)
 
 ```python
 from ragger.diary import DiaryTask
 
 DiaryTask.all(conn, location?, tier?) -> list[DiaryTask]
+task.requirement_groups(conn) -> list[RequirementGroup]
 ```
 
 Diary XP rewards are on the enum: `DiaryLocation.xp_reward(tier)` and `DiaryLocation.min_level(tier)`.
@@ -203,11 +228,12 @@ LeagueTask.all(conn, difficulty?, region?) -> list[LeagueTask]
 LeagueTask.by_name(conn, name) -> LeagueTask | None
 LeagueTask.by_skill(conn, skill, difficulty?, region?) -> list[LeagueTask]
 task.points -> int                                    # derived from difficulty
-task.skill_requirements(conn) -> list[SkillRequirement]
-task.quest_requirements(conn) -> list[QuestRequirement]
-task.item_requirements(conn) -> list[ItemRequirement]
-task.diary_requirements(conn) -> list[DiaryRequirement]
-task.region_requirements(conn) -> list[RegionRequirement]
+task.requirement_groups(conn) -> list[RequirementGroup]
+task.skill_requirements(conn) -> list[GroupSkillRequirement]
+task.quest_requirements(conn) -> list[GroupQuestRequirement]
+task.item_requirements(conn) -> list[GroupItemRequirement]
+task.diary_requirements(conn) -> list[GroupDiaryRequirement]
+task.region_requirements(conn) -> list[GroupRegionRequirement]
 ```
 
 ### LeagueConfig (`src/ragger/league.py`)
@@ -464,6 +490,9 @@ monster.drops(conn) -> list[MonsterDrop]
 monster.drops_by_name(conn, item_name) -> list[MonsterDrop]
 monster.has_immunity(immunity) -> bool
 monster.immunity_list() -> list[Immunity]
+monster.requirement_groups(conn) -> list[RequirementGroup]
+monster.skill_requirements(conn) -> list[GroupSkillRequirement]
+monster.quest_requirements(conn) -> list[GroupQuestRequirement]
 monster.game_vars(conn) -> list[GameVariable]           # associated game variables
 monster.combat_level -> int | None
 monster.hitpoints -> int | None

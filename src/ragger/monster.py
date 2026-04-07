@@ -3,8 +3,13 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from ragger.enums import ContentCategory, Immunity, Region
+from ragger.enums import ContentCategory, Immunity, Region, Skill
 from ragger.game_variable import GameVariable
+from ragger.requirements import (
+    GroupQuestRequirement,
+    GroupSkillRequirement,
+    RequirementGroup,
+)
 from ragger.utils import snake_case
 
 
@@ -202,6 +207,34 @@ class Monster:
             (self.id, item_name),
         ).fetchall()
         return [MonsterDrop(*r) for r in rows]
+
+    def requirement_groups(self, conn: sqlite3.Connection) -> list[RequirementGroup]:
+        return RequirementGroup.for_monster(conn, self.id)
+
+    def skill_requirements(self, conn: sqlite3.Connection) -> list[GroupSkillRequirement]:
+        rows = conn.execute(
+            """
+            SELECT gsr.id, gsr.group_id, gsr.skill, gsr.level, gsr.boostable
+            FROM group_skill_requirements gsr
+            JOIN monster_requirement_groups mrg ON mrg.group_id = gsr.group_id
+            WHERE mrg.monster_id = ?
+            ORDER BY gsr.level DESC
+            """,
+            (self.id,),
+        ).fetchall()
+        return [GroupSkillRequirement(r[0], r[1], Skill(r[2]), r[3], bool(r[4])) for r in rows]
+
+    def quest_requirements(self, conn: sqlite3.Connection) -> list[GroupQuestRequirement]:
+        rows = conn.execute(
+            """
+            SELECT gqr.id, gqr.group_id, gqr.required_quest_id, gqr.partial
+            FROM group_quest_requirements gqr
+            JOIN monster_requirement_groups mrg ON mrg.group_id = gqr.group_id
+            WHERE mrg.monster_id = ?
+            """,
+            (self.id,),
+        ).fetchall()
+        return [GroupQuestRequirement(r[0], r[1], r[2], bool(r[3])) for r in rows]
 
     def game_vars(self, conn: sqlite3.Connection) -> list[GameVariable]:
         return GameVariable.by_content_tag(conn, ContentCategory.NPC, snake_case(self.name))
