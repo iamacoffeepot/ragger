@@ -1,8 +1,8 @@
-"""Fetch NPC dialogue trees from Transcript: pages on the OSRS wiki.
+"""Fetch NPC dialogue graphs from Transcript: pages on the OSRS wiki.
 
 Pulls from transcript subcategories (Quest transcript, NPC dialogue, etc.)
-in namespace 120. Parses the *-indented wikitext into a tree stored as an
-adjacency list in dialogue_pages + dialogue_nodes.
+in namespace 120. Parses the *-indented wikitext into a directed graph stored
+in dialogue_pages, dialogue_nodes, and dialogue_edges.
 """
 
 import argparse
@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from ragger.db import create_tables, get_connection
+from ragger.enums import DialogueEdgeType
 from ragger.wiki import (
     extract_template,
     fetch_category_members,
@@ -260,7 +261,7 @@ def parse_dialogue_tree(wikitext: str, skip_non_quest: bool = False) -> tuple[st
 
 
 def insert_dialogue(conn, page_title: str, page_type: str | None, nodes: list[dict]) -> int:
-    """Insert a dialogue page and its nodes. Returns node count."""
+    """Insert a dialogue page, nodes, and edges. Returns node count."""
     cur = conn.execute(
         "INSERT INTO dialogue_pages (title, page_type) VALUES (?, ?)",
         (page_title, page_type),
@@ -292,6 +293,35 @@ def insert_dialogue(conn, page_title: str, page_type: str | None, nodes: list[di
         )
         idx_to_id[i] = cur.lastrowid
 
+    # Build edges from the tree structure
+    edges: list[tuple[int, int, str]] = []
+
+    # Group nodes by parent to find siblings
+    children_by_parent: dict[int | None, list[int]] = {}
+    for i, node in enumerate(nodes):
+        children_by_parent.setdefault(node["parent_idx"], []).append(i)
+
+    for i, node in enumerate(nodes):
+        node_id = idx_to_id[i]
+        parent_idx = node["parent_idx"]
+
+        # child edge: parent → this node
+        if parent_idx is not None:
+            parent_node_id = idx_to_id[parent_idx]
+            edges.append((parent_node_id, node_id, DialogueEdgeType.CHILD.value))
+
+        # next edge: previous sibling → this node
+        siblings = children_by_parent.get(parent_idx, [])
+        sib_pos = siblings.index(i)
+        if sib_pos > 0:
+            prev_id = idx_to_id[siblings[sib_pos - 1]]
+            edges.append((prev_id, node_id, DialogueEdgeType.NEXT.value))
+
+    conn.executemany(
+        "INSERT INTO dialogue_edges (from_node_id, to_node_id, edge_type) VALUES (?, ?, ?)",
+        edges,
+    )
+
     return len(nodes)
 
 
@@ -299,7 +329,12 @@ def ingest(db_path: Path) -> None:
     create_tables(db_path)
     conn = get_connection(db_path)
 
-    # Clear previous run in one shot
+    # Clear previous run — order matters for FK constraints
+    conn.execute("DELETE FROM dialogue_node_requirement_groups")
+    conn.execute("DELETE FROM dialogue_tags")
+    conn.execute("DELETE FROM dialogue_edges")
+    conn.execute("DELETE FROM npc_dialogues")
+    conn.execute("DELETE FROM quest_dialogues")
     conn.execute("DELETE FROM dialogue_nodes")
     conn.execute("DELETE FROM dialogue_pages")
 

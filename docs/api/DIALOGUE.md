@@ -27,12 +27,28 @@ node.subtree(conn) -> list[DialogueNode]                   # recursive CTE desce
 node.parent(conn) -> DialogueNode | None
 node.ancestors(conn) -> list[DialogueNode]                 # root-to-node path
 node.tags(conn) -> list[DialogueTag]                       # entity tags on this node
+node.edges_out(conn, edge_type?) -> list[DialogueEdge]     # outgoing edges
+node.edges_in(conn, edge_type?) -> list[DialogueEdge]      # incoming edges
 node.requirement_groups(conn) -> list[RequirementGroup]    # extracted requirements
 node.page(conn) -> DialoguePage | None
 node.render(node_ids=False) -> str                         # single indented line
 ```
 
 Node types: `line`, `option`, `condition`, `action`, `box`, `select`, `quest_action`
+
+### DialogueEdge (`src/ragger/dialogue.py`)
+
+```python
+from ragger.dialogue import DialogueEdge
+
+DialogueEdge.from_node(conn, node_id, edge_type?) -> list[DialogueEdge]   # outgoing
+DialogueEdge.to_node(conn, node_id, edge_type?) -> list[DialogueEdge]     # incoming
+DialogueEdge.by_page(conn, page_id, edge_type?) -> list[DialogueEdge]     # all edges on page
+edge.source(conn) -> DialogueNode | None
+edge.target(conn) -> DialogueNode | None
+```
+
+Edge types: `child`, `next`, `continues`, `same_as`, `cross_page`, `branch`
 
 ### DialogueTag (`src/ragger/dialogue.py`)
 

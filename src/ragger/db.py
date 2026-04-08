@@ -590,6 +590,19 @@ SCHEMAS: list[str] = [
     "CREATE INDEX IF NOT EXISTS idx_dialogue_nodes_page_id ON dialogue_nodes(page_id)",
     "CREATE INDEX IF NOT EXISTS idx_dialogue_nodes_parent_id ON dialogue_nodes(parent_id)",
     """
+    CREATE TABLE IF NOT EXISTS dialogue_edges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_node_id INTEGER NOT NULL,
+        to_node_id INTEGER NOT NULL,
+        edge_type TEXT NOT NULL,
+        FOREIGN KEY (from_node_id) REFERENCES dialogue_nodes(id),
+        FOREIGN KEY (to_node_id) REFERENCES dialogue_nodes(id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_dialogue_edges_from ON dialogue_edges(from_node_id)",
+    "CREATE INDEX IF NOT EXISTS idx_dialogue_edges_to ON dialogue_edges(to_node_id)",
+    "CREATE INDEX IF NOT EXISTS idx_dialogue_edges_type ON dialogue_edges(edge_type)",
+    """
     CREATE TABLE IF NOT EXISTS dialogue_tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         node_id INTEGER NOT NULL,

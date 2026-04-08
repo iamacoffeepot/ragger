@@ -100,7 +100,7 @@ def test_parse_line_content_speaker():
 
 def test_parse_line_content_option():
     result = parse_line_content("{{topt|Tell me more.|quest=no}}")
-    assert result["node_type"] == "option"
+    assert result["node_type"] == "skip_quest"
     assert result["text"] == "Tell me more."
 
 

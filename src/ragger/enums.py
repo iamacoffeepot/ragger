@@ -610,3 +610,12 @@ class ActivityType(str, Enum):
             if member.value.lower() == cleaned.lower():
                 return member
         return cls.ACTIVITY
+
+
+class DialogueEdgeType(str, Enum):
+    CHILD = "child"
+    NEXT = "next"
+    CONTINUES = "continues"
+    SAME_AS = "same_as"
+    CROSS_PAGE = "cross_page"
+    BRANCH = "branch"

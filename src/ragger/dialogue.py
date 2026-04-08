@@ -3,6 +3,8 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
+from ragger.enums import DialogueEdgeType
+
 
 @dataclass
 class DialoguePage:
@@ -203,6 +205,14 @@ class DialogueNode:
     def tags(self, conn: sqlite3.Connection) -> list[DialogueTag]:
         return DialogueTag.by_node(conn, self.id)
 
+    def edges_out(self, conn: sqlite3.Connection, edge_type: DialogueEdgeType | None = None) -> list[DialogueEdge]:
+        """Outgoing edges from this node."""
+        return DialogueEdge.from_node(conn, self.id, edge_type)
+
+    def edges_in(self, conn: sqlite3.Connection, edge_type: DialogueEdgeType | None = None) -> list[DialogueEdge]:
+        """Incoming edges to this node."""
+        return DialogueEdge.to_node(conn, self.id, edge_type)
+
     def requirement_groups(self, conn: sqlite3.Connection) -> list[RequirementGroup]:
         from ragger.requirements import RequirementGroup
 
@@ -296,3 +306,83 @@ class DialogueTag:
 
     def node(self, conn: sqlite3.Connection) -> DialogueNode | None:
         return DialogueNode.by_id(conn, self.node_id)
+
+
+@dataclass
+class DialogueEdge:
+    id: int
+    from_node_id: int
+    to_node_id: int
+    edge_type: DialogueEdgeType
+
+    @classmethod
+    def _from_row(cls, row: tuple) -> DialogueEdge:
+        return cls(row[0], row[1], row[2], DialogueEdgeType(row[3]))
+
+    @classmethod
+    def from_node(cls, conn: sqlite3.Connection, node_id: int,
+                  edge_type: DialogueEdgeType | None = None) -> list[DialogueEdge]:
+        """Outgoing edges from a node, optionally filtered by type."""
+        if edge_type is not None:
+            rows = conn.execute(
+                """SELECT id, from_node_id, to_node_id, edge_type
+                   FROM dialogue_edges WHERE from_node_id = ? AND edge_type = ?
+                   ORDER BY id""",
+                (node_id, edge_type.value),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT id, from_node_id, to_node_id, edge_type
+                   FROM dialogue_edges WHERE from_node_id = ? ORDER BY id""",
+                (node_id,),
+            ).fetchall()
+        return [cls._from_row(r) for r in rows]
+
+    @classmethod
+    def to_node(cls, conn: sqlite3.Connection, node_id: int,
+                edge_type: DialogueEdgeType | None = None) -> list[DialogueEdge]:
+        """Incoming edges to a node, optionally filtered by type."""
+        if edge_type is not None:
+            rows = conn.execute(
+                """SELECT id, from_node_id, to_node_id, edge_type
+                   FROM dialogue_edges WHERE to_node_id = ? AND edge_type = ?
+                   ORDER BY id""",
+                (node_id, edge_type.value),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT id, from_node_id, to_node_id, edge_type
+                   FROM dialogue_edges WHERE to_node_id = ? ORDER BY id""",
+                (node_id,),
+            ).fetchall()
+        return [cls._from_row(r) for r in rows]
+
+    @classmethod
+    def by_page(cls, conn: sqlite3.Connection, page_id: int,
+                edge_type: DialogueEdgeType | None = None) -> list[DialogueEdge]:
+        """All edges for nodes on a page, optionally filtered by type."""
+        if edge_type is not None:
+            rows = conn.execute(
+                """SELECT de.id, de.from_node_id, de.to_node_id, de.edge_type
+                   FROM dialogue_edges de
+                   JOIN dialogue_nodes dn ON dn.id = de.from_node_id
+                   WHERE dn.page_id = ? AND de.edge_type = ?
+                   ORDER BY de.id""",
+                (page_id, edge_type.value),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT de.id, de.from_node_id, de.to_node_id, de.edge_type
+                   FROM dialogue_edges de
+                   JOIN dialogue_nodes dn ON dn.id = de.from_node_id
+                   WHERE dn.page_id = ?
+                   ORDER BY de.id""",
+                (page_id,),
+            ).fetchall()
+        return [cls._from_row(r) for r in rows]
+
+    def source(self, conn: sqlite3.Connection) -> DialogueNode | None:
+        return DialogueNode.by_id(conn, self.from_node_id)
+
+    def target(self, conn: sqlite3.Connection) -> DialogueNode | None:
+        return DialogueNode.by_id(conn, self.to_node_id)

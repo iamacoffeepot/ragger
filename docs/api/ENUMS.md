@@ -9,6 +9,7 @@
 - `CombatStyle(str, Enum)` — 28 weapon combat styles (2h Sword, Axe, Bow, Crossbow, Slash Sword, Staff, Whip, etc.) with `from_label`
 - `ShopType(str, Enum)` — 36 shop types (General, Gem, Fishing, Magic, etc.) with `from_label` fuzzy matching
 - `ActivityType(str, Enum)` — Minigame, Random event, Forestry, Raid, Activity, Boss, Distraction and Diversion, Quest, Reward with `from_label` (falls back to Activity)
+- `DialogueEdgeType(str, Enum)` — child, next, continues, same_as, cross_page, branch
 - `VariableType(str, Enum)` — varp, varbit, varc_int, varc_str with `from_label`
 - `ContentCategory(str, Enum)` — quest, skill, npc, location, item, minigame, activity with `from_label`
 - `FunctionalTag(str, Enum)` — progress, toggle, counter, ui, config, storage, timer, cosmetic with `from_label`
