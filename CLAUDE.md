@@ -58,6 +58,7 @@ Pipeline order (managed by `fetch_all.py`):
 
 - `import_map_squares.py` — Imports map square images from `data/map-squares.zip` into the `map_squares` table. One-time setup.
 - `import_game_vars.py` — Imports game var JSON from `data/game-vars/` (produced by `dumpGameVariables`) into the `game_vars` table. Re-run after updating RuneLite.
+- `import_object_locations.py` — Imports interactive object spawn locations from `data/cache-dump/object-locations.json` (produced by `dumpObjectLocations`) into the `object_locations` table.
 
 ### Utility scripts
 
@@ -90,10 +91,14 @@ Requires JDK 21+. Run from `tools/cache-dump/`:
 
 # Dump object definitions (id, name, sizeX, sizeY, ops, conditionalOps) to JSON
 ./gradlew dumpObjectDefinitions [--args="--output ../../data/cache-dump/object-definitions.json"]
+
+# Dump interactive object spawn locations (objects with menu ops) to JSON
+./gradlew dumpObjectLocations [--args="--output ../../data/cache-dump/object-locations.json"]
 ```
 
 Output: `data/cache-dump/{collision,water,map-tiles}/{plane}_{rx}_{ry}.png`
 Output: `data/cache-dump/{npc,object}-definitions.json`
+Output: `data/cache-dump/object-locations.json`
 Output: `data/game-vars/{varp,varbit,varc_int}.json`
 
 ### DumpMapTiles flags
@@ -157,6 +162,7 @@ All API methods accept a `sqlite3.Connection` so connections can be reused. Per-
 - `ACTIVITY.md` — Activity/minigame lookup
 - `ACTION.md` — Action with inputs, outputs, requirements, triggers
 - `NPC.md` — Non-combat NPC lookup, NpcLocation (game ID to coordinates)
+- `OBJECT.md` — ObjectLocation (interactive object spawns by game ID and coordinates)
 - `MONSTER.md` — Monster stats, locations, drops, immunities
 - `GAME_VARIABLE.md` — GameVariable with content/functional tags, values
 - `WIKI.md` — Wiki fetch, parse, cache, attribution utilities
