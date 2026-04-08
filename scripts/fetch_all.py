@@ -29,6 +29,7 @@ SCRIPTS = [
     "scripts/pipeline/fetch_magic_teleports.py",
     "scripts/pipeline/fetch_activities.py",
     "scripts/pipeline/fetch_npcs.py",
+    "scripts/pipeline/fetch_ground_items.py",
     "scripts/pipeline/fetch_npc_locations.py",
     "scripts/pipeline/fetch_actions.py",
     "scripts/pipeline/fetch_wiki_vars.py",
@@ -36,6 +37,7 @@ SCRIPTS = [
     # Linking / compute passes (depend on multiple tables)
     "scripts/pipeline/link_shop_locations.py",
     "scripts/pipeline/link_activity_locations.py",
+    "scripts/pipeline/link_ground_item_locations.py",
     "scripts/pipeline/link_facilities.py",
     "scripts/pipeline/compute_dialogue_tags.py",
     "scripts/pipeline/link_npc_dialogues.py",
