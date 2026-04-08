@@ -82,6 +82,24 @@ return cls(*row) if row else None
 """Return only the top-level nodes (no parent)."""
 ```
 
+## Enums for well-defined values
+
+Use `str, Enum` or `int, Enum` instead of bare strings or integers when the set of values is known and fixed. Define enums in `enums.py` and reference them in dataclass fields, comparisons, and DB inserts.
+
+```python
+# WRONG
+node_type: str  # "line", "option", "condition", ...
+
+if node.node_type == "condition":
+    ...
+
+# RIGHT
+node_type: DialogueNodeType
+
+if node.node_type == DialogueNodeType.CONDITION:
+    ...
+```
+
 ## No section headers
 
 Never use comments as section dividers. Let blank lines and logical grouping speak for themselves.
