@@ -175,6 +175,15 @@ SCHEMAS: list[str] = [
         FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS dialogue_node_requirement_groups (
+        node_id INTEGER NOT NULL,
+        group_id INTEGER NOT NULL,
+        PRIMARY KEY (node_id, group_id),
+        FOREIGN KEY (node_id) REFERENCES dialogue_nodes(id),
+        FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
+    )
+    """,
     f"""
     CREATE TABLE IF NOT EXISTS experience_rewards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -208,6 +217,15 @@ SCHEMAS: list[str] = [
         PRIMARY KEY (quest_id, item_reward_id),
         FOREIGN KEY (quest_id) REFERENCES quests(id),
         FOREIGN KEY (item_reward_id) REFERENCES item_rewards(id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS quest_items (
+        quest_id INTEGER NOT NULL,
+        item_id INTEGER NOT NULL,
+        PRIMARY KEY (quest_id, item_id),
+        FOREIGN KEY (quest_id) REFERENCES quests(id),
+        FOREIGN KEY (item_id) REFERENCES items(id)
     )
     """,
     f"""

@@ -9,7 +9,7 @@ DialoguePage.search(conn, title) -> list[DialoguePage]     # partial title match
 page.nodes(conn) -> list[DialogueNode]                     # all nodes in order
 page.roots(conn) -> list[DialogueNode]                     # top-level nodes only
 page.sections(conn) -> list[str]                           # distinct section headings
-page.render_tree(conn, section?) -> str                    # indented text rendering
+page.render_tree(conn, section?, node_ids=False) -> str    # indented text rendering
 ```
 
 ### DialogueNode (`src/ragger/dialogue.py`)
@@ -29,7 +29,7 @@ node.ancestors(conn) -> list[DialogueNode]                 # root-to-node path
 node.tags(conn) -> list[DialogueTag]                       # entity tags on this node
 node.requirement_groups(conn) -> list[RequirementGroup]    # extracted requirements
 node.page(conn) -> DialoguePage | None
-node.render() -> str                                       # single indented line
+node.render(node_ids=False) -> str                         # single indented line
 ```
 
 Node types: `line`, `option`, `condition`, `action`, `box`, `select`, `quest_action`
