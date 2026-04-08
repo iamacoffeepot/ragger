@@ -10,6 +10,7 @@ OSRS knowledge base powered by retrieval-augmented generation.
 - `scripts/import/` — One-time local data imports (map squares, game vars)
 - `plugin/` — RuneLite plugin with AI chat panel and Wasm scripting engine
 - `tools/cache-dump/` — Java tool for extracting map data from the OSRS game cache
+- `docs/` — API references and style guides
 - `data/` — SQLite database and cache dump output (gitignored)
 - `tests/` — pytest tests
 
@@ -148,6 +149,13 @@ All scripts that fetch wiki data **must** record attributions. Use `record_attri
 Default path: `data/ragger.db`. All scripts accept `--db` to override.
 
 Tables are created automatically when any script runs. Only `fetch_items.py` writes to the items table — all other scripts reference it.
+
+## Style Guides
+
+Language-specific style rules in `docs/style/`:
+
+- `JAVA.md` — Immutability, braces, grouping, wrapping, naming
+- `PYTHON.md` — Type hints, dataclasses, SQL formatting, comprehensions
 
 ## Python API
 
