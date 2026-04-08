@@ -530,6 +530,18 @@ SCHEMAS: list[str] = [
         FOREIGN KEY (action_id) REFERENCES actions(id)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS object_locations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER NOT NULL,
+        x INTEGER NOT NULL,
+        y INTEGER NOT NULL,
+        plane INTEGER NOT NULL DEFAULT 0,
+        type INTEGER NOT NULL,
+        orientation INTEGER NOT NULL,
+        UNIQUE(game_id, x, y, plane, type)
+    )
+    """,
 ]
 
 

@@ -55,3 +55,9 @@ tasks.register('dumpObjectDefinitions', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'dev.ragger.cachedump.DumpObjectDefinitions'
 }
+
+tasks.register('dumpObjectLocations', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'dev.ragger.cachedump.DumpObjectLocations'
+    jvmArgs = ['-Xmx2g']
+}
