@@ -50,7 +50,7 @@ class DialoguePage:
         ).fetchall()
         return [DialogueNode._from_row(r) for r in rows]
 
-    def render_tree(self, conn: sqlite3.Connection, section: str | None = None) -> str:
+    def render(self, conn: sqlite3.Connection, section: str | None = None) -> str:
         """Render the dialogue tree as indented text.
 
         Each line is prefixed with a zero-padded node ID and a colon.

@@ -241,10 +241,10 @@ def test_node_render_action(conn: sqlite3.Connection) -> None:
     assert node.render() == "000005:     -> end"
 
 
-def test_page_render_tree(conn: sqlite3.Connection) -> None:
+def test_page_render(conn: sqlite3.Connection) -> None:
     _seed_dialogue(conn)
     page = DialoguePage.by_title(conn, "Hans")
-    tree = page.render_tree(conn)
+    tree = page.render(conn)
     lines = tree.split("\n")
     assert lines[0] == "== Standard dialogue =="
     assert "Hans: Hello. What are you doing here?" in lines[1]
@@ -252,10 +252,10 @@ def test_page_render_tree(conn: sqlite3.Connection) -> None:
     assert any("-> end" in l for l in lines)
 
 
-def test_page_render_tree_section_filter(conn: sqlite3.Connection) -> None:
+def test_page_render_section_filter(conn: sqlite3.Connection) -> None:
     _seed_dialogue(conn)
     page = DialoguePage.by_title(conn, "Hans")
-    tree = page.render_tree(conn, section="Standard dialogue")
+    tree = page.render(conn, section="Standard dialogue")
     assert "Hans: Hello" in tree
     # Section header not shown when filtering to a single section
     assert "== Standard dialogue ==" not in tree

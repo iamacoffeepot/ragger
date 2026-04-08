@@ -9,7 +9,7 @@ DialoguePage.search(conn, title) -> list[DialoguePage]     # partial title match
 page.nodes(conn) -> list[DialogueNode]                     # all nodes in order
 page.roots(conn) -> list[DialogueNode]                     # top-level nodes only
 page.sections(conn) -> list[str]                           # distinct section headings
-page.render_tree(conn, section?) -> str                    # indented text with node IDs and resolved edges
+page.render(conn, section?) -> str                    # indented text with node IDs and resolved edges
 ```
 
 ### DialogueNode (`src/ragger/dialogue.py`)
