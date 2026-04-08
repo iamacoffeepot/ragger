@@ -587,6 +587,15 @@ SCHEMAS: list[str] = [
         FOREIGN KEY (page_id) REFERENCES dialogue_pages(id)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS quest_dialogues (
+        quest_id INTEGER NOT NULL,
+        page_id INTEGER NOT NULL,
+        PRIMARY KEY (quest_id, page_id),
+        FOREIGN KEY (quest_id) REFERENCES quests(id),
+        FOREIGN KEY (page_id) REFERENCES dialogue_pages(id)
+    )
+    """,
 ]
 
 

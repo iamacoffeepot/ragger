@@ -55,7 +55,8 @@ Pipeline order (managed by `fetch_all.py`):
 25. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
 26. `compute_dialogue_tags.py` — Aho-Corasick entity tagging over dialogue nodes. Matches items, NPCs, monsters, quests, locations, shops, equipment, and activities. Stores probable links in dialogue_tags.
 27. `link_npc_dialogues.py` — Links NPCs to dialogue pages by exact name match on npc-type transcripts
-28. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
+28. `link_quest_dialogues.py` — Links quests to dialogue pages by exact name match on quest-type transcripts
+29. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
 
 ### Import scripts (`scripts/import/`)
 
