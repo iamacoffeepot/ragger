@@ -69,8 +69,8 @@ class DialoguePage:
             """SELECT de.from_node_id, de.to_node_id
                FROM dialogue_edges de
                JOIN dialogue_nodes dn ON dn.id = de.from_node_id
-               WHERE dn.page_id = ? AND de.edge_type = 'continues'""",
-            (self.id,),
+               WHERE dn.page_id = ? AND de.edge_type = ?""",
+            (self.id, DialogueEdgeType.CONTINUES.value),
         ).fetchall()
         for from_id, to_id in rows:
             continues[from_id] = to_id
