@@ -27,6 +27,7 @@ node.subtree(conn) -> list[DialogueNode]                   # recursive CTE desce
 node.parent(conn) -> DialogueNode | None
 node.ancestors(conn) -> list[DialogueNode]                 # root-to-node path
 node.tags(conn) -> list[DialogueTag]                       # entity tags on this node
+node.requirement_groups(conn) -> list[RequirementGroup]    # extracted requirements
 node.page(conn) -> DialoguePage | None
 node.render() -> str                                       # single indented line
 ```

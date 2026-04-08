@@ -48,11 +48,13 @@ class DialoguePage:
         ).fetchall()
         return [DialogueNode._from_row(r) for r in rows]
 
-    def render_tree(self, conn: sqlite3.Connection, section: str | None = None) -> str:
+    def render_tree(self, conn: sqlite3.Connection, section: str | None = None,
+                    node_ids: bool = False) -> str:
         """Render the dialogue tree as indented text.
 
         If section is given, only nodes in that section are included
-        and the section header is omitted.
+        and the section header is omitted.  When *node_ids* is True each
+        line is prefixed with a zero-padded node ID and a tab.
         """
         if section is not None:
             nodes = DialogueNode.by_section(conn, self.id, section)
@@ -70,7 +72,7 @@ class DialoguePage:
                         lines.append("")
                     lines.append(f"== {current_section} ==")
 
-            lines.append(node.render())
+            lines.append(node.render(node_ids=node_ids))
 
         return "\n".join(lines)
 
@@ -201,6 +203,11 @@ class DialogueNode:
     def tags(self, conn: sqlite3.Connection) -> list[DialogueTag]:
         return DialogueTag.by_node(conn, self.id)
 
+    def requirement_groups(self, conn: sqlite3.Connection) -> list[RequirementGroup]:
+        from ragger.requirements import RequirementGroup
+
+        return RequirementGroup.for_dialogue_node(conn, self.id)
+
     def page(self, conn: sqlite3.Connection) -> DialoguePage | None:
         row = conn.execute(
             "SELECT id, title, page_type FROM dialogue_pages WHERE id = ?", (self.page_id,)
@@ -216,15 +223,19 @@ class DialogueNode:
         "quest_action": "~ {}",
     }
 
-    def render(self) -> str:
+    def render(self, node_ids: bool = False) -> str:
         """Render this node as a single indented line."""
         indent = "  " * (self.depth - 1)
         text = self.text or ""
         fmt = self._NODE_TYPE_FORMAT.get(self.node_type)
         if fmt:
-            return f"{indent}{fmt.format(text)}"
-        speaker = f"{self.speaker}: " if self.speaker else ""
-        return f"{indent}{speaker}{text}"
+            line = f"{indent}{fmt.format(text)}"
+        else:
+            speaker = f"{self.speaker}: " if self.speaker else ""
+            line = f"{indent}{speaker}{text}"
+        if node_ids:
+            return f"{self.id:06d}\t{line}"
+        return line
 
     @classmethod
     def _from_row(cls, row: tuple) -> DialogueNode:
