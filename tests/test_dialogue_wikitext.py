@@ -146,6 +146,35 @@ def test_trandom_dropped() -> None:
     assert normalize_dialogue_wikitext("Hello{{trandom}}") == "Hello"
 
 
+def test_nested_colour_inside_mes() -> None:
+    # The exact PRIDE EVENT case from the corpus that motivated the
+    # innermost-first rewrite. The colour templates strip down to their
+    # text, then the surrounding mes wrapper strips off, leaving the
+    # rainbow text as plain string.
+    src = "{{mes|You've started the {{Colour|#e11a1a|20}}{{Colour|#ff5f00|22}} {{Colour|#edf419|PR}}{{Colour|#208542|ID}}{{Colour|#3a06b3|E E}}{{Colour|#9240db|VE}}{{Colour|#e11a1a|NT}}!}}"
+    assert normalize_dialogue_wikitext(src) == "You've started the 2022 PRIDE EVENT!"
+
+
+def test_nested_colour_inside_tbox_body() -> None:
+    src = "20{{Colour|#ff5f00|22 PRIDE EVENT!}}"
+    assert normalize_dialogue_wikitext(src) == "2022 PRIDE EVENT!"
+
+
+def test_overhead_with_nested_player() -> None:
+    src = "{{overhead|Hurry up, <player name>!}}"
+    assert normalize_dialogue_wikitext(src) == "<overhead>Hurry up, <player/>!</overhead>"
+
+
+def test_unknown_outer_template_with_nested_known() -> None:
+    # Unknown templates pass through, but their nested known templates
+    # still get expanded by the innermost-first walker.
+    src = "{{Unknown|prefix {{Colour|red|inner}} suffix}}"
+    result = normalize_dialogue_wikitext(src)
+    assert "inner" in result
+    # The inner colour should have been stripped
+    assert "{{Colour" not in result
+
+
 def test_combined_realistic_line() -> None:
     src = "'''Hans:''' Welcome, <player>. Have you visited [[Lumbridge]]?"
     expected = "**Hans:** Welcome, <player/>. Have you visited [Lumbridge](wiki:Lumbridge)?"

@@ -1,7 +1,53 @@
 """Tests for dialogue tree parser."""
 
 from ragger.enums import DialogueNodeType
-from scripts.pipeline.fetch_dialogues import _SKIP_QUEST, parse_dialogue_tree, parse_line_content
+from scripts.pipeline.fetch_dialogues import (
+    _SKIP_QUEST,
+    _balanced_split,
+    _split_template_params,
+    parse_dialogue_tree,
+    parse_line_content,
+)
+
+
+def test_balanced_split_no_nesting() -> None:
+    assert _balanced_split("a|b|c", "|") == ["a", "b", "c"]
+
+
+def test_balanced_split_preserves_pipe_inside_template() -> None:
+    assert _balanced_split("a|{{X|y|z}}|b", "|") == ["a", "{{X|y|z}}", "b"]
+
+
+def test_balanced_split_preserves_pipe_inside_link() -> None:
+    assert _balanced_split("a|[[Page|alias]]|b", "|") == ["a", "[[Page|alias]]", "b"]
+
+
+def test_balanced_split_nested_template_inside_link_inside_template() -> None:
+    src = "outer|{{X|[[Page|alias]]|{{Y|m|f}}}}|tail"
+    assert _balanced_split(src, "|") == ["outer", "{{X|[[Page|alias]]|{{Y|m|f}}}}", "tail"]
+
+
+def test_balanced_split_empty_string() -> None:
+    assert _balanced_split("", "|") == [""]
+
+
+def test_balanced_split_trailing_pipe() -> None:
+    assert _balanced_split("a|", "|") == ["a", ""]
+
+
+def test_split_template_params_nested_colour() -> None:
+    # The exact case that was breaking before: a {{Colour|...}} embedded in
+    # a {{tbox}} body. The whole colour template should arrive as one
+    # positional param, not three shredded fragments.
+    named, positional = _split_template_params("20{{Colour|#ff5f00|22 PRIDE EVENT!}}")
+    assert named == {}
+    assert positional == ["20{{Colour|#ff5f00|22 PRIDE EVENT!}}"]
+
+
+def test_split_template_params_named_with_nested_template_value() -> None:
+    named, positional = _split_template_params("cond={{Gender|m|f}}|Hello")
+    assert named == {"cond": "{{Gender|m|f}}"}
+    assert positional == ["Hello"]
 
 
 SAMPLE_WIKITEXT = """{{Transcript|Quest}}

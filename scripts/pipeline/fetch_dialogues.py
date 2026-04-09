@@ -71,11 +71,58 @@ def parse_transcript_type(wikitext: str) -> str | None:
     return None
 
 
+def _balanced_split(text: str, delimiter: str) -> list[str]:
+    """Split ``text`` on ``delimiter``, respecting wiki nesting.
+
+    Pipes (or other delimiters) inside ``{{...}}`` template groups or
+    ``[[...]]`` link groups are preserved — only top-level delimiters
+    cause a split. Without this, nested templates like
+    ``{{tbox|20{{Colour|#hex|22}}}}`` get shredded into bogus param
+    fragments by a naive ``str.split``.
+    """
+    parts: list[str] = []
+    start = 0
+    brace_depth = 0
+    bracket_depth = 0
+    i = 0
+    n = len(text)
+    while i < n:
+        if i + 1 < n:
+            pair = text[i:i + 2]
+            if pair == "{{":
+                brace_depth += 1
+                i += 2
+                continue
+            if pair == "}}":
+                brace_depth -= 1
+                i += 2
+                continue
+            if pair == "[[":
+                bracket_depth += 1
+                i += 2
+                continue
+            if pair == "]]":
+                bracket_depth -= 1
+                i += 2
+                continue
+        if text[i] == delimiter and brace_depth == 0 and bracket_depth == 0:
+            parts.append(text[start:i])
+            start = i + 1
+        i += 1
+    parts.append(text[start:])
+    return parts
+
+
 def _split_template_params(params_str: str) -> tuple[dict[str, str], list[str]]:
-    """Split template params into named and positional."""
+    """Split template params into named and positional.
+
+    Splits on top-level ``|`` only — pipes inside nested ``{{...}}``
+    templates or ``[[...]]`` wiki links are preserved so the contained
+    payload reaches the normalizer intact.
+    """
     named: dict[str, str] = {}
     positional: list[str] = []
-    for p in params_str.split("|"):
+    for p in _balanced_split(params_str, "|"):
         p = p.strip()
         if "=" in p:
             key, _, val = p.partition("=")
