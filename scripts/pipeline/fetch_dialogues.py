@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 from ragger.db import create_tables, get_connection
+from ragger.dialogue.dialogue_wikitext import normalize_dialogue_wikitext
 from ragger.enums import DialogueNodeType
 from ragger.wiki import (
     extract_template,
@@ -113,24 +114,24 @@ def extract_template_text(template_name: str, params_str: str) -> tuple[str, str
 
     named, positional = _split_template_params(params_str)
     skip = _check_skip_override(named)
-    text_first = strip_wiki_links(positional[0].strip()) if positional else ""
+    text_first = normalize_dialogue_wikitext(positional[0].strip()) if positional else ""
     if skip is not None:
         return text_first, skip, ""
 
-    predicate = strip_wiki_links(named["cond"]) if "cond" in named else ""
+    predicate = normalize_dialogue_wikitext(named["cond"]) if "cond" in named else ""
 
     if template_name == "tbox":
         text_parts = [p.strip() for p in positional if p.strip()]
-        text = strip_wiki_links(text_parts[-1]) if text_parts else strip_wiki_links(params_str)
-        return text, "", predicate
+        raw = text_parts[-1] if text_parts else params_str
+        return normalize_dialogue_wikitext(raw), "", predicate
 
     if template_name == "tact":
-        text = strip_wiki_links(positional[0].strip()) if positional else params_str.strip()
-        return text, "", predicate
+        raw = positional[0].strip() if positional else params_str.strip()
+        return normalize_dialogue_wikitext(raw), "", predicate
 
     # topt/top, tcond, tselect, qact — first positional param
     first = positional[0].strip() if positional else params_str.split("|")[0].strip()
-    return strip_wiki_links(first), "", predicate
+    return normalize_dialogue_wikitext(first), "", predicate
 
 
 def parse_line_content(content: str) -> dict:
@@ -150,11 +151,11 @@ def parse_line_content(content: str) -> dict:
     m = SPEAKER_RE.match(content)
     if m:
         speaker = strip_wiki_links(m.group(1).strip())
-        text = strip_wiki_links(m.group(2).strip())
+        text = normalize_dialogue_wikitext(m.group(2).strip())
         return {"node_type": DialogueNodeType.LINE, "speaker": speaker, "text": text, "predicate": ""}
 
     # Fallback: plain text node
-    return {"node_type": DialogueNodeType.LINE, "speaker": None, "text": strip_wiki_links(content), "predicate": ""}
+    return {"node_type": DialogueNodeType.LINE, "speaker": None, "text": normalize_dialogue_wikitext(content), "predicate": ""}
 
 
 def parse_section_depth(line: str) -> tuple[int, str] | None:
