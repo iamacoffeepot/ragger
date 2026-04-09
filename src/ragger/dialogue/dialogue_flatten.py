@@ -28,7 +28,12 @@ _OP_MAP = {
 
 
 def _section_of(node: DialogueNode) -> str:
-    return (node.section or "main").split("/", 1)[0]
+    # Preserve the full section path. The wiki uses "/" to delimit
+    # subsections (e.g. "Standard dialogue/Pre-quest"), and each one is
+    # an independent dialogue branch the engine selects between based on
+    # game state. Collapsing them merges entry points and makes
+    # downstream branches structurally unreachable.
+    return node.section or "main"
 
 
 def flatten(conn: sqlite3.Connection, page: DialoguePage) -> list[Instruction]:
@@ -53,6 +58,18 @@ def flatten(conn: sqlite3.Connection, page: DialoguePage) -> list[Instruction]:
     children_by_parent: dict[int | None, list[DialogueNode]] = {}
     for node in nodes:
         children_by_parent.setdefault(node.parent_id, []).append(node)
+
+    # Sibling groups for cond/option classification are scoped by section
+    # as well as parent. Two top-level CONDs (parent_id None) belonging to
+    # different wiki subsections are NOT semantic siblings — each is the
+    # entry of its own dialogue branch — and merging them collapses
+    # independent JUMP_IFs into one bogus SWITCH.
+    siblings_by_parent_and_section: dict[
+        tuple[int | None, str], list[DialogueNode]
+    ] = {}
+    for node in nodes:
+        key = (node.parent_id, _section_of(node))
+        siblings_by_parent_and_section.setdefault(key, []).append(node)
 
     node_by_id = {n.id: n for n in nodes}
 
@@ -84,7 +101,7 @@ def flatten(conn: sqlite3.Connection, page: DialoguePage) -> list[Instruction]:
     cond_group_at: dict[int, list[int]] = {}
     cond_in_group: set[int] = set()
     sibling_bodied_conds: set[int] = set()
-    for siblings in children_by_parent.values():
+    for siblings in siblings_by_parent_and_section.values():
         option_sibs = [s.id for s in siblings if s.node_type == DialogueNodeType.OPTION]
         if option_sibs:
             option_group_at[option_sibs[0]] = option_sibs
@@ -262,9 +279,16 @@ def flatten(conn: sqlite3.Connection, page: DialoguePage) -> list[Instruction]:
         if node.node_type == DialogueNodeType.ACTION:
             if text.strip().lower() == "end":
                 instructions.append(_new_instr(InstructionOp.END, text, section=section, fallthrough=False))
-            else:
+            elif node.continue_target_id is not None:
+                # Resolved reference (above/below/other) — real branch.
                 instructions.append(_new_instr(InstructionOp.GOTO, text, section=section, fallthrough=False))
                 pending_gotos.append((addr, node))
+            else:
+                # Narrative stage direction (e.g. "receives=X", "[NPC]
+                # continues counting"). Not a control transfer — control
+                # continues to the next sibling, the action text is just
+                # description that downstream renderers can show inline.
+                instructions.append(_new_instr(InstructionOp.GOTO, text, section=section, fallthrough=True))
         else:
             op = _OP_MAP.get(node.node_type, InstructionOp.SPEAK)
             instructions.append(_new_instr(op, text, section=section, speaker=node.speaker))

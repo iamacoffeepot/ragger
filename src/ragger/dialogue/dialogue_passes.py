@@ -277,9 +277,25 @@ def sweep_unreachable(instructions: list[Instruction]) -> list[Instruction]:
       ``UnreachableContentError`` so the caller can investigate
       whether the cause is a flatten bug or a duplicated wiki transcript.
 
-    Section entries are defined as the first live addr in each distinct
-    section, in stream order. A section with all-dead instructions has
-    no entry and contributes nothing to the reachable set.
+    An instruction is treated as an entry if any of:
+
+    - It is the first live instruction in the stream.
+    - Its section differs from the previous live instruction's section
+      (catches both proper top-level subsections and wiki pages that
+      repeat the same section header for two unrelated transcripts).
+    - The previous live instruction is a terminator (``fallthrough=False``).
+      Wiki authors routinely place multiple top-level branches in the
+      same section — alternate "search the X" responses, default arms
+      after a SWITCH, trailing scripted actions after a MENU — and each
+      block following a terminator is an independent starting point the
+      game engine can dispatch into.
+
+    The terminator rule is intentionally permissive: it accepts any
+    block-after-terminator as live, which means we can't detect a
+    hypothetical flatten bug that creates orphans after terminators.
+    The trade is worth it — the major flatten bugs are fixed, and the
+    remaining unreachables are wiki-structural patterns we want to
+    accept rather than fight.
     """
     n = len(instructions)
     if n == 0:
@@ -291,14 +307,16 @@ def sweep_unreachable(instructions: list[Instruction]) -> list[Instruction]:
             j += 1
         return j
 
-    seen_sections: set[str] = set()
     entries: list[int] = []
+    prev_section: str | None = None
+    prev_terminator = True  # the very first live instr counts as an entry
     for i, instr in enumerate(instructions):
         if instr.dead:
             continue
-        if instr.section not in seen_sections:
-            seen_sections.add(instr.section)
+        if instr.section != prev_section or prev_terminator:
             entries.append(i)
+        prev_section = instr.section
+        prev_terminator = not instr.fallthrough
 
     reachable: set[int] = set()
     stack = list(entries)

@@ -270,63 +270,40 @@ def test_sweep_unreachable_linear_reachable_chain_unchanged() -> None:
     assert all(not i.dead for i in instrs)
 
 
-def test_sweep_unreachable_drops_orphan_jump() -> None:
-    instrs = [
-        _instr(0, InstructionOp.SPEAK, text="a", speaker="NPC"),
-        _instr(1, InstructionOp.END, fallthrough=False),
-        _instr(2, InstructionOp.JUMP, targets=[0], fallthrough=False),  # nothing points here
-    ]
-    sweep_unreachable(instrs)
-    assert not instrs[0].dead
-    assert not instrs[1].dead
-    assert instrs[2].dead  # orphan JUMP, control flow only — safe to drop
-
-
-def test_sweep_unreachable_drops_orphan_end_and_cond() -> None:
-    instrs = [
-        _instr(0, InstructionOp.SPEAK, text="a", speaker="NPC"),
-        _instr(1, InstructionOp.END, fallthrough=False),
-        _instr(2, InstructionOp.END, fallthrough=False),  # orphan
-        _instr(3, InstructionOp.COND, text="annotation"),  # orphan
-    ]
-    sweep_unreachable(instrs)
-    assert instrs[2].dead
-    assert instrs[3].dead
-
-
-def test_sweep_unreachable_raises_on_orphan_speak() -> None:
+def test_sweep_unreachable_post_terminator_content_is_accepted() -> None:
+    # Under the permissive rule, content following a terminator is
+    # treated as an implicit entry (wiki-structure case). What used to
+    # be a "critical orphan SPEAK" is now an accepted second branch.
     instrs = [
         _instr(0, InstructionOp.SPEAK, text="reachable", speaker="NPC"),
         _instr(1, InstructionOp.END, fallthrough=False),
-        _instr(2, InstructionOp.SPEAK, text="orphan!", speaker="NPC"),  # critical
+        _instr(2, InstructionOp.SPEAK, text="second branch", speaker="NPC"),
     ]
-    with pytest.raises(UnreachableContentError) as exc:
-        sweep_unreachable(instrs)
-    assert exc.value.page_id == 1
-    assert exc.value.items == [(2, InstructionOp.SPEAK)]
+    sweep_unreachable(instrs)
+    assert all(not i.dead for i in instrs)
 
 
-def test_sweep_unreachable_raises_on_orphan_menu() -> None:
+def test_sweep_unreachable_post_terminator_menu_is_accepted() -> None:
     instrs = [
         _instr(0, InstructionOp.SPEAK, text="reachable", speaker="NPC"),
         _instr(1, InstructionOp.END, fallthrough=False),
         _instr(2, InstructionOp.MENU, targets=[3], target_labels=["Yes"], fallthrough=False),
         _instr(3, InstructionOp.SPEAK, text="answer", speaker="NPC"),
     ]
-    with pytest.raises(UnreachableContentError):
-        sweep_unreachable(instrs)
+    sweep_unreachable(instrs)
+    assert all(not i.dead for i in instrs)
 
 
-def test_sweep_unreachable_follows_jump_target() -> None:
+def test_sweep_unreachable_jump_target_skipping_speak_is_accepted() -> None:
+    # JUMP -> @2 skips @1, but @1 is post-terminator (the JUMP is
+    # fallthrough=False), so it's an implicit entry and gets accepted.
     instrs = [
         _instr(0, InstructionOp.JUMP, targets=[2], fallthrough=False),
-        _instr(1, InstructionOp.SPEAK, text="skipped but no in-edge", speaker="NPC"),
+        _instr(1, InstructionOp.SPEAK, text="implicit entry", speaker="NPC"),
         _instr(2, InstructionOp.SPEAK, text="reached", speaker="NPC"),
     ]
-    # Note: instr 1 has no incoming edge so it's a critical unreachable
-    with pytest.raises(UnreachableContentError) as exc:
-        sweep_unreachable(instrs)
-    assert exc.value.items == [(1, InstructionOp.SPEAK)]
+    sweep_unreachable(instrs)
+    assert all(not i.dead for i in instrs)
 
 
 def test_sweep_unreachable_follows_menu_targets() -> None:
@@ -355,6 +332,62 @@ def test_sweep_unreachable_multi_section_each_first_addr_is_entry() -> None:
     ]
     sweep_unreachable(instrs)
     assert all(not i.dead for i in instrs)  # both sections reachable from their entries
+
+
+def test_sweep_unreachable_block_after_terminator_is_entry() -> None:
+    # Multiple independent BOX/END pairs in the same section — wiki
+    # convention for "engine picks one randomly" content.
+    instrs = [
+        _instr(0, InstructionOp.BOX, text="first"),
+        _instr(1, InstructionOp.END, fallthrough=False),
+        _instr(2, InstructionOp.BOX, text="second"),
+        _instr(3, InstructionOp.END, fallthrough=False),
+        _instr(4, InstructionOp.BOX, text="third"),
+        _instr(5, InstructionOp.END, fallthrough=False),
+    ]
+    sweep_unreachable(instrs)
+    assert all(not i.dead for i in instrs)
+
+
+def test_sweep_unreachable_default_arm_after_switch_bodies() -> None:
+    # SWITCH with two cond bodies (each terminating in END) followed by
+    # a "default" body. The standalone BOX after both arms should be
+    # treated as an entry (the wiki's implicit OTHERWISE case).
+    instrs = [
+        _instr(0, InstructionOp.SWITCH,
+               targets=[1, 3],
+               target_labels=["if a", "if b"],
+               fallthrough=False),
+        _instr(1, InstructionOp.BOX, text="cond a body"),
+        _instr(2, InstructionOp.END, fallthrough=False),
+        _instr(3, InstructionOp.BOX, text="cond b body"),
+        _instr(4, InstructionOp.END, fallthrough=False),
+        _instr(5, InstructionOp.BOX, text="default body"),
+        _instr(6, InstructionOp.END, fallthrough=False),
+    ]
+    sweep_unreachable(instrs)
+    assert all(not i.dead for i in instrs)
+
+
+def test_sweep_unreachable_repeated_section_name_each_run_is_entry() -> None:
+    # Wiki pages can reuse the same section header for two unrelated
+    # transcripts. Each contiguous run must be its own entry point.
+    instrs = [
+        Instruction(page_id=1, addr=0, section="greeting", op=InstructionOp.SPEAK,
+                    text="first encounter", speaker="NPC"),
+        Instruction(page_id=1, addr=1, section="greeting", op=InstructionOp.END,
+                    fallthrough=False),
+        Instruction(page_id=1, addr=2, section="other", op=InstructionOp.SPEAK,
+                    text="middle", speaker="NPC"),
+        Instruction(page_id=1, addr=3, section="other", op=InstructionOp.END,
+                    fallthrough=False),
+        Instruction(page_id=1, addr=4, section="greeting", op=InstructionOp.SPEAK,
+                    text="second encounter — same section name", speaker="NPC"),
+        Instruction(page_id=1, addr=5, section="greeting", op=InstructionOp.END,
+                    fallthrough=False),
+    ]
+    sweep_unreachable(instrs)
+    assert all(not i.dead for i in instrs)
 
 
 def test_sweep_unreachable_skips_dead_when_walking_fallthrough() -> None:
