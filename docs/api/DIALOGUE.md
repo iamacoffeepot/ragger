@@ -111,9 +111,10 @@ targets.
 
 1. `lower_gotos` — resolved GOTOs become JUMPs
 2. `thread_jumps` — follow JUMP trampolines and labeled MENU chains
-3. `inline_player_echoes` — kill `SPEAK Player + JUMP -> MENU` echo trampolines
-4. `fold_select_menu` — lift SELECT text onto the immediately-following MENU as a title
-5. `compact` — remove dead instructions, remap addresses
+3. `collapse_trivial_branches` — drop branches whose arms converge: SWITCHes with all-equal targets, JUMP_IFs with empty or no-op predicates, and JUMPs to the next live addr
+4. `inline_player_echoes` — kill `SPEAK Player + JUMP -> MENU` echo trampolines
+5. `fold_select_menu` — lift SELECT text onto the immediately-following MENU as a title
+6. `compact` — remove dead instructions, remap addresses
 
 Each pass is a pure `list[Instruction] -> list[Instruction]` function.
 The `compute_dialogue_instructions.py` pipeline script persists the

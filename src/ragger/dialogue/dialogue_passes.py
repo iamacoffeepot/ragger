@@ -85,6 +85,79 @@ def thread_jumps(instructions: list[Instruction]) -> list[Instruction]:
     return instructions
 
 
+def collapse_trivial_branches(instructions: list[Instruction]) -> list[Instruction]:
+    """Collapse branches that have become trivially unconditional.
+
+    Targets the no-ops left behind by ``thread_jumps`` and earlier passes:
+
+    - ``SWITCH`` whose targets all converge on the same addr becomes a
+      ``JUMP``. The branch was real before threading; afterwards every
+      arm goes to the same place and the labels/predicates are dead
+      weight.
+    - ``JUMP_IF`` with an empty predicate becomes a ``JUMP``. Defensive —
+      it usually indicates an upstream parse miss, but the resulting
+      JUMP is still well-formed.
+    - ``JUMP_IF`` whose true target is the next live addr, or whose
+      false-fallthrough is a ``JUMP`` to the same target, is marked
+      dead — both branches converge so the predicate has no observable
+      effect.
+    - ``JUMP -> @next-live`` is marked dead, since jumping to the next
+      live instruction is the same as falling through.
+
+    Marked-dead instructions are dropped by the next ``compact`` pass.
+    A SWITCH that's been rewritten to a JUMP in this same pass is
+    re-checked for the next-live no-op rule, so a single walk handles
+    chained collapses produced by threading.
+    """
+    n = len(instructions)
+
+    def next_live(i: int) -> int:
+        j = i + 1
+        while j < n and instructions[j].dead:
+            j += 1
+        return j
+
+    for i, instr in enumerate(instructions):
+        if instr.dead:
+            continue
+
+        if (
+            instr.op == InstructionOp.SWITCH
+            and instr.targets
+            and all(t == instr.targets[0] for t in instr.targets)
+        ):
+            instr.op = InstructionOp.JUMP
+            instr.targets = [instr.targets[0]]
+            instr.target_labels = []
+            instr.target_predicates = []
+            instr.text = ""
+            instr.fallthrough = False
+
+        if instr.op == InstructionOp.JUMP_IF and not instr.text.strip():
+            instr.op = InstructionOp.JUMP
+            instr.fallthrough = False
+
+        if instr.op == InstructionOp.JUMP_IF and instr.targets:
+            target = instr.targets[0]
+            nl = next_live(i)
+            if target == nl:
+                instr.dead = True
+            elif nl < n:
+                nxt = instructions[nl]
+                if (
+                    nxt.op == InstructionOp.JUMP
+                    and nxt.targets
+                    and nxt.targets[0] == target
+                ):
+                    instr.dead = True
+
+        if instr.op == InstructionOp.JUMP and instr.targets:
+            if instr.targets[0] == next_live(i):
+                instr.dead = True
+
+    return instructions
+
+
 def inline_player_echoes(instructions: list[Instruction]) -> list[Instruction]:
     """Inline ``SPEAK Player + JUMP -> MENU`` player-echo trampolines.
 
@@ -209,4 +282,11 @@ def compact(instructions: list[Instruction]) -> list[Instruction]:
     return new_instrs
 
 
-PASSES = [lower_gotos, thread_jumps, inline_player_echoes, fold_select_menu, compact]
+PASSES = [
+    lower_gotos,
+    thread_jumps,
+    collapse_trivial_branches,
+    inline_player_echoes,
+    fold_select_menu,
+    compact,
+]

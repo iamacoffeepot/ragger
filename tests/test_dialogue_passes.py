@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from ragger.dialogue import Instruction
 from ragger.dialogue.dialogue_passes import (
+    collapse_trivial_branches,
     compact,
     fold_select_menu,
     inline_player_echoes,
@@ -64,6 +65,119 @@ def test_thread_jumps_stops_at_unresolved_goto() -> None:
     ]
     thread_jumps(instrs)
     assert instrs[0].targets == [1]  # can't follow an unresolved GOTO
+
+
+def test_collapse_switch_with_all_targets_equal() -> None:
+    # Two condition arms threaded down to the same destination after thread_jumps.
+    instrs = [
+        _instr(0, InstructionOp.SWITCH,
+               targets=[2, 2],
+               target_labels=["if completed", "otherwise"],
+               target_predicates=["<COMPLETED> Quest", ""],
+               fallthrough=False),
+        _instr(1, InstructionOp.SPEAK, text="orphan", speaker="NPC"),
+        _instr(2, InstructionOp.SPEAK, text="dest", speaker="NPC"),
+    ]
+    collapse_trivial_branches(instrs)
+    assert instrs[0].op == InstructionOp.JUMP
+    assert instrs[0].targets == [2]
+    assert instrs[0].target_labels == []
+    assert instrs[0].target_predicates == []
+    assert instrs[0].fallthrough is False
+
+
+def test_collapse_switch_with_distinct_targets_left_alone() -> None:
+    instrs = [
+        _instr(0, InstructionOp.SWITCH,
+               targets=[2, 3],
+               target_labels=["if a", "if b"],
+               fallthrough=False),
+        _instr(1, InstructionOp.SPEAK, text="orphan", speaker="NPC"),
+        _instr(2, InstructionOp.SPEAK, text="a", speaker="NPC"),
+        _instr(3, InstructionOp.SPEAK, text="b", speaker="NPC"),
+    ]
+    collapse_trivial_branches(instrs)
+    assert instrs[0].op == InstructionOp.SWITCH
+    assert instrs[0].targets == [2, 3]
+
+
+def test_collapse_jump_if_with_empty_predicate() -> None:
+    instrs = [
+        _instr(0, InstructionOp.JUMP_IF, text="", targets=[2]),
+        _instr(1, InstructionOp.SPEAK, text="false branch", speaker="NPC"),
+        _instr(2, InstructionOp.SPEAK, text="true branch", speaker="NPC"),
+    ]
+    collapse_trivial_branches(instrs)
+    assert instrs[0].op == InstructionOp.JUMP
+    assert instrs[0].fallthrough is False
+    assert instrs[0].targets == [2]
+
+
+def test_collapse_jump_if_target_equals_next_live() -> None:
+    instrs = [
+        _instr(0, InstructionOp.JUMP_IF, text="cond", targets=[1]),
+        _instr(1, InstructionOp.SPEAK, text="dest", speaker="NPC"),
+    ]
+    collapse_trivial_branches(instrs)
+    assert instrs[0].dead  # both branches converge on @1
+
+
+def test_collapse_jump_if_followed_by_jump_to_same_target() -> None:
+    instrs = [
+        _instr(0, InstructionOp.JUMP_IF, text="cond", targets=[3]),
+        _instr(1, InstructionOp.JUMP, targets=[3], fallthrough=False),
+        _instr(2, InstructionOp.SPEAK, text="orphan", speaker="NPC"),
+        _instr(3, InstructionOp.SPEAK, text="dest", speaker="NPC"),
+    ]
+    collapse_trivial_branches(instrs)
+    assert instrs[0].dead
+    assert not instrs[1].dead  # JUMP survives — predecessor falls through to it
+
+
+def test_collapse_jump_to_next_live() -> None:
+    instrs = [
+        _instr(0, InstructionOp.SPEAK, text="a", speaker="NPC"),
+        _instr(1, InstructionOp.JUMP, targets=[2], fallthrough=False),
+        _instr(2, InstructionOp.SPEAK, text="b", speaker="NPC"),
+    ]
+    collapse_trivial_branches(instrs)
+    assert instrs[1].dead  # jumps to immediately following addr
+
+
+def test_collapse_jump_skipping_dead_to_next_live() -> None:
+    instrs = [
+        _instr(0, InstructionOp.SPEAK, text="a", speaker="NPC"),
+        _instr(1, InstructionOp.JUMP, targets=[3], fallthrough=False),
+        _instr(2, InstructionOp.SPEAK, text="dead", speaker="Player", dead=True),
+        _instr(3, InstructionOp.SPEAK, text="b", speaker="NPC"),
+    ]
+    collapse_trivial_branches(instrs)
+    assert instrs[1].dead  # @3 is the next *live* addr after @1
+
+
+def test_collapse_chained_switch_to_jump_to_next() -> None:
+    # SWITCH → JUMP via the all-same rule, then the resulting JUMP gets
+    # killed by the ->next rule in the same walk.
+    instrs = [
+        _instr(0, InstructionOp.SWITCH,
+               targets=[1, 1],
+               target_labels=["a", "b"],
+               fallthrough=False),
+        _instr(1, InstructionOp.SPEAK, text="dest", speaker="NPC"),
+    ]
+    collapse_trivial_branches(instrs)
+    assert instrs[0].dead  # collapsed to JUMP -> @1, then killed as ->next-live
+
+
+def test_collapse_jump_unrelated_target_left_alone() -> None:
+    instrs = [
+        _instr(0, InstructionOp.JUMP, targets=[2], fallthrough=False),
+        _instr(1, InstructionOp.SPEAK, text="b", speaker="NPC"),
+        _instr(2, InstructionOp.SPEAK, text="dest", speaker="NPC"),
+    ]
+    collapse_trivial_branches(instrs)
+    assert not instrs[0].dead
+    assert instrs[0].targets == [2]
 
 
 def test_inline_player_echoes_kills_echo_trampoline() -> None:
