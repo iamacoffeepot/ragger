@@ -583,25 +583,33 @@ SCHEMAS: list[str] = [
         speaker TEXT,
         text TEXT,
         section TEXT,
+        continue_target_id INTEGER,
         FOREIGN KEY (page_id) REFERENCES dialogue_pages(id),
-        FOREIGN KEY (parent_id) REFERENCES dialogue_nodes(id)
+        FOREIGN KEY (parent_id) REFERENCES dialogue_nodes(id),
+        FOREIGN KEY (continue_target_id) REFERENCES dialogue_nodes(id)
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_dialogue_nodes_page_id ON dialogue_nodes(page_id)",
     "CREATE INDEX IF NOT EXISTS idx_dialogue_nodes_parent_id ON dialogue_nodes(parent_id)",
     """
-    CREATE TABLE IF NOT EXISTS dialogue_edges (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        from_node_id INTEGER NOT NULL,
-        to_node_id INTEGER NOT NULL,
-        edge_type TEXT NOT NULL,
-        FOREIGN KEY (from_node_id) REFERENCES dialogue_nodes(id),
-        FOREIGN KEY (to_node_id) REFERENCES dialogue_nodes(id)
+    CREATE TABLE IF NOT EXISTS dialogue_instructions (
+        page_id INTEGER NOT NULL,
+        addr INTEGER NOT NULL,
+        section TEXT NOT NULL,
+        op TEXT NOT NULL,
+        text TEXT NOT NULL DEFAULT '',
+        speaker TEXT,
+        fallthrough INTEGER NOT NULL DEFAULT 1,
+        targets TEXT NOT NULL DEFAULT '[]',
+        target_labels TEXT NOT NULL DEFAULT '[]',
+        target_predicates TEXT NOT NULL DEFAULT '[]',
+        PRIMARY KEY (page_id, addr),
+        FOREIGN KEY (page_id) REFERENCES dialogue_pages(id)
     )
     """,
-    "CREATE INDEX IF NOT EXISTS idx_dialogue_edges_from ON dialogue_edges(from_node_id)",
-    "CREATE INDEX IF NOT EXISTS idx_dialogue_edges_to ON dialogue_edges(to_node_id)",
-    "CREATE INDEX IF NOT EXISTS idx_dialogue_edges_type ON dialogue_edges(edge_type)",
+    "CREATE INDEX IF NOT EXISTS idx_dialogue_instructions_section ON dialogue_instructions(page_id, section)",
+    "CREATE INDEX IF NOT EXISTS idx_dialogue_instructions_op ON dialogue_instructions(op)",
+    "CREATE INDEX IF NOT EXISTS idx_dialogue_instructions_speaker ON dialogue_instructions(speaker)",
     """
     CREATE TABLE IF NOT EXISTS dialogue_tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

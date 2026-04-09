@@ -1,8 +1,10 @@
-"""Fetch NPC dialogue graphs from Transcript: pages on the OSRS wiki.
+"""Fetch NPC dialogue trees from Transcript: pages on the OSRS wiki.
 
 Pulls from transcript subcategories (Quest transcript, NPC dialogue, etc.)
-in namespace 120. Parses the *-indented wikitext into a directed graph stored
-in dialogue_pages, dialogue_nodes, and dialogue_edges.
+in namespace 120. Parses the *-indented wikitext into a tree stored in
+dialogue_pages and dialogue_nodes. Action nodes that reference other nodes
+(``-> above``, ``-> below``, ``-> other``, etc.) get their target resolved
+into the ``continue_target_id`` column on the action node.
 """
 
 import argparse
@@ -10,7 +12,7 @@ import re
 from pathlib import Path
 
 from ragger.db import create_tables, get_connection
-from ragger.enums import DialogueEdgeType, DialogueNodeType
+from ragger.enums import DialogueNodeType
 from ragger.wiki import (
     extract_template,
     fetch_category_members,
@@ -82,55 +84,57 @@ def _split_template_params(params_str: str) -> tuple[dict[str, str], list[str]]:
     return named, positional
 
 
-def _check_skip_override(named: dict[str, str], positional: list[str]) -> tuple[str, str] | None:
-    """Check for quest=No, event=No, or cond= overrides.
+def _check_skip_override(named: dict[str, str]) -> str | None:
+    """Check for quest=No / event=No skip overrides.
 
-    Returns (text, type_override) or None if no override applies.
+    Returns a sentinel type string or None if no skip applies.
     """
-    text = strip_wiki_links(positional[0].strip()) if positional else ""
-
     if named.get("quest", "").lower() == "no":
-        return text, _SKIP_QUEST
+        return _SKIP_QUEST
     if named.get("event", "").lower() == "no":
-        return text, _SKIP_EVENT
-    for key in ("cond", "tcond", "cont"):
-        if key in named:
-            return strip_wiki_links(named[key]), DialogueNodeType.CONDITION.value
+        return _SKIP_EVENT
     return None
 
 
-def extract_template_text(template_name: str, params_str: str) -> tuple[str, str]:
-    """Extract human-readable text and node type override from a template's parameters.
+def extract_template_text(template_name: str, params_str: str) -> tuple[str, str, str]:
+    """Extract human-readable text, type override, and visibility predicate.
 
-    Returns (text, node_type_override).  node_type_override is non-empty when
-    the template carries a named parameter that changes the semantics, e.g.
-    ``{{topt|quest=No}}`` → skip_quest.
+    Returns ``(text, node_type_override, predicate)``.
+
+    - ``node_type_override`` is non-empty when the template carries a named
+      parameter that changes the semantics (e.g. ``{{topt|quest=No}}`` →
+      skip_quest).
+    - ``predicate`` is non-empty when the template carries ``cond=...``,
+      which expresses a visibility predicate on the node (most commonly on
+      ``{{topt|cond=...|Option text}}``).
     """
     if not params_str:
-        return "", ""
+        return "", "", ""
 
-    # All templates can carry quest=No, event=No, or cond= overrides
     named, positional = _split_template_params(params_str)
-    override = _check_skip_override(named, positional)
-    if override is not None:
-        return override
+    skip = _check_skip_override(named)
+    text_first = strip_wiki_links(positional[0].strip()) if positional else ""
+    if skip is not None:
+        return text_first, skip, ""
+
+    predicate = strip_wiki_links(named["cond"]) if "cond" in named else ""
 
     if template_name == "tbox":
         text_parts = [p.strip() for p in positional if p.strip()]
         text = strip_wiki_links(text_parts[-1]) if text_parts else strip_wiki_links(params_str)
-        return text, ""
+        return text, "", predicate
 
     if template_name == "tact":
         text = strip_wiki_links(positional[0].strip()) if positional else params_str.strip()
-        return text, ""
+        return text, "", predicate
 
     # topt/top, tcond, tselect, qact — first positional param
     first = positional[0].strip() if positional else params_str.split("|")[0].strip()
-    return strip_wiki_links(first), ""
+    return strip_wiki_links(first), "", predicate
 
 
 def parse_line_content(content: str) -> dict:
-    """Parse the content of a single * line into node_type, speaker, text."""
+    """Parse the content of a single * line into node_type, speaker, text, predicate."""
     content = content.strip()
 
     # Check for known templates
@@ -138,19 +142,19 @@ def parse_line_content(content: str) -> dict:
     if m:
         tname = m.group(1).lower()
         if tname in NODE_TYPE_MAP:
-            text, type_override = extract_template_text(tname, m.group(2))
+            text, type_override, predicate = extract_template_text(tname, m.group(2))
             node_type = type_override if type_override else NODE_TYPE_MAP[tname]
-            return {"node_type": node_type, "speaker": None, "text": text}
+            return {"node_type": node_type, "speaker": None, "text": text, "predicate": predicate}
 
     # Speaker line: '''Name:''' text
     m = SPEAKER_RE.match(content)
     if m:
         speaker = strip_wiki_links(m.group(1).strip())
         text = strip_wiki_links(m.group(2).strip())
-        return {"node_type": DialogueNodeType.LINE, "speaker": speaker, "text": text}
+        return {"node_type": DialogueNodeType.LINE, "speaker": speaker, "text": text, "predicate": ""}
 
     # Fallback: plain text node
-    return {"node_type": DialogueNodeType.LINE, "speaker": None, "text": strip_wiki_links(content)}
+    return {"node_type": DialogueNodeType.LINE, "speaker": None, "text": strip_wiki_links(content), "predicate": ""}
 
 
 def parse_section_depth(line: str) -> tuple[int, str] | None:
@@ -261,11 +265,33 @@ def parse_dialogue_tree(wikitext: str, skip_non_quest: bool = False) -> tuple[st
 
         sort_order += 1
 
+        # If this node carried a cond= visibility predicate, synthesize a
+        # child CONDITION node so the predicate is preserved in the tree.
+        # The synthetic child has no children of its own — downstream code
+        # treats an OPTION whose first child is a childless CONDITION as
+        # having a visibility predicate.
+        predicate = node.get("predicate") or ""
+        if predicate:
+            child_depth = depth + 1
+            nodes.append({
+                "parent_idx": idx,
+                "sort_order": sort_order,
+                "depth": child_depth,
+                "node_type": DialogueNodeType.CONDITION,
+                "speaker": None,
+                "text": predicate,
+                "section": section,
+            })
+            parent_at[child_depth] = len(nodes) - 1
+            for d in [k for k in parent_at if k > child_depth]:
+                del parent_at[d]
+            sort_order += 1
+
     return page_type, nodes
 
 
 def insert_dialogue(conn, page_title: str, page_type: str | None, nodes: list[dict]) -> int:
-    """Insert a dialogue page, nodes, and edges. Returns node count."""
+    """Insert a dialogue page, nodes, and resolve continue targets. Returns node count."""
     cur = conn.execute(
         "INSERT INTO dialogue_pages (title, page_type) VALUES (?, ?)",
         (page_title, page_type),
@@ -297,29 +323,78 @@ def insert_dialogue(conn, page_title: str, page_type: str | None, nodes: list[di
         )
         idx_to_id[i] = cur.lastrowid
 
-    # Build edges from the tree structure
-    edges: list[tuple[int, int, str]] = []
+    # Action node index -> resolved target node index. Populated by the
+    # reference-resolution passes below; flushed into continue_target_id
+    # on the action nodes at the end.
+    continue_targets: list[tuple[int, int]] = []
 
     # Group nodes by parent to find siblings
     children_by_parent: dict[int | None, list[int]] = {}
     for i, node in enumerate(nodes):
         children_by_parent.setdefault(node["parent_idx"], []).append(i)
 
-    for i, node in enumerate(nodes):
-        node_id = idx_to_id[i]
+    def _is_alias_action(idx: int) -> bool:
+        """True if this action is the sole child of an option (making it an alias)."""
+        node = nodes[idx]
+        if node["node_type"] != DialogueNodeType.ACTION:
+            return False
         parent_idx = node["parent_idx"]
+        if parent_idx is None:
+            return False
+        if nodes[parent_idx]["node_type"] != DialogueNodeType.OPTION:
+            return False
+        return children_by_parent.get(parent_idx, []) == [idx]
 
-        # child edge: parent → this node
-        if parent_idx is not None:
-            parent_node_id = idx_to_id[parent_idx]
-            edges.append((parent_node_id, node_id, DialogueEdgeType.CHILD.value))
-
-        # next edge: previous sibling → this node
+    def _advance_past_echo(action_idx: int, matched_idx: int) -> int:
+        """If the action's preceding sibling already says the matched text, advance to the next sibling."""
+        action = nodes[action_idx]
+        parent_idx = action["parent_idx"]
+        if parent_idx is None:
+            return matched_idx
         siblings = children_by_parent.get(parent_idx, [])
-        sib_pos = siblings.index(i)
-        if sib_pos > 0:
-            prev_id = idx_to_id[siblings[sib_pos - 1]]
-            edges.append((prev_id, node_id, DialogueEdgeType.NEXT.value))
+        pos = siblings.index(action_idx)
+        if pos == 0:
+            return matched_idx
+        prev_sibling = nodes[siblings[pos - 1]]
+        if prev_sibling["text"] and prev_sibling["text"] == nodes[matched_idx].get("text"):
+            match_parent = nodes[matched_idx]["parent_idx"]
+            match_siblings = children_by_parent.get(match_parent, [])
+            match_pos = match_siblings.index(matched_idx)
+            if match_pos + 1 < len(match_siblings):
+                return match_siblings[match_pos + 1]
+        return matched_idx
+
+    def _resolve_target(action_idx: int, matched_idx: int) -> int:
+        """Resolve the edge target: advance past echoed text, promote to select unless alias."""
+        target = _advance_past_echo(action_idx, matched_idx)
+        if _is_alias_action(action_idx):
+            return target
+        return _promote_to_select(target)
+
+    def _promote_to_select(idx: int) -> int:
+        """If the target is an option that belongs to a select group, return the select.
+
+        Checks both parent (select > option) and preceding sibling (select, option, option)
+        since the wiki formats both ways.
+        """
+        node = nodes[idx]
+        if node["node_type"] != DialogueNodeType.OPTION:
+            return idx
+        # Check parent
+        if node["parent_idx"] is not None:
+            parent = nodes[node["parent_idx"]]
+            if parent["node_type"] == DialogueNodeType.SELECT:
+                return node["parent_idx"]
+        # Check preceding siblings for a select at the same level
+        siblings = children_by_parent.get(node["parent_idx"], [])
+        pos = siblings.index(idx)
+        for k in range(pos - 1, -1, -1):
+            sib = nodes[siblings[k]]
+            if sib["node_type"] == DialogueNodeType.SELECT:
+                return siblings[k]
+            if sib["node_type"] != DialogueNodeType.OPTION:
+                break
+        return idx
 
     # Resolve "-> above" back references.
     # Strategy: find the text to match against by checking:
@@ -386,7 +461,7 @@ def insert_dialogue(conn, page_title: str, page_type: str | None, nodes: list[di
                 if best is None:
                     best = j
             if best is not None:
-                edges.append((idx_to_id[i], idx_to_id[best], DialogueEdgeType.CONTINUES.value))
+                continue_targets.append((i, _resolve_target(i, best)))
                 resolved = True
                 break
 
@@ -426,7 +501,7 @@ def insert_dialogue(conn, page_title: str, page_type: str | None, nodes: list[di
                     break
             target_idx = siblings[block_start]
         if target_idx is not None:
-            edges.append((idx_to_id[i], idx_to_id[target_idx], DialogueEdgeType.CONTINUES.value))
+            continue_targets.append((i, _resolve_target(i, target_idx)))
 
     # Resolve "-> continues" / "-> continue": break out of the current branch
     # and continue with the next sibling after the parent node.
@@ -444,7 +519,7 @@ def insert_dialogue(conn, page_title: str, page_type: str | None, nodes: list[di
             pos = gp_children.index(ancestor_idx)
             if pos + 1 < len(gp_children):
                 target_idx = gp_children[pos + 1]
-                edges.append((idx_to_id[i], idx_to_id[target_idx], DialogueEdgeType.CONTINUES.value))
+                continue_targets.append((i, _resolve_target(i, target_idx)))
                 break
             ancestor_idx = grandparent_idx
 
@@ -483,7 +558,7 @@ def insert_dialogue(conn, page_title: str, page_type: str | None, nodes: list[di
                 if best is None:
                     best = j
             if best is not None:
-                edges.append((idx_to_id[i], idx_to_id[best], DialogueEdgeType.CONTINUES.value))
+                continue_targets.append((i, _resolve_target(i, best)))
                 break
 
     # Resolve "-> initial": go to the first occurrence of the parent's text on the page.
@@ -502,7 +577,7 @@ def insert_dialogue(conn, page_title: str, page_type: str | None, nodes: list[di
             if j == parent_idx:
                 continue
             if nodes[j]["text"] == parent["text"] and nodes[j]["node_type"] == parent["node_type"]:
-                edges.append((idx_to_id[i], idx_to_id[j], DialogueEdgeType.CONTINUES.value))
+                continue_targets.append((i, _resolve_target(i, j)))
                 break
 
     # Resolve "-> previous": go to the nearest earlier occurrence of the parent's text.
@@ -521,13 +596,15 @@ def insert_dialogue(conn, page_title: str, page_type: str | None, nodes: list[di
             if j == parent_idx:
                 continue
             if nodes[j]["text"] == parent["text"] and nodes[j]["node_type"] == parent["node_type"]:
-                edges.append((idx_to_id[i], idx_to_id[j], DialogueEdgeType.CONTINUES.value))
+                continue_targets.append((i, _resolve_target(i, j)))
                 break
 
-    conn.executemany(
-        "INSERT INTO dialogue_edges (from_node_id, to_node_id, edge_type) VALUES (?, ?, ?)",
-        edges,
-    )
+    # Flush resolved continue targets onto the action nodes
+    if continue_targets:
+        conn.executemany(
+            "UPDATE dialogue_nodes SET continue_target_id = ? WHERE id = ?",
+            [(idx_to_id[t], idx_to_id[a]) for a, t in continue_targets],
+        )
 
     return len(nodes)
 
@@ -539,7 +616,7 @@ def ingest(db_path: Path) -> None:
     # Clear previous run — order matters for FK constraints
     conn.execute("DELETE FROM dialogue_node_requirement_groups")
     conn.execute("DELETE FROM dialogue_tags")
-    conn.execute("DELETE FROM dialogue_edges")
+    conn.execute("DELETE FROM dialogue_instructions")
     conn.execute("DELETE FROM npc_dialogues")
     conn.execute("DELETE FROM quest_dialogues")
     conn.execute("DELETE FROM dialogue_nodes")

@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, StrEnum
 
 
 class Skill(int, Enum):
@@ -622,10 +622,40 @@ class DialogueNodeType(str, Enum):
     QUEST_ACTION = "quest_action"
 
 
-class DialogueEdgeType(str, Enum):
-    CHILD = "child"
-    NEXT = "next"
-    CONTINUES = "continues"
-    SAME_AS = "same_as"
-    CROSS_PAGE = "cross_page"
-    BRANCH = "branch"
+class DialoguePageType(StrEnum):
+    QUEST = "quest"
+    NPC = "npc"
+    EVENT = "event"
+    MINIQUEST = "miniquest"
+    ITEM = "item"
+    PET = "pet"
+    SCENERY = "scenery"
+    SKILL = "skill"
+    LIST = "list"
+    QUEST_JOURNAL = "questjournal"
+
+
+class DialogueEntityType(StrEnum):
+    ITEM = "item"
+    NPC = "npc"
+    MONSTER = "monster"
+    QUEST = "quest"
+    LOCATION = "location"
+    SHOP = "shop"
+    EQUIPMENT = "equipment"
+    ACTIVITY = "activity"
+
+
+class InstructionOp(StrEnum):
+    SPEAK = "SPEAK"
+    BOX = "BOX"
+    QUEST = "QUEST"
+    MENU = "MENU"
+    SELECT = "SELECT"
+    SWITCH = "SWITCH"
+    JUMP_IF = "JUMP_IF"
+    JUMP = "JUMP"
+    GOTO = "GOTO"
+    COND = "COND"
+    PRED = "PRED"
+    END = "END"
