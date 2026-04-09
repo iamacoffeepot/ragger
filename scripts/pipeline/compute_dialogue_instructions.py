@@ -6,16 +6,17 @@ pass pipeline, and writes the result to dialogue_instructions. Idempotent
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 from ragger.db import create_tables, get_connection
 from ragger.dialogue.dialogue_flatten import flatten
 from ragger.dialogue.dialogue_instruction import Instruction
 from ragger.dialogue.dialogue_page import DialoguePage
-from ragger.dialogue.dialogue_passes import PASSES
+from ragger.dialogue.dialogue_passes import PASSES, UnreachableContentError
 
 
-def ingest(db_path: Path) -> None:
+def ingest(db_path: Path) -> int:
     create_tables(db_path)
     conn = get_connection(db_path)
 
@@ -25,12 +26,15 @@ def ingest(db_path: Path) -> None:
     print(f"Computing instructions for {len(pages)} dialogue pages...", flush=True)
 
     total_instr = 0
+    errors: list[tuple[DialoguePage, UnreachableContentError]] = []
     for page in pages:
-        instructions = flatten(conn, page)
-        for p in PASSES:
-            instructions = p(instructions)
-        # Reassign page_id on every instruction (compact constructs fresh
-        # instances and may not propagate it, but flatten already sets it).
+        try:
+            instructions = flatten(conn, page)
+            for p in PASSES:
+                instructions = p(instructions)
+        except UnreachableContentError as exc:
+            errors.append((page, exc))
+            continue
         Instruction.save_all_for_page(conn, page.id, instructions)
         total_instr += len(instructions)
 
@@ -44,11 +48,17 @@ def ingest(db_path: Path) -> None:
     ):
         print(f"  {row[0]:10s} {row[1]}", flush=True)
 
+    if errors:
+        print(f"\n{len(errors)} pages had unreachable content (skipped):", flush=True)
+        for page, exc in errors:
+            print(f"  [{page.id}] {page.title}: {exc}", flush=True)
+
     conn.close()
+    return 1 if errors else 0
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compute dialogue instruction streams")
     parser.add_argument("--db", type=Path, default=Path("data/ragger.db"))
     args = parser.parse_args()
-    ingest(args.db)
+    sys.exit(ingest(args.db))

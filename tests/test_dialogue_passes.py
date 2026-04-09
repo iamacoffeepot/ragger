@@ -6,13 +6,17 @@ isolation.
 """
 from __future__ import annotations
 
+import pytest
+
 from ragger.dialogue import Instruction
 from ragger.dialogue.dialogue_passes import (
+    UnreachableContentError,
     collapse_trivial_branches,
     compact,
     fold_select_menu,
     inline_player_echoes,
     lower_gotos,
+    sweep_unreachable,
     thread_jumps,
 )
 from ragger.enums import InstructionOp
@@ -249,6 +253,132 @@ def test_fold_select_menu_preserves_existing_title() -> None:
     fold_select_menu(instrs)
     assert not instrs[0].dead
     assert instrs[1].text == "already has a title"
+
+
+def test_sweep_unreachable_empty_stream_is_noop() -> None:
+    out = sweep_unreachable([])
+    assert out == []
+
+
+def test_sweep_unreachable_linear_reachable_chain_unchanged() -> None:
+    instrs = [
+        _instr(0, InstructionOp.SPEAK, text="a", speaker="NPC"),
+        _instr(1, InstructionOp.SPEAK, text="b", speaker="NPC"),
+        _instr(2, InstructionOp.END, fallthrough=False),
+    ]
+    sweep_unreachable(instrs)
+    assert all(not i.dead for i in instrs)
+
+
+def test_sweep_unreachable_drops_orphan_jump() -> None:
+    instrs = [
+        _instr(0, InstructionOp.SPEAK, text="a", speaker="NPC"),
+        _instr(1, InstructionOp.END, fallthrough=False),
+        _instr(2, InstructionOp.JUMP, targets=[0], fallthrough=False),  # nothing points here
+    ]
+    sweep_unreachable(instrs)
+    assert not instrs[0].dead
+    assert not instrs[1].dead
+    assert instrs[2].dead  # orphan JUMP, control flow only — safe to drop
+
+
+def test_sweep_unreachable_drops_orphan_end_and_cond() -> None:
+    instrs = [
+        _instr(0, InstructionOp.SPEAK, text="a", speaker="NPC"),
+        _instr(1, InstructionOp.END, fallthrough=False),
+        _instr(2, InstructionOp.END, fallthrough=False),  # orphan
+        _instr(3, InstructionOp.COND, text="annotation"),  # orphan
+    ]
+    sweep_unreachable(instrs)
+    assert instrs[2].dead
+    assert instrs[3].dead
+
+
+def test_sweep_unreachable_raises_on_orphan_speak() -> None:
+    instrs = [
+        _instr(0, InstructionOp.SPEAK, text="reachable", speaker="NPC"),
+        _instr(1, InstructionOp.END, fallthrough=False),
+        _instr(2, InstructionOp.SPEAK, text="orphan!", speaker="NPC"),  # critical
+    ]
+    with pytest.raises(UnreachableContentError) as exc:
+        sweep_unreachable(instrs)
+    assert exc.value.page_id == 1
+    assert exc.value.items == [(2, InstructionOp.SPEAK)]
+
+
+def test_sweep_unreachable_raises_on_orphan_menu() -> None:
+    instrs = [
+        _instr(0, InstructionOp.SPEAK, text="reachable", speaker="NPC"),
+        _instr(1, InstructionOp.END, fallthrough=False),
+        _instr(2, InstructionOp.MENU, targets=[3], target_labels=["Yes"], fallthrough=False),
+        _instr(3, InstructionOp.SPEAK, text="answer", speaker="NPC"),
+    ]
+    with pytest.raises(UnreachableContentError):
+        sweep_unreachable(instrs)
+
+
+def test_sweep_unreachable_follows_jump_target() -> None:
+    instrs = [
+        _instr(0, InstructionOp.JUMP, targets=[2], fallthrough=False),
+        _instr(1, InstructionOp.SPEAK, text="skipped but no in-edge", speaker="NPC"),
+        _instr(2, InstructionOp.SPEAK, text="reached", speaker="NPC"),
+    ]
+    # Note: instr 1 has no incoming edge so it's a critical unreachable
+    with pytest.raises(UnreachableContentError) as exc:
+        sweep_unreachable(instrs)
+    assert exc.value.items == [(1, InstructionOp.SPEAK)]
+
+
+def test_sweep_unreachable_follows_menu_targets() -> None:
+    instrs = [
+        _instr(0, InstructionOp.MENU,
+               targets=[1, 2],
+               target_labels=["a", "b"],
+               fallthrough=False),
+        _instr(1, InstructionOp.SPEAK, text="a body", speaker="NPC"),
+        _instr(2, InstructionOp.SPEAK, text="b body", speaker="NPC"),
+    ]
+    sweep_unreachable(instrs)
+    assert all(not i.dead for i in instrs)
+
+
+def test_sweep_unreachable_multi_section_each_first_addr_is_entry() -> None:
+    instrs = [
+        Instruction(page_id=1, addr=0, section="main", op=InstructionOp.SPEAK,
+                    text="main", speaker="NPC"),
+        Instruction(page_id=1, addr=1, section="main", op=InstructionOp.END,
+                    fallthrough=False),
+        Instruction(page_id=1, addr=2, section="alt", op=InstructionOp.SPEAK,
+                    text="alt", speaker="NPC"),
+        Instruction(page_id=1, addr=3, section="alt", op=InstructionOp.END,
+                    fallthrough=False),
+    ]
+    sweep_unreachable(instrs)
+    assert all(not i.dead for i in instrs)  # both sections reachable from their entries
+
+
+def test_sweep_unreachable_skips_dead_when_walking_fallthrough() -> None:
+    instrs = [
+        _instr(0, InstructionOp.SPEAK, text="a", speaker="NPC"),
+        _instr(1, InstructionOp.SPEAK, text="dead", speaker="Player", dead=True),
+        _instr(2, InstructionOp.SPEAK, text="b", speaker="NPC"),
+        _instr(3, InstructionOp.END, fallthrough=False),
+    ]
+    sweep_unreachable(instrs)
+    # @2 is reached by falling through past dead @1; no critical raise
+    assert not instrs[0].dead
+    assert not instrs[2].dead
+    assert not instrs[3].dead
+
+
+def test_sweep_unreachable_section_entry_starts_on_first_live_addr() -> None:
+    instrs = [
+        _instr(0, InstructionOp.SPEAK, text="dead start", speaker="Player", dead=True),
+        _instr(1, InstructionOp.SPEAK, text="real entry", speaker="NPC"),
+        _instr(2, InstructionOp.END, fallthrough=False),
+    ]
+    sweep_unreachable(instrs)
+    assert not instrs[1].dead  # section entry walked past the dead first instr
 
 
 def test_compact_removes_dead_and_remaps_targets() -> None:

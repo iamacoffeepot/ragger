@@ -13,6 +13,34 @@ from ragger.dialogue.dialogue_instruction import Instruction
 from ragger.enums import InstructionOp
 
 
+class UnreachableContentError(Exception):
+    """Raised when ``sweep_unreachable`` finds content-bearing instructions
+    with no incoming edge from any section entry.
+
+    The presence of unreachable ``SPEAK``/``BOX``/``QUEST``/``MENU``/
+    ``SELECT``/``SWITCH``/``JUMP_IF`` indicates either a flatten bug or a
+    duplicated wiki transcript that needs investigation. The pass refuses
+    to silently drop them — the caller must surface them and decide.
+    """
+
+    def __init__(self, page_id: int, items: list[tuple[int, InstructionOp]]):
+        self.page_id = page_id
+        self.items = items
+        details = ", ".join(f"{op}@{addr:04d}" for addr, op in items)
+        super().__init__(f"page {page_id}: unreachable content: {details}")
+
+
+_REACHABILITY_CONTENT_OPS = frozenset({
+    InstructionOp.SPEAK,
+    InstructionOp.BOX,
+    InstructionOp.QUEST,
+    InstructionOp.MENU,
+    InstructionOp.SELECT,
+    InstructionOp.SWITCH,
+    InstructionOp.JUMP_IF,
+})
+
+
 def lower_gotos(instructions: list[Instruction]) -> list[Instruction]:
     """Convert resolved GOTOs to JUMPs.
 
@@ -231,6 +259,78 @@ def fold_select_menu(instructions: list[Instruction]) -> list[Instruction]:
     return instructions
 
 
+def sweep_unreachable(instructions: list[Instruction]) -> list[Instruction]:
+    """Mark instructions with no incoming edge as dead — or raise.
+
+    BFS from each section's first live addr, following ``fallthrough``
+    edges to the next live addr and explicit ``targets`` edges to their
+    destinations. Anything not visited is unreachable.
+
+    Cleanup is **classification-driven**, not blanket deletion:
+
+    - Pure control flow (``JUMP``, ``GOTO``, ``END``) and inert
+      annotations (``COND``, ``PRED``) are marked dead. ``compact``
+      drops them next.
+    - Content-bearing ops (``SPEAK``, ``BOX``, ``QUEST``, ``MENU``,
+      ``SELECT``, ``SWITCH``, ``JUMP_IF``) are **never** silently
+      dropped. If any are unreachable the pass raises
+      ``UnreachableContentError`` so the caller can investigate
+      whether the cause is a flatten bug or a duplicated wiki transcript.
+
+    Section entries are defined as the first live addr in each distinct
+    section, in stream order. A section with all-dead instructions has
+    no entry and contributes nothing to the reachable set.
+    """
+    n = len(instructions)
+    if n == 0:
+        return instructions
+
+    def next_live(i: int) -> int:
+        j = i
+        while j < n and instructions[j].dead:
+            j += 1
+        return j
+
+    seen_sections: set[str] = set()
+    entries: list[int] = []
+    for i, instr in enumerate(instructions):
+        if instr.dead:
+            continue
+        if instr.section not in seen_sections:
+            seen_sections.add(instr.section)
+            entries.append(i)
+
+    reachable: set[int] = set()
+    stack = list(entries)
+    while stack:
+        raw = stack.pop()
+        if raw < 0 or raw >= n:
+            continue
+        i = next_live(raw)
+        if i >= n or i in reachable:
+            continue
+        reachable.add(i)
+        instr = instructions[i]
+        if instr.fallthrough:
+            stack.append(i + 1)
+        for target in instr.targets:
+            stack.append(target)
+
+    critical: list[tuple[int, InstructionOp]] = []
+    for i, instr in enumerate(instructions):
+        if instr.dead or i in reachable:
+            continue
+        if instr.op in _REACHABILITY_CONTENT_OPS:
+            critical.append((i, instr.op))
+        else:
+            instr.dead = True
+
+    if critical:
+        raise UnreachableContentError(instructions[critical[0][0]].page_id, critical)
+
+    return instructions
+
+
 def compact(instructions: list[Instruction]) -> list[Instruction]:
     """Remove dead instructions and rewrite addresses + targets.
 
@@ -288,5 +388,6 @@ PASSES = [
     collapse_trivial_branches,
     inline_player_echoes,
     fold_select_menu,
+    sweep_unreachable,
     compact,
 ]

@@ -114,7 +114,8 @@ targets.
 3. `collapse_trivial_branches` — drop branches whose arms converge: SWITCHes with all-equal targets, JUMP_IFs with empty or no-op predicates, and JUMPs to the next live addr
 4. `inline_player_echoes` — kill `SPEAK Player + JUMP -> MENU` echo trampolines
 5. `fold_select_menu` — lift SELECT text onto the immediately-following MENU as a title
-6. `compact` — remove dead instructions, remap addresses
+6. `sweep_unreachable` — BFS from each section's first live addr; drop unreachable control flow (`JUMP`, `GOTO`, `END`, `COND`, `PRED`); raise `UnreachableContentError` if any unreachable content op (`SPEAK`, `BOX`, `QUEST`, `MENU`, `SELECT`, `SWITCH`, `JUMP_IF`) is found, since those signal a flatten bug or duplicated wiki transcript
+7. `compact` — remove dead instructions, remap addresses
 
 Each pass is a pure `list[Instruction] -> list[Instruction]` function.
 The `compute_dialogue_instructions.py` pipeline script persists the
