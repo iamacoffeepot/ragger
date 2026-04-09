@@ -100,6 +100,20 @@ if node.node_type == DialogueNodeType.CONDITION:
     ...
 ```
 
+## Verbose module names inside subpackages
+
+Inside subpackages, repeat the package prefix on filenames rather than dropping it. `dialogue/dialogue_flatten.py`, not `dialogue/flatten.py`. The visual redundancy is worth it — `rg dialogue_flatten` finds the file unambiguously, imports read clearly at the call site, and filename collisions across unrelated subpackages stop being possible.
+
+```python
+# WRONG
+# src/ragger/dialogue/flatten.py
+# src/ragger/dialogue/passes.py
+
+# RIGHT
+# src/ragger/dialogue/dialogue_flatten.py
+# src/ragger/dialogue/dialogue_passes.py
+```
+
 ## No section headers
 
 Never use comments as section dividers. Let blank lines and logical grouping speak for themselves.
