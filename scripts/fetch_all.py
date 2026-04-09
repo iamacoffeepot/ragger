@@ -13,6 +13,7 @@ from pathlib import Path
 SCRIPTS = [
     # Core data (order matters)
     "scripts/pipeline/fetch_items.py",
+    "scripts/pipeline/fetch_currencies.py",
     "scripts/pipeline/fetch_equipment.py",
     "scripts/pipeline/fetch_quests.py",
     "scripts/pipeline/fetch_quest_regions.py",

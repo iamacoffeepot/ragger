@@ -38,6 +38,22 @@ SCHEMAS: list[str] = [
         FOREIGN KEY (item_id) REFERENCES items(id)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS physical_currencies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        item_id INTEGER NOT NULL,
+        FOREIGN KEY (item_id) REFERENCES items(id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS virtual_currencies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        varbit_id INTEGER,
+        FOREIGN KEY (varbit_id) REFERENCES game_vars(id)
+    )
+    """,
     f"""
     CREATE TABLE IF NOT EXISTS diary_tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
