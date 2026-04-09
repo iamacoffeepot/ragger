@@ -10,7 +10,9 @@
 - `ShopType(str, Enum)` — 36 shop types (General, Gem, Fishing, Magic, etc.) with `from_label` fuzzy matching
 - `ActivityType(str, Enum)` — Minigame, Random event, Forestry, Raid, Activity, Boss, Distraction and Diversion, Quest, Reward with `from_label` (falls back to Activity)
 - `DialogueNodeType(str, Enum)` — line, option, condition, action, box, select, quest_action
-- `DialogueEdgeType(str, Enum)` — child, next, continues, same_as, cross_page, branch
+- `DialoguePageType(StrEnum)` — quest, npc, event, miniquest, item, pet, scenery, skill, list, questjournal
+- `DialogueEntityType(StrEnum)` — item, npc, monster, quest, location, shop, equipment, activity
+- `InstructionOp(StrEnum)` — SPEAK, BOX, QUEST, MENU, SELECT, SWITCH, JUMP_IF, JUMP, GOTO, COND, PRED, END
 - `VariableType(str, Enum)` — varp, varbit, varc_int, varc_str with `from_label`
 - `ContentCategory(str, Enum)` — quest, skill, npc, location, item, minigame, activity with `from_label`
 - `FunctionalTag(str, Enum)` — progress, toggle, counter, ui, config, storage, timer, cosmetic with `from_label`

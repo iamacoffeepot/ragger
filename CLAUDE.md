@@ -51,15 +51,16 @@ Pipeline order (managed by `fetch_all.py`):
 19. `fetch_npc_locations.py` — Associates NPC game IDs with wiki-stated coordinates by parsing versioned id and map fields from Infobox NPC
 20. `fetch_actions.py` — Universal action ingestion from {{Skill table}} templates. One API call per skill expands the table and parses name, level, XP, materials, tools, facilities, and secondary skills. Entity/facility pages are batch-fetched for Infobox NPC/Scenery game IDs, with ops resolved from cache dump definitions. Replaces all individual fetch_*_actions.py scripts and trigger linking scripts. Supports `--skill` to run a single skill.
 21. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
-22. `fetch_dialogues.py` — Pulls dialogue trees from Transcript: pages (namespace 120). Parses *-indented wikitext with {{topt}}, {{tcond}}, {{tact}}, {{tbox}}, {{tselect}}, {{qact}} templates into an adjacency-list tree in dialogue_pages + dialogue_nodes.
+22. `fetch_dialogues.py` — Pulls dialogue trees from Transcript: pages (namespace 120). Parses *-indented wikitext with {{topt}}, {{tcond}}, {{tact}}, {{tbox}}, {{tselect}}, {{qact}} templates into a tree in dialogue_pages + dialogue_nodes. Resolves `-> above`/`-> below`/`-> other` action references into `dialogue_nodes.continue_target_id`.
 23. `link_shop_locations.py` — Links shops to locations by matching location text
 24. `link_activity_locations.py` — Links activities to locations by matching location text
 25. `link_ground_item_locations.py` — Links ground items to items (name normalization) and nearest locations (Chebyshev distance)
 26. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
 27. `compute_dialogue_tags.py` — Aho-Corasick entity tagging over dialogue nodes. Matches items, NPCs, monsters, quests, locations, shops, equipment, and activities. Stores probable links in dialogue_tags.
-28. `link_npc_dialogues.py` — Links NPCs to dialogue pages by exact name match on npc-type transcripts
-29. `link_quest_dialogues.py` — Links quests to dialogue pages by exact name match on quest-type transcripts
-30. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
+28. `compute_dialogue_instructions.py` — Flattens each dialogue tree into a linear per-page instruction stream, runs the canonical pass pipeline (lower_gotos → thread_jumps → inline_player_echoes → fold_select_menu → compact), writes to dialogue_instructions. Implementation lives in `src/ragger/dialogue/`.
+29. `link_npc_dialogues.py` — Links NPCs to dialogue pages by exact name match on npc-type transcripts
+30. `link_quest_dialogues.py` — Links quests to dialogue pages by exact name match on quest-type transcripts
+31. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
 
 ### Import scripts (`scripts/import/`)
 
@@ -177,7 +178,7 @@ All API methods accept a `sqlite3.Connection` so connections can be reused. Per-
 - `ACTIVITY.md` — Activity/minigame lookup
 - `ACTION.md` — Action with inputs, outputs, requirements, triggers
 - `NPC.md` — Non-combat NPC lookup, NpcLocation (game ID to coordinates)
-- `DIALOGUE.md` — DialoguePage, DialogueNode (tree traversal, subtree CTE), DialogueTag (entity tagging)
+- `DIALOGUE.md` — DialoguePage, DialogueNode (tree traversal, subtree CTE, continue_target_id), DialogueTag (entity tagging), Instruction (flattened per-page IR with passes pipeline)
 - `OBJECT.md` — ObjectLocation (interactive object spawns by game ID and coordinates)
 - `MONSTER.md` — Monster stats, locations, drops, immunities
 - `GAME_VARIABLE.md` — GameVariable with content/functional tags, values
