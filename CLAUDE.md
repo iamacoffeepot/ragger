@@ -30,39 +30,40 @@ uv run python scripts/fetch_all.py [--db data/ragger.db] [--league Raging_Echoes
 
 Pipeline order (managed by `fetch_all.py`):
 
-1. `fetch_items.py` — Pulls all item names from Category:Items
-2. `fetch_currencies.py` — Pulls currencies from Category:Currency and splits them into `physical_currencies` (item-backed: Coins, Tokkul, Mark of grace, etc.) and `virtual_currencies` (varbit-backed reward counters: Slayer reward points, Carpenter points, Void Knight commendation points, etc.)
-3. `fetch_equipment.py` — Pulls equipment stats (bonuses, slot, speed, combat style) and metadata from Category:Equipment (batched)
-4. `fetch_quests.py` — Pulls quests with points, XP/item rewards, skill/quest/QP requirements
-5. `fetch_quest_regions.py` — Parses `leagueRegion` infobox field to map quests to regions
-6. `fetch_diary_tasks.py` — Pulls diary tasks with skill and quest requirements
-7. `fetch_diary_items.py` — Pulls diary task item requirements from Achievement Diary page
-8. `fetch_shops.py` — Pulls shop data with items, stock, pricing, and shop type from Category:Shops
-9. `fetch_locations.py` — Pulls locations with adjacency graph, region, and map coordinates from Category:Locations
-10. `fetch_facilities.py` — Pulls facility coordinates (banks, furnaces, anvils, altars, spinning wheels, looms)
-11. `fetch_monsters.py` — Pulls monsters with full stat blocks, spawn locations, and drop tables from Category:Monsters (batched)
-12. `fetch_dungeon_entrances.py` — Extracts surface-to-underground entrance/exit map links from location pages
-13. `fetch_fairy_rings.py` — Parses fairy ring codes and coordinates, creates links between all 55 codes
-14. `fetch_quetzal.py` — Parses Quetzal Transport System stops and creates links between all stops
-15. `fetch_charter_ships.py` — Parses charter ship dock coordinates from Trader Stan's Trading Post
-16. `fetch_magic_teleports.py` — Parses all spellbook teleports (Standard, Ancient, Lunar) and item teleports (jewellery, etc.)
-17. `fetch_activities.py` — Pulls activities/minigames with type, coordinates, skills bitmask, and region from Category:Activities
-18. `fetch_npcs.py` — Pulls non-combat NPC data (name, version, location, options, region) from Category:Non-player characters
-19. `fetch_ground_items.py` — Pulls ground item spawns by finding pages using {{ItemSpawnLine}} template. Parses item name, location, members, coordinates, and league region. One row per spawn coordinate.
-20. `fetch_npc_locations.py` — Associates NPC game IDs with wiki-stated coordinates by parsing versioned id and map fields from Infobox NPC
-21. `fetch_actions.py` — Universal action ingestion from {{Skill table}} templates. One API call per skill expands the table and parses name, level, XP, materials, tools, facilities, and secondary skills. Entity/facility pages are batch-fetched for Infobox NPC/Scenery game IDs, with ops resolved from cache dump definitions. Replaces all individual fetch_*_actions.py scripts and trigger linking scripts. Supports `--skill` to run a single skill.
-22. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
-23. `fetch_dialogues.py` — Pulls dialogue trees from Transcript: pages (namespace 120). Parses *-indented wikitext with {{topt}}, {{tcond}}, {{tact}}, {{tbox}}, {{tselect}}, {{qact}} templates into a tree in dialogue_pages + dialogue_nodes. Resolves `-> above`/`-> below`/`-> other` action references into `dialogue_nodes.continue_target_id`.
-24. `link_shop_locations.py` — Links shops to locations by matching location text
-25. `link_activity_locations.py` — Links activities to locations by matching location text
-26. `link_ground_item_locations.py` — Links ground items to items (name normalization) and nearest locations (Chebyshev distance)
-27. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
-28. `link_dialogue_entities.py` — Refines `[display](wiki:Page)` markdown links in `dialogue_nodes.text` to typed entity prefixes (`npc:`, `item:`, `quest:`, `monster:`, `location:`, `shop:`, `activity:`, `equipment:`) by looking each slug up against the entity tables. Anything not found stays as `wiki:` for downstream fallback resolution.
-29. `compute_dialogue_tags.py` — Aho-Corasick entity tagging over dialogue nodes. Matches items, NPCs, monsters, quests, locations, shops, equipment, and activities. Stores probable links in dialogue_tags.
-30. `compute_dialogue_instructions.py` — Flattens each dialogue tree into a linear per-page instruction stream, runs the canonical pass pipeline (lower_gotos → thread_jumps → inline_player_echoes → fold_select_menu → compact), writes to dialogue_instructions. Implementation lives in `src/ragger/dialogue/`.
-31. `link_npc_dialogues.py` — Links NPCs to dialogue pages by exact name match on npc-type transcripts
-32. `link_quest_dialogues.py` — Links quests to dialogue pages by exact name match on quest-type transcripts
-33. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
+1. `fetch_categories.py` — Crawls the wiki category graph from the Content root. Bulk-enumerates all categories via allcategories API (500/request), batch-fetches parent edges via prop=categories (50/request), filters to reachable subgraph. Populates `wiki_categories` and `wiki_category_parents`.
+2. `fetch_items.py` — Pulls all item names from Category:Items
+3. `fetch_currencies.py` — Pulls currencies from Category:Currency and splits them into `physical_currencies` (item-backed: Coins, Tokkul, Mark of grace, etc.) and `virtual_currencies` (varbit-backed reward counters: Slayer reward points, Carpenter points, Void Knight commendation points, etc.)
+4. `fetch_equipment.py` — Pulls equipment stats (bonuses, slot, speed, combat style) and metadata from Category:Equipment (batched)
+5. `fetch_quests.py` — Pulls quests with points, XP/item rewards, skill/quest/QP requirements
+6. `fetch_quest_regions.py` — Parses `leagueRegion` infobox field to map quests to regions
+7. `fetch_diary_tasks.py` — Pulls diary tasks with skill and quest requirements
+8. `fetch_diary_items.py` — Pulls diary task item requirements from Achievement Diary page
+9. `fetch_shops.py` — Pulls shop data with items, stock, pricing, and shop type from Category:Shops
+11. `fetch_locations.py` — Pulls locations with adjacency graph, region, and map coordinates from Category:Locations
+12. `fetch_facilities.py` — Pulls facility coordinates (banks, furnaces, anvils, altars, spinning wheels, looms)
+13. `fetch_monsters.py` — Pulls monsters with full stat blocks, spawn locations, and drop tables from Category:Monsters (batched)
+14. `fetch_dungeon_entrances.py` — Extracts surface-to-underground entrance/exit map links from location pages
+15. `fetch_fairy_rings.py` — Parses fairy ring codes and coordinates, creates links between all 55 codes
+16. `fetch_quetzal.py` — Parses Quetzal Transport System stops and creates links between all stops
+17. `fetch_charter_ships.py` — Parses charter ship dock coordinates from Trader Stan's Trading Post
+18. `fetch_magic_teleports.py` — Parses all spellbook teleports (Standard, Ancient, Lunar) and item teleports (jewellery, etc.)
+19. `fetch_activities.py` — Pulls activities/minigames with type, coordinates, skills bitmask, and region from Category:Activities
+20. `fetch_npcs.py` — Pulls non-combat NPC data (name, version, location, options, region) from Category:Non-player characters
+21. `fetch_ground_items.py` — Pulls ground item spawns by finding pages using {{ItemSpawnLine}} template. Parses item name, location, members, coordinates, and league region. One row per spawn coordinate.
+22. `fetch_npc_locations.py` — Associates NPC game IDs with wiki-stated coordinates by parsing versioned id and map fields from Infobox NPC
+23. `fetch_actions.py` — Universal action ingestion from {{Skill table}} templates. One API call per skill expands the table and parses name, level, XP, materials, tools, facilities, and secondary skills. Entity/facility pages are batch-fetched for Infobox NPC/Scenery game IDs, with ops resolved from cache dump definitions. Replaces all individual fetch_*_actions.py scripts and trigger linking scripts. Supports `--skill` to run a single skill.
+24. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
+25. `fetch_dialogues.py` — Pulls dialogue trees from Transcript: pages (namespace 120). Parses *-indented wikitext with {{topt}}, {{tcond}}, {{tact}}, {{tbox}}, {{tselect}}, {{qact}} templates into a tree in dialogue_pages + dialogue_nodes. Resolves `-> above`/`-> below`/`-> other` action references into `dialogue_nodes.continue_target_id`.
+26. `link_shop_locations.py` — Links shops to locations by matching location text
+27. `link_activity_locations.py` — Links activities to locations by matching location text
+28. `link_ground_item_locations.py` — Links ground items to items (name normalization) and nearest locations (Chebyshev distance)
+29. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
+30. `link_dialogue_entities.py` — Refines `[display](wiki:Page)` markdown links in `dialogue_nodes.text` to typed entity prefixes (`npc:`, `item:`, `quest:`, `monster:`, `location:`, `shop:`, `activity:`, `equipment:`) by looking each slug up against the entity tables. Anything not found stays as `wiki:` for downstream fallback resolution.
+31. `compute_dialogue_tags.py` — Aho-Corasick entity tagging over dialogue nodes. Matches items, NPCs, monsters, quests, locations, shops, equipment, and activities. Stores probable links in dialogue_tags.
+32. `compute_dialogue_instructions.py` — Flattens each dialogue tree into a linear per-page instruction stream, runs the canonical pass pipeline (lower_gotos → thread_jumps → inline_player_echoes → fold_select_menu → compact), writes to dialogue_instructions. Implementation lives in `src/ragger/dialogue/`.
+33. `link_npc_dialogues.py` — Links NPCs to dialogue pages by exact name match on npc-type transcripts
+34. `link_quest_dialogues.py` — Links quests to dialogue pages by exact name match on quest-type transcripts
+35. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
 
 ### Import scripts (`scripts/import/`)
 

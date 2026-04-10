@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 
 SCRIPTS = [
+    # Metadata (no dependencies)
+    "scripts/pipeline/fetch_categories.py",
     # Core data (order matters)
     "scripts/pipeline/fetch_items.py",
     "scripts/pipeline/fetch_currencies.py",
