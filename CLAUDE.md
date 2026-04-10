@@ -248,7 +248,9 @@ JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home" ./grad
 
 ### MCP Server
 
-Python MCP server at `src/ragger/mcp_server.py` exposes the following tools:
+Python MCP server at `src/ragger/mcp_server.py`. Tools are namespaced under `mcp__ragger__` by the MCP protocol.
+
+Bridge tools (proxy to the plugin's HTTP server on localhost, default port 7919):
 
 - `ActorSpawn(name, script)` — submit a persistent Lua actor to the plugin
 - `Eval(script)` — evaluate a Lua expression and return the result
@@ -261,7 +263,11 @@ Python MCP server at `src/ragger/mcp_server.py` exposes the following tools:
 - `MailRecvAsync(limit?, from_actor?)` — non-blocking read of messages sent to Claude
 - `MailRecvSync(count?, from_actor?, timeout?)` — blocking read, waits for messages
 
-All tools bridge through the plugin's HTTP server on localhost (default port 7919). Per-session auth token prevents unauthorized access.
+Data API tools (auto-registered from `@mcp_tool` annotations on Python API methods):
+
+- `ItemAll()`, `ItemByName(name)`, `ItemByGameId(game_id)`, `ItemSearch(name)`
+
+Data API tools query the SQLite database directly (default `data/ragger.db`, override with `RAGGER_DB` env var). New tools are added by annotating classmethods with `@mcp_tool` — see `docs/style/ENTITY_API.md` for conventions. Each module must be imported in `mcp_server.py` to trigger registration.
 
 ### Behaviors
 

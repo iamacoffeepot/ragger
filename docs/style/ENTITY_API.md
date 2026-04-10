@@ -119,3 +119,34 @@ def _from_row(cls, row: tuple) -> Spell:
 ## Connection parameter
 
 Every query method takes `conn: sqlite3.Connection` as the first parameter. This is always a positional argument, never keyword-only.
+
+## MCP tool registration
+
+Public query classmethods should be annotated with `@mcp_tool` to expose them as MCP tools. Apply the decorator before `@classmethod`:
+
+```python
+from ragger.mcp_registry import mcp_tool
+
+@classmethod
+@mcp_tool(name="ItemByName", description="Find an item by exact name")
+def by_name(cls, conn: sqlite3.Connection, name: str) -> Item | None:
+```
+
+Naming convention: `{Entity}{Method}` in PascalCase (e.g. `ItemByName`, `QuestSearch`, `MonsterAll`). The `cls` and `conn` parameters are stripped automatically — only the remaining parameters are exposed to Claude.
+
+Each module must be imported in `mcp_server.py` to trigger registration (one `import ragger.module` line).
+
+## Serialization
+
+Every dataclass returned from an `@mcp_tool` method must implement `asdict()`. This is enforced at runtime — `dataclasses.asdict()` is never used as a fallback.
+
+```python
+def asdict(self) -> dict:
+    return {
+        "id": self.id,
+        "name": self.name,
+        "members": self.members,
+    }
+```
+
+The `asdict()` method controls exactly what gets serialized. Nested dataclasses must be serialized explicitly within the method. Enum values are serialized automatically by the registry.
