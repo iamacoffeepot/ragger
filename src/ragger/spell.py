@@ -55,6 +55,11 @@ class CombatSpell:
         }
 
     @classmethod
+    def by_id(cls, conn: sqlite3.Connection, id: int) -> CombatSpell | None:
+        row = conn.execute(f"SELECT {cls._COLS} FROM combat_spells WHERE id = ?", (id,)).fetchone()
+        return cls._from_row(row) if row else None
+
+    @classmethod
     @mcp_tool(name="CombatSpellAll", description="List combat spells, optionally filtered by spellbook (NORMAL, ANCIENT, LUNAR). Returns level, element, max_damage, experience, speed.")
     def all(cls, conn: sqlite3.Connection, spellbook: Spellbook | None = None) -> list[CombatSpell]:
         query = f"SELECT {cls._COLS} FROM combat_spells"
@@ -99,6 +104,7 @@ class CombatSpell:
         ).fetchall()
         return [cls._from_row(r) for r in rows]
 
+    @mcp_tool(name="CombatSpellRunes", description="Rune cost for a combat spell. Returns item_name and quantity for each rune. Pass the spell id from CombatSpellByName.")
     def runes(self, conn: sqlite3.Connection) -> list[SpellRune]:
         return _fetch_runes(conn, "combat_spell_runes", self.id)
 
@@ -142,6 +148,11 @@ class UtilitySpell:
         }
 
     @classmethod
+    def by_id(cls, conn: sqlite3.Connection, id: int) -> UtilitySpell | None:
+        row = conn.execute(f"SELECT {cls._COLS} FROM utility_spells WHERE id = ?", (id,)).fetchone()
+        return cls._from_row(row) if row else None
+
+    @classmethod
     @mcp_tool(name="UtilitySpellAll", description="List utility spells (non-combat, non-teleport), optionally filtered by spellbook. Includes alchemy, enchantment, superheat, etc.")
     def all(cls, conn: sqlite3.Connection, spellbook: Spellbook | None = None) -> list[UtilitySpell]:
         query = f"SELECT {cls._COLS} FROM utility_spells"
@@ -177,6 +188,7 @@ class UtilitySpell:
         ).fetchall()
         return [cls._from_row(r) for r in rows]
 
+    @mcp_tool(name="UtilitySpellRunes", description="Rune cost for a utility spell. Returns item_name and quantity. Pass the spell id from UtilitySpellByName.")
     def runes(self, conn: sqlite3.Connection) -> list[SpellRune]:
         return _fetch_runes(conn, "utility_spell_runes", self.id)
 
@@ -222,6 +234,11 @@ class TeleportSpell:
         }
 
     @classmethod
+    def by_id(cls, conn: sqlite3.Connection, id: int) -> TeleportSpell | None:
+        row = conn.execute(f"SELECT {cls._COLS} FROM teleport_spells WHERE id = ?", (id,)).fetchone()
+        return cls._from_row(row) if row else None
+
+    @classmethod
     @mcp_tool(name="TeleportSpellAll", description="List teleport spells, optionally filtered by spellbook. Returns destination name, dst_x/dst_y coordinates, and lectern (if tablet-craftable).")
     def all(cls, conn: sqlite3.Connection, spellbook: Spellbook | None = None) -> list[TeleportSpell]:
         query = f"SELECT {cls._COLS} FROM teleport_spells"
@@ -257,6 +274,7 @@ class TeleportSpell:
         ).fetchall()
         return [cls._from_row(r) for r in rows]
 
+    @mcp_tool(name="TeleportSpellRunes", description="Rune cost for a teleport spell. Returns item_name and quantity. Pass the spell id from TeleportSpellByName.")
     def runes(self, conn: sqlite3.Connection) -> list[SpellRune]:
         return _fetch_runes(conn, "teleport_spell_runes", self.id)
 

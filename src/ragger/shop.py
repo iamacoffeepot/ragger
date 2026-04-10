@@ -74,6 +74,11 @@ class Shop:
         }
 
     @classmethod
+    def by_id(cls, conn: sqlite3.Connection, id: int) -> Shop | None:
+        row = conn.execute(f"SELECT {cls._COLS} FROM shops WHERE id = ?", (id,)).fetchone()
+        return cls._from_row(row) if row else None
+
+    @classmethod
     @mcp_tool(name="ShopAll", description="List all shops, optionally filtered by region and shop_type (GENERAL, ARCHERY, SWORD, MAGIC, etc.). Returns name, location, owner, sell/buy multipliers.")
     def all(
         cls,
@@ -164,6 +169,7 @@ class Shop:
             delta=row[10],
         )
 
+    @mcp_tool(name="ShopItems", description="Full inventory of a shop. Returns item_name, stock, restock rate, sell/buy prices. Pass the shop id from ShopByName or ShopSelling.")
     def items(self, conn: sqlite3.Connection) -> list[ShopItem]:
         rows = conn.execute(
             """SELECT id, shop_id, item_name, stock, restock, sell_price, buy_price

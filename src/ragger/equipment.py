@@ -74,6 +74,11 @@ class Equipment:
         }
 
     @classmethod
+    def by_id(cls, conn: sqlite3.Connection, id: int) -> Equipment | None:
+        row = conn.execute(f"SELECT {cls._COLS} FROM equipment WHERE id = ?", (id,)).fetchone()
+        return cls._from_row(row) if row else None
+
+    @classmethod
     @mcp_tool(name="EquipmentAll", description="List all equipment, optionally filtered by slot (HEAD, WEAPON, BODY, etc.). Returns attack/defence bonuses, strength, prayer, speed, combat_style. Large result set — prefer EquipmentSearch or EquipmentBySlot.")
     def all(
         cls,
@@ -141,6 +146,7 @@ class Equipment:
     def requirement_groups(self, conn: sqlite3.Connection) -> list[RequirementGroup]:
         return RequirementGroup.for_equipment(conn, self.id)
 
+    @mcp_tool(name="EquipmentSkillRequirements", description="Skill requirements to equip an item. Returns skill name, level, and boostable. Pass the equipment id from EquipmentByName.")
     def skill_requirements(self, conn: sqlite3.Connection) -> list[GroupSkillRequirement]:
         rows = conn.execute(
             """
@@ -154,6 +160,7 @@ class Equipment:
         ).fetchall()
         return [GroupSkillRequirement(r[0], r[1], Skill(r[2]), r[3], bool(r[4]), ComparisonOperator(r[5])) for r in rows]
 
+    @mcp_tool(name="EquipmentQuestRequirements", description="Quest requirements to equip an item. Returns required_quest_id. Pass the equipment id from EquipmentByName.")
     def quest_requirements(self, conn: sqlite3.Connection) -> list[GroupQuestRequirement]:
         rows = conn.execute(
             """
