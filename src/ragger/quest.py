@@ -33,6 +33,14 @@ class Quest:
         row = conn.execute("SELECT id, name, points FROM quests WHERE name = ?", (name,)).fetchone()
         return cls(*row) if row else None
 
+    @classmethod
+    def search(cls, conn: sqlite3.Connection, name: str) -> list[Quest]:
+        rows = conn.execute(
+            "SELECT id, name, points FROM quests WHERE name LIKE ? ORDER BY name",
+            (f"%{name}%",),
+        ).fetchall()
+        return [cls(*row) for row in rows]
+
     def xp_rewards(self, conn: sqlite3.Connection) -> list[ExperienceReward]:
         rows = conn.execute(
             """

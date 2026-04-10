@@ -59,6 +59,14 @@ class CombatSpell:
         return cls._from_row(row) if row else None
 
     @classmethod
+    def search(cls, conn: sqlite3.Connection, name: str) -> list[CombatSpell]:
+        rows = conn.execute(
+            f"SELECT {cls._COLS} FROM combat_spells WHERE name LIKE ? ORDER BY name",
+            (f"%{name}%",),
+        ).fetchall()
+        return [cls._from_row(r) for r in rows]
+
+    @classmethod
     def by_element(cls, conn: sqlite3.Connection, element: Element) -> list[CombatSpell]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM combat_spells WHERE element = ? ORDER BY level",
@@ -126,6 +134,14 @@ class UtilitySpell:
         return cls._from_row(row) if row else None
 
     @classmethod
+    def search(cls, conn: sqlite3.Connection, name: str) -> list[UtilitySpell]:
+        rows = conn.execute(
+            f"SELECT {cls._COLS} FROM utility_spells WHERE name LIKE ? ORDER BY name",
+            (f"%{name}%",),
+        ).fetchall()
+        return [cls._from_row(r) for r in rows]
+
+    @classmethod
     def at_level(cls, conn: sqlite3.Connection, level: int) -> list[UtilitySpell]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM utility_spells WHERE level <= ? ORDER BY level",
@@ -184,6 +200,14 @@ class TeleportSpell:
             f"SELECT {cls._COLS} FROM teleport_spells WHERE name = ?", (name,)
         ).fetchone()
         return cls._from_row(row) if row else None
+
+    @classmethod
+    def search(cls, conn: sqlite3.Connection, name: str) -> list[TeleportSpell]:
+        rows = conn.execute(
+            f"SELECT {cls._COLS} FROM teleport_spells WHERE name LIKE ? ORDER BY name",
+            (f"%{name}%",),
+        ).fetchall()
+        return [cls._from_row(r) for r in rows]
 
     @classmethod
     def at_level(cls, conn: sqlite3.Connection, level: int) -> list[TeleportSpell]:

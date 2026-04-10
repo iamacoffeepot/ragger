@@ -78,6 +78,14 @@ class Shop:
         ).fetchone()
         return cls._from_row(row) if row else None
 
+    @classmethod
+    def search(cls, conn: sqlite3.Connection, name: str) -> list[Shop]:
+        rows = conn.execute(
+            f"SELECT {cls._COLS} FROM shops WHERE name LIKE ? ORDER BY name",
+            (f"%{name}%",),
+        ).fetchall()
+        return [cls._from_row(row) for row in rows]
+
     _S_COLS = "s.id, s.name, s.location, s.location_id, s.owner, s.members, s.region, s.shop_type, s.sell_multiplier, s.buy_multiplier, s.delta"
 
     @classmethod

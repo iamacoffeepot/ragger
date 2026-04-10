@@ -75,8 +75,16 @@ class Action:
         return [cls._from_row(row) for row in rows]
 
     @classmethod
-    def by_name(cls, conn: sqlite3.Connection, name: str) -> list[Action]:
-        """Find actions by exact name (may have multiple methods for same output)."""
+    def by_name(cls, conn: sqlite3.Connection, name: str) -> Action | None:
+        row = conn.execute(
+            f"SELECT {cls._COLS} FROM actions WHERE name = ? ORDER BY id LIMIT 1",
+            (name,),
+        ).fetchone()
+        return cls._from_row(row) if row else None
+
+    @classmethod
+    def all_by_name(cls, conn: sqlite3.Connection, name: str) -> list[Action]:
+        """Find all actions with an exact name (may have multiple methods for same output)."""
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM actions WHERE name = ? ORDER BY id",
             (name,),

@@ -94,7 +94,15 @@ class GameVariable:
         return [cls._from_row(row) for row in rows]
 
     @classmethod
-    def by_name(cls, conn: sqlite3.Connection, name: str) -> list[GameVariable]:
+    def by_name(cls, conn: sqlite3.Connection, name: str) -> GameVariable | None:
+        row = conn.execute(
+            f"SELECT {cls._COLS} FROM game_vars WHERE name = ? LIMIT 1",
+            (name,),
+        ).fetchone()
+        return cls._from_row(row) if row else None
+
+    @classmethod
+    def all_by_name(cls, conn: sqlite3.Connection, name: str) -> list[GameVariable]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM game_vars WHERE name = ?",
             (name,),

@@ -93,6 +93,14 @@ class LeagueTask:
         return cls._from_row(row) if row else None
 
     @classmethod
+    def search(cls, conn: sqlite3.Connection, name: str) -> list[LeagueTask]:
+        rows = conn.execute(
+            "SELECT id, name, description, difficulty, region FROM league_tasks WHERE name LIKE ? ORDER BY name",
+            (f"%{name}%",),
+        ).fetchall()
+        return [cls._from_row(row) for row in rows]
+
+    @classmethod
     def _from_row(cls, row: tuple) -> LeagueTask:
         return cls(
             id=row[0],

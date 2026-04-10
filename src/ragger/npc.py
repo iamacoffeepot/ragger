@@ -31,7 +31,21 @@ class Npc:
         return [cls._from_row(r) for r in conn.execute(query, params).fetchall()]
 
     @classmethod
-    def by_name(cls, conn: sqlite3.Connection, name: str) -> list[Npc]:
+    def by_name(cls, conn: sqlite3.Connection, name: str, version: str | None = None) -> Npc | None:
+        if version is not None:
+            row = conn.execute(
+                "SELECT id, name, version, location, x, y, options, region FROM npcs WHERE name = ? AND version = ?",
+                (name, version),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT id, name, version, location, x, y, options, region FROM npcs WHERE name = ? ORDER BY version LIMIT 1",
+                (name,),
+            ).fetchone()
+        return cls._from_row(row) if row else None
+
+    @classmethod
+    def all_by_name(cls, conn: sqlite3.Connection, name: str) -> list[Npc]:
         rows = conn.execute(
             "SELECT id, name, version, location, x, y, options, region FROM npcs WHERE name = ? ORDER BY version",
             (name,),

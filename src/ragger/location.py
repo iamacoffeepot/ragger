@@ -122,6 +122,14 @@ class Location:
         return cls._from_row(row) if row else None
 
     @classmethod
+    def search(cls, conn: sqlite3.Connection, name: str) -> list[Location]:
+        rows = conn.execute(
+            "SELECT id, name, region, type, members, x, y, facilities FROM locations WHERE name LIKE ? ORDER BY name",
+            (f"%{name}%",),
+        ).fetchall()
+        return [cls._from_row(row) for row in rows]
+
+    @classmethod
     def _from_row(cls, row: tuple) -> Location:
         return cls(
             id=row[0],

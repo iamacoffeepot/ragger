@@ -33,7 +33,21 @@ def test_all_filter_region(conn: sqlite3.Connection) -> None:
 
 def test_by_name(conn: sqlite3.Connection) -> None:
     _seed_npcs(conn)
-    npcs = Npc.by_name(conn, "Regulus Cento")
+    npc = Npc.by_name(conn, "Regulus Cento")
+    assert npc is not None
+    assert npc.name == "Regulus Cento"
+
+
+def test_by_name_with_version(conn: sqlite3.Connection) -> None:
+    _seed_npcs(conn)
+    npc = Npc.by_name(conn, "Regulus Cento", version="Varlamore")
+    assert npc is not None
+    assert npc.version == "Varlamore"
+
+
+def test_all_by_name(conn: sqlite3.Connection) -> None:
+    _seed_npcs(conn)
+    npcs = Npc.all_by_name(conn, "Regulus Cento")
     assert len(npcs) == 2
     versions = {n.version for n in npcs}
     assert "Misthalin" in versions
@@ -42,9 +56,9 @@ def test_by_name(conn: sqlite3.Connection) -> None:
 
 def test_by_name_single(conn: sqlite3.Connection) -> None:
     _seed_npcs(conn)
-    npcs = Npc.by_name(conn, "Hans")
-    assert len(npcs) == 1
-    assert npcs[0].location == "Lumbridge"
+    npc = Npc.by_name(conn, "Hans")
+    assert npc is not None
+    assert npc.location == "Lumbridge"
 
 
 def test_search(conn: sqlite3.Connection) -> None:
@@ -76,7 +90,7 @@ def test_at_location(conn: sqlite3.Connection) -> None:
 
 def test_has_option(conn: sqlite3.Connection) -> None:
     _seed_npcs(conn)
-    npc = Npc.by_name(conn, "Aubury")[0]
+    npc = Npc.by_name(conn, "Aubury")
     assert npc.has_option("Teleport")
     assert npc.has_option("Trade")
     assert not npc.has_option("Travel")
@@ -84,7 +98,7 @@ def test_has_option(conn: sqlite3.Connection) -> None:
 
 def test_option_list(conn: sqlite3.Connection) -> None:
     _seed_npcs(conn)
-    npc = Npc.by_name(conn, "Aubury")[0]
+    npc = Npc.by_name(conn, "Aubury")
     options = npc.option_list()
     assert "Talk-to" in options
     assert "Teleport" in options
