@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from ragger.enums import ActivityType, ContentCategory, Region, Skill
 from ragger.game_variable import GameVariable
-from ragger.mcp_registry import mcp_tool
 from ragger.utils import snake_case
 
 
@@ -25,23 +24,7 @@ class Activity:
 
     _COLS = "id, name, type, members, location, location_id, x, y, players, skills, region"
 
-    def asdict(self) -> dict:
-        return {
-            "id": self.id,
-            "name": self.name,
-            "type": self.type.value,
-            "members": self.members,
-            "location": self.location,
-            "location_id": self.location_id,
-            "x": self.x,
-            "y": self.y,
-            "players": self.players,
-            "skills": [s.name for s in self.skill_list()],
-            "region": self.region.value if self.region else None,
-        }
-
     @classmethod
-    @mcp_tool(name="ActivityAll", description="List activities/minigames, optionally filtered by region and type (MINIGAME, RANDOM_EVENT, FORESTRY, RAID, DIVERSION, D_AND_D). Returns name, type, location, coordinates, skills.")
     def all(
         cls, conn: sqlite3.Connection, region: Region | None = None, activity_type: ActivityType | None = None
     ) -> list[Activity]:
@@ -60,7 +43,6 @@ class Activity:
         return [cls._from_row(r) for r in conn.execute(query, params).fetchall()]
 
     @classmethod
-    @mcp_tool(name="ActivityByName", description="Find an activity/minigame by exact name (e.g. 'Barbarian Assault', 'Wintertodt'). Returns type, location, coordinates, player count, and relevant skills.")
     def by_name(cls, conn: sqlite3.Connection, name: str) -> Activity | None:
         row = conn.execute(
             f"SELECT {cls._COLS} FROM activities WHERE name = ?", (name,)
@@ -68,7 +50,6 @@ class Activity:
         return cls._from_row(row) if row else None
 
     @classmethod
-    @mcp_tool(name="ActivitySearch", description="Search activities/minigames by partial name match (LIKE %%name%%).")
     def search(cls, conn: sqlite3.Connection, name: str) -> list[Activity]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM activities WHERE name LIKE ? ORDER BY name",
@@ -77,7 +58,6 @@ class Activity:
         return [cls._from_row(r) for r in rows]
 
     @classmethod
-    @mcp_tool(name="ActivityByType", description="List activities of a specific type. Types: MINIGAME, RANDOM_EVENT, FORESTRY, RAID, DIVERSION, D_AND_D.")
     def by_type(cls, conn: sqlite3.Connection, activity_type: ActivityType) -> list[Activity]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM activities WHERE type = ? ORDER BY name",
@@ -86,7 +66,6 @@ class Activity:
         return [cls._from_row(r) for r in rows]
 
     @classmethod
-    @mcp_tool(name="ActivityForSkill", description="Find activities/minigames relevant to a skill. Use to answer 'what minigames train X?'")
     def for_skill(cls, conn: sqlite3.Connection, skill: Skill) -> list[Activity]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM activities WHERE (skills & ?) != 0 ORDER BY name",

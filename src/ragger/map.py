@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 from ragger.enums import MAP_LINK_ANYWHERE, MapLinkType, MapSquareType
 from ragger.location import DistanceMetric
-from ragger.mcp_registry import mcp_tool
 
 GAME_TILES_PER_REGION = 64
 PIXELS_PER_REGION = 256
@@ -151,19 +150,6 @@ class MapLink:
     link_type: MapLinkType
     description: str | None
 
-    def asdict(self) -> dict:
-        return {
-            "id": self.id,
-            "src_location": self.src_location,
-            "dst_location": self.dst_location,
-            "src_x": self.src_x,
-            "src_y": self.src_y,
-            "dst_x": self.dst_x,
-            "dst_y": self.dst_y,
-            "link_type": self.link_type.value,
-            "description": self.description,
-        }
-
     @classmethod
     def all(cls, conn: sqlite3.Connection, link_type: MapLinkType | None = None) -> list[MapLink]:
         query = "SELECT id, src_location, dst_location, src_x, src_y, dst_x, dst_y, type, description FROM map_links"
@@ -175,7 +161,6 @@ class MapLink:
         return [cls._from_row(r) for r in conn.execute(query, params).fetchall()]
 
     @classmethod
-    @mcp_tool(name="MapLinkDeparting", description="List travel options departing from a location by name. Returns map links with source/destination coordinates and type (WALKABLE, FAIRY_RING, TELEPORT, ENTRANCE, CHARTER_SHIP, etc.). Use to answer 'how do I get from X?'")
     def departing(cls, conn: sqlite3.Connection, location: str, link_type: MapLinkType | None = None) -> list[MapLink]:
         query = "SELECT id, src_location, dst_location, src_x, src_y, dst_x, dst_y, type, description FROM map_links WHERE src_location = ?"
         params: list = [location]
@@ -196,7 +181,6 @@ class MapLink:
         return [cls._from_row(r) for r in conn.execute(query, params).fetchall()]
 
     @classmethod
-    @mcp_tool(name="MapLinkBetween", description="Find direct links between two locations by name. Returns any map links connecting them (walks, teleports, etc.). Use to check if two locations are directly connected.")
     def between(cls, conn: sqlite3.Connection, location_a: str, location_b: str, link_type: MapLinkType | None = None) -> list[MapLink]:
         if link_type is not None:
             query = """SELECT id, src_location, dst_location, src_x, src_y, dst_x, dst_y, type, description FROM map_links
@@ -348,7 +332,6 @@ def _astar(
     return None
 
 
-@mcp_tool(name="FindPath", description="Find the shortest path between two locations by name. Uses A* over the map link graph (walks, teleports, fairy rings, ships, etc.). Returns an ordered list of map links to traverse, each with source/destination location names, coordinates, and link type. Returns null if no path exists.")
 def find_path(
     conn: sqlite3.Connection,
     src: str,

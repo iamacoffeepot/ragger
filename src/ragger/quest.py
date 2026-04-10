@@ -14,7 +14,6 @@ from ragger.requirements import (
     RequirementGroup,
 )
 from ragger.rewards import ExperienceReward, ItemReward
-from ragger.mcp_registry import mcp_tool
 from ragger.utils import snake_case
 
 
@@ -25,69 +24,22 @@ class Quest:
     points: int
 
     @classmethod
-    def by_id(cls, conn: sqlite3.Connection, id: int) -> Quest | None:
-        row = conn.execute("SELECT id, name, points FROM quests WHERE id = ?", (id,)).fetchone()
-        return cls(*row) if row else None
-
-    @classmethod
-    @mcp_tool(name="QuestAll", description="List all quests. Returns id, name, quest points. Use QuestByName for a specific quest to access requirements and rewards.")
     def all(cls, conn: sqlite3.Connection) -> list[Quest]:
         rows = conn.execute("SELECT id, name, points FROM quests ORDER BY name").fetchall()
         return [cls(*row) for row in rows]
 
     @classmethod
-    @mcp_tool(name="QuestByName", description="Find a quest by exact name (e.g. 'Dragon Slayer I', 'Recipe for Disaster'). Returns id, name, quest points. The quest object has skill/quest requirements, XP and item rewards accessible via the Python API.")
     def by_name(cls, conn: sqlite3.Connection, name: str) -> Quest | None:
         row = conn.execute("SELECT id, name, points FROM quests WHERE name = ?", (name,)).fetchone()
         return cls(*row) if row else None
 
     @classmethod
-    @mcp_tool(name="QuestSearch", description="Search quests by partial name match (LIKE %%name%%). Use when the exact quest name is unknown.")
     def search(cls, conn: sqlite3.Connection, name: str) -> list[Quest]:
         rows = conn.execute(
             "SELECT id, name, points FROM quests WHERE name LIKE ? ORDER BY name",
             (f"%{name}%",),
         ).fetchall()
         return [cls(*row) for row in rows]
-
-    @classmethod
-    @mcp_tool(
-        name="QuestDetails",
-        description="Full quest details by id. Returns quest info, skill/quest requirements, XP and item rewards. Get the id from QuestByName or QuestSearch first.",
-    )
-    def details(cls, conn: sqlite3.Connection, id: int) -> dict | None:
-        quest = cls.by_id(conn, id)
-        if not quest:
-            return None
-        skill_reqs = conn.execute(
-            """SELECT gsr.skill, gsr.level, gsr.boostable
-               FROM group_skill_requirements gsr
-               JOIN quest_requirement_groups qrg ON qrg.group_id = gsr.group_id
-               WHERE qrg.quest_id = ? ORDER BY gsr.level DESC""",
-            (id,),
-        ).fetchall()
-        quest_reqs = conn.execute(
-            """SELECT q.name, gqr.partial
-               FROM group_quest_requirements gqr
-               JOIN quest_requirement_groups qrg ON qrg.group_id = gqr.group_id
-               JOIN quests q ON q.id = gqr.required_quest_id
-               WHERE qrg.quest_id = ?""",
-            (id,),
-        ).fetchall()
-        return {
-            **quest.asdict(),
-            "skill_requirements": [{"skill": Skill(r[0]).name, "level": r[1], "boostable": bool(r[2])} for r in skill_reqs],
-            "quest_requirements": [{"quest": r[0], "partial": bool(r[1])} for r in quest_reqs],
-            "xp_rewards": [r.asdict() for r in quest.xp_rewards(conn)],
-            "item_rewards": [r.asdict() for r in quest.item_rewards(conn)],
-        }
-
-    def asdict(self) -> dict:
-        return {
-            "id": self.id,
-            "name": self.name,
-            "points": self.points,
-        }
 
     def xp_rewards(self, conn: sqlite3.Connection) -> list[ExperienceReward]:
         rows = conn.execute(

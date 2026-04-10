@@ -4,7 +4,6 @@ import sqlite3
 from dataclasses import dataclass
 
 from ragger.enums import DiaryLocation, DiaryTier
-from ragger.mcp_registry import mcp_tool
 from ragger.requirements import RequirementGroup
 
 
@@ -15,19 +14,10 @@ class DiaryTask:
     tier: DiaryTier
     description: str
 
-    def asdict(self) -> dict:
-        return {
-            "id": self.id,
-            "location": self.location.value,
-            "tier": self.tier.value,
-            "description": self.description,
-        }
-
     def requirement_groups(self, conn: sqlite3.Connection) -> list[RequirementGroup]:
         return RequirementGroup.for_diary_task(conn, self.id)
 
     @classmethod
-    @mcp_tool(name="DiaryTaskAll", description="List achievement diary tasks, optionally filtered by location (ARDOUGNE, DESERT, FALADOR, FREMENNIK, KANDARIN, KARAMJA, KOUREND_AND_KEBOS, LUMBRIDGE_AND_DRAYNOR, MORYTANIA, VARROCK, WESTERN_PROVINCES, WILDERNESS) and tier (EASY, MEDIUM, HARD, ELITE).")
     def all(
         cls,
         conn: sqlite3.Connection,

@@ -4,7 +4,6 @@ import sqlite3
 from dataclasses import dataclass
 
 from ragger.enums import Element, Spellbook
-from ragger.mcp_registry import mcp_tool
 
 
 @dataclass
@@ -12,9 +11,6 @@ class SpellRune:
     item_id: int
     item_name: str
     quantity: int
-
-    def asdict(self) -> dict:
-        return {"item_id": self.item_id, "item_name": self.item_name, "quantity": self.quantity}
 
 
 def _fetch_runes(conn: sqlite3.Connection, table: str, spell_id: int) -> list[SpellRune]:
@@ -45,33 +41,7 @@ class CombatSpell:
 
     _COLS = "id, name, members, level, spellbook, experience, speed, cooldown, element, max_damage, description"
 
-    def asdict(self) -> dict:
-        return {
-            "id": self.id, "name": self.name, "members": self.members,
-            "level": self.level, "spellbook": self.spellbook.value,
-            "experience": self.experience, "speed": self.speed,
-            "cooldown": self.cooldown, "element": self.element.value if self.element else None,
-            "max_damage": self.max_damage, "description": self.description,
-        }
-
     @classmethod
-    def by_id(cls, conn: sqlite3.Connection, id: int) -> CombatSpell | None:
-        row = conn.execute(f"SELECT {cls._COLS} FROM combat_spells WHERE id = ?", (id,)).fetchone()
-        return cls._from_row(row) if row else None
-
-    @classmethod
-    @mcp_tool(
-        name="CombatSpellDetails",
-        description="Full combat spell details by id. Returns stats, element, max damage, and rune costs (item names and quantities). Get the id from CombatSpellByName or CombatSpellSearch first.",
-    )
-    def details(cls, conn: sqlite3.Connection, id: int) -> dict | None:
-        spell = cls.by_id(conn, id)
-        if not spell:
-            return None
-        return {**spell.asdict(), "runes": [r.asdict() for r in spell.runes(conn)]}
-
-    @classmethod
-    @mcp_tool(name="CombatSpellAll", description="List combat spells, optionally filtered by spellbook (NORMAL, ANCIENT, LUNAR). Returns level, element, max_damage, experience, speed.")
     def all(cls, conn: sqlite3.Connection, spellbook: Spellbook | None = None) -> list[CombatSpell]:
         query = f"SELECT {cls._COLS} FROM combat_spells"
         params: list = []
@@ -82,7 +52,6 @@ class CombatSpell:
         return [cls._from_row(r) for r in conn.execute(query, params).fetchall()]
 
     @classmethod
-    @mcp_tool(name="CombatSpellByName", description="Find a combat spell by exact name (e.g. 'Fire Blast', 'Ice Barrage'). Returns level, element, max_damage, spellbook, experience, speed.")
     def by_name(cls, conn: sqlite3.Connection, name: str) -> CombatSpell | None:
         row = conn.execute(
             f"SELECT {cls._COLS} FROM combat_spells WHERE name = ?", (name,)
@@ -90,7 +59,6 @@ class CombatSpell:
         return cls._from_row(row) if row else None
 
     @classmethod
-    @mcp_tool(name="CombatSpellSearch", description="Search combat spells by partial name match (LIKE %%name%%).")
     def search(cls, conn: sqlite3.Connection, name: str) -> list[CombatSpell]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM combat_spells WHERE name LIKE ? ORDER BY name",
@@ -99,7 +67,6 @@ class CombatSpell:
         return [cls._from_row(r) for r in rows]
 
     @classmethod
-    @mcp_tool(name="CombatSpellByElement", description="Find combat spells by element (AIR, WATER, EARTH, FIRE). Ordered by level.")
     def by_element(cls, conn: sqlite3.Connection, element: Element) -> list[CombatSpell]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM combat_spells WHERE element = ? ORDER BY level",
@@ -149,32 +116,7 @@ class UtilitySpell:
 
     _COLS = "id, name, members, level, spellbook, experience, speed, cooldown, description"
 
-    def asdict(self) -> dict:
-        return {
-            "id": self.id, "name": self.name, "members": self.members,
-            "level": self.level, "spellbook": self.spellbook.value,
-            "experience": self.experience, "speed": self.speed,
-            "cooldown": self.cooldown, "description": self.description,
-        }
-
     @classmethod
-    def by_id(cls, conn: sqlite3.Connection, id: int) -> UtilitySpell | None:
-        row = conn.execute(f"SELECT {cls._COLS} FROM utility_spells WHERE id = ?", (id,)).fetchone()
-        return cls._from_row(row) if row else None
-
-    @classmethod
-    @mcp_tool(
-        name="UtilitySpellDetails",
-        description="Full utility spell details by id. Returns stats and rune costs. Get the id from UtilitySpellByName or UtilitySpellSearch first.",
-    )
-    def details(cls, conn: sqlite3.Connection, id: int) -> dict | None:
-        spell = cls.by_id(conn, id)
-        if not spell:
-            return None
-        return {**spell.asdict(), "runes": [r.asdict() for r in spell.runes(conn)]}
-
-    @classmethod
-    @mcp_tool(name="UtilitySpellAll", description="List utility spells (non-combat, non-teleport), optionally filtered by spellbook. Includes alchemy, enchantment, superheat, etc.")
     def all(cls, conn: sqlite3.Connection, spellbook: Spellbook | None = None) -> list[UtilitySpell]:
         query = f"SELECT {cls._COLS} FROM utility_spells"
         params: list = []
@@ -185,7 +127,6 @@ class UtilitySpell:
         return [cls._from_row(r) for r in conn.execute(query, params).fetchall()]
 
     @classmethod
-    @mcp_tool(name="UtilitySpellByName", description="Find a utility spell by exact name (e.g. 'High Level Alchemy', 'Superheat Item'). Returns level, spellbook, experience.")
     def by_name(cls, conn: sqlite3.Connection, name: str) -> UtilitySpell | None:
         row = conn.execute(
             f"SELECT {cls._COLS} FROM utility_spells WHERE name = ?", (name,)
@@ -193,7 +134,6 @@ class UtilitySpell:
         return cls._from_row(row) if row else None
 
     @classmethod
-    @mcp_tool(name="UtilitySpellSearch", description="Search utility spells by partial name match (LIKE %%name%%).")
     def search(cls, conn: sqlite3.Connection, name: str) -> list[UtilitySpell]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM utility_spells WHERE name LIKE ? ORDER BY name",
@@ -244,33 +184,7 @@ class TeleportSpell:
 
     _COLS = "id, name, members, level, spellbook, experience, speed, destination, dst_x, dst_y, lectern, description"
 
-    def asdict(self) -> dict:
-        return {
-            "id": self.id, "name": self.name, "members": self.members,
-            "level": self.level, "spellbook": self.spellbook.value,
-            "experience": self.experience, "speed": self.speed,
-            "destination": self.destination, "dst_x": self.dst_x, "dst_y": self.dst_y,
-            "lectern": self.lectern, "description": self.description,
-        }
-
     @classmethod
-    def by_id(cls, conn: sqlite3.Connection, id: int) -> TeleportSpell | None:
-        row = conn.execute(f"SELECT {cls._COLS} FROM teleport_spells WHERE id = ?", (id,)).fetchone()
-        return cls._from_row(row) if row else None
-
-    @classmethod
-    @mcp_tool(
-        name="TeleportSpellDetails",
-        description="Full teleport spell details by id. Returns destination, coordinates, and rune costs. Get the id from TeleportSpellByName or TeleportSpellSearch first.",
-    )
-    def details(cls, conn: sqlite3.Connection, id: int) -> dict | None:
-        spell = cls.by_id(conn, id)
-        if not spell:
-            return None
-        return {**spell.asdict(), "runes": [r.asdict() for r in spell.runes(conn)]}
-
-    @classmethod
-    @mcp_tool(name="TeleportSpellAll", description="List teleport spells, optionally filtered by spellbook. Returns destination name, dst_x/dst_y coordinates, and lectern (if tablet-craftable).")
     def all(cls, conn: sqlite3.Connection, spellbook: Spellbook | None = None) -> list[TeleportSpell]:
         query = f"SELECT {cls._COLS} FROM teleport_spells"
         params: list = []
@@ -281,7 +195,6 @@ class TeleportSpell:
         return [cls._from_row(r) for r in conn.execute(query, params).fetchall()]
 
     @classmethod
-    @mcp_tool(name="TeleportSpellByName", description="Find a teleport spell by exact name (e.g. 'Varrock Teleport', 'Kharyrll Teleport'). Returns destination, coordinates, level, rune cost.")
     def by_name(cls, conn: sqlite3.Connection, name: str) -> TeleportSpell | None:
         row = conn.execute(
             f"SELECT {cls._COLS} FROM teleport_spells WHERE name = ?", (name,)
@@ -289,7 +202,6 @@ class TeleportSpell:
         return cls._from_row(row) if row else None
 
     @classmethod
-    @mcp_tool(name="TeleportSpellSearch", description="Search teleport spells by partial name match (LIKE %%name%%). Use to find teleports to a destination.")
     def search(cls, conn: sqlite3.Connection, name: str) -> list[TeleportSpell]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM teleport_spells WHERE name LIKE ? ORDER BY name",

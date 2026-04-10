@@ -9,29 +9,7 @@ import requests
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
-import ragger.action
-import ragger.activity
-import ragger.category
-import ragger.diary
-import ragger.equipment
-import ragger.facility
-import ragger.game_variable
-import ragger.ground_item
-import ragger.item
-import ragger.location
-import ragger.map
-import ragger.monster
-import ragger.npc
-import ragger.object
-import ragger.quest
-import ragger.shop
-import ragger.spell
-from ragger.mcp_registry import register_all
-
 mcp = FastMCP("ragger")
-
-DB_PATH = os.environ.get("RAGGER_DB", "data/ragger.db")
-register_all(mcp, DB_PATH)
 
 BRIDGE_URL = f"http://127.0.0.1:{os.environ.get('RAGGER_BRIDGE_PORT', '7919')}"
 BRIDGE_TOKEN = os.environ.get("RAGGER_BRIDGE_TOKEN", "")

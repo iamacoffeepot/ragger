@@ -4,7 +4,6 @@ import sqlite3
 from dataclasses import dataclass
 
 from ragger.enums import CombatStyle, ComparisonOperator, EquipmentSlot, Skill
-from ragger.mcp_registry import mcp_tool
 from ragger.requirements import (
     GroupQuestRequirement,
     GroupSkillRequirement,
@@ -47,69 +46,6 @@ class Equipment:
     )
 
     @classmethod
-    @mcp_tool(
-        name="EquipmentDetails",
-        description="Full equipment details by id. Returns all attack/defence bonuses, speed, combat style, and skill/quest requirements to equip. Get the id from EquipmentByName or EquipmentSearch first.",
-    )
-    def details(cls, conn: sqlite3.Connection, id: int) -> dict | None:
-        equip = cls.by_id(conn, id)
-        if not equip:
-            return None
-        skill_reqs = conn.execute(
-            """SELECT gsr.skill, gsr.level, gsr.boostable
-               FROM group_skill_requirements gsr
-               JOIN equipment_requirement_groups erg ON erg.group_id = gsr.group_id
-               WHERE erg.equipment_id = ? ORDER BY gsr.level DESC""",
-            (id,),
-        ).fetchall()
-        quest_reqs = conn.execute(
-            """SELECT q.name
-               FROM group_quest_requirements gqr
-               JOIN equipment_requirement_groups erg ON erg.group_id = gqr.group_id
-               JOIN quests q ON q.id = gqr.required_quest_id
-               WHERE erg.equipment_id = ?""",
-            (id,),
-        ).fetchall()
-        return {
-            **equip.asdict(),
-            "skill_requirements": [{"skill": Skill(r[0]).name, "level": r[1], "boostable": bool(r[2])} for r in skill_reqs],
-            "quest_requirements": [r[0] for r in quest_reqs],
-        }
-
-    def asdict(self) -> dict:
-        return {
-            "id": self.id,
-            "name": self.name,
-            "version": self.version,
-            "item_id": self.item_id,
-            "slot": self.slot.value if self.slot else None,
-            "two_handed": self.two_handed,
-            "attack_stab": self.attack_stab,
-            "attack_slash": self.attack_slash,
-            "attack_crush": self.attack_crush,
-            "attack_magic": self.attack_magic,
-            "attack_ranged": self.attack_ranged,
-            "defence_stab": self.defence_stab,
-            "defence_slash": self.defence_slash,
-            "defence_crush": self.defence_crush,
-            "defence_magic": self.defence_magic,
-            "defence_ranged": self.defence_ranged,
-            "melee_strength": self.melee_strength,
-            "ranged_strength": self.ranged_strength,
-            "magic_damage": self.magic_damage,
-            "prayer": self.prayer,
-            "speed": self.speed,
-            "attack_range": self.attack_range,
-            "combat_style": self.combat_style.value if self.combat_style else None,
-        }
-
-    @classmethod
-    def by_id(cls, conn: sqlite3.Connection, id: int) -> Equipment | None:
-        row = conn.execute(f"SELECT {cls._COLS} FROM equipment WHERE id = ?", (id,)).fetchone()
-        return cls._from_row(row) if row else None
-
-    @classmethod
-    @mcp_tool(name="EquipmentAll", description="List all equipment, optionally filtered by slot (HEAD, WEAPON, BODY, etc.). Returns attack/defence bonuses, strength, prayer, speed, combat_style. Large result set — prefer EquipmentSearch or EquipmentBySlot.")
     def all(
         cls,
         conn: sqlite3.Connection,
@@ -127,7 +63,6 @@ class Equipment:
         return [cls._from_row(row) for row in rows]
 
     @classmethod
-    @mcp_tool(name="EquipmentByName", description="Find equipment by exact name. Returns all attack/defence bonuses, melee/ranged/magic strength, prayer bonus, speed, slot, two_handed, and combat_style. Version disambiguates variants like 'Charged' vs 'Uncharged'.")
     def by_name(
         cls,
         conn: sqlite3.Connection,
@@ -147,7 +82,6 @@ class Equipment:
         return cls._from_row(row) if row else None
 
     @classmethod
-    @mcp_tool(name="EquipmentBySlot", description="List all equipment in a slot. Slot values: HEAD, CAPE, NECK, AMMO, WEAPON, BODY, SHIELD, LEGS, HANDS, FEET, RING, TWO_HANDED.")
     def by_slot(cls, conn: sqlite3.Connection, slot: EquipmentSlot) -> list[Equipment]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM equipment WHERE slot = ? ORDER BY name, version",
@@ -156,7 +90,6 @@ class Equipment:
         return [cls._from_row(row) for row in rows]
 
     @classmethod
-    @mcp_tool(name="EquipmentSearch", description="Search equipment by partial name match (LIKE %%name%%). Use when the exact name is unknown.")
     def search(cls, conn: sqlite3.Connection, name: str) -> list[Equipment]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM equipment WHERE name LIKE ? ORDER BY name, version",
@@ -165,7 +98,6 @@ class Equipment:
         return [cls._from_row(row) for row in rows]
 
     @classmethod
-    @mcp_tool(name="EquipmentForItem", description="Find equipment stats for an item by its item ID (from ItemByName). An item may have multiple equipment entries for different versions.")
     def for_item(cls, conn: sqlite3.Connection, item_id: int) -> list[Equipment]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM equipment WHERE item_id = ? ORDER BY name, version",

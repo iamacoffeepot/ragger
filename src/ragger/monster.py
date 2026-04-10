@@ -10,7 +10,6 @@ from ragger.requirements import (
     GroupSkillRequirement,
     RequirementGroup,
 )
-from ragger.mcp_registry import mcp_tool
 from ragger.utils import snake_case
 
 
@@ -23,9 +22,6 @@ class MonsterLocation:
     y: int | None
     region: Region | None
 
-    def asdict(self) -> dict:
-        return {"id": self.id, "monster_id": self.monster_id, "location": self.location, "x": self.x, "y": self.y, "region": self.region.value if self.region else None}
-
 
 @dataclass
 class MonsterDrop:
@@ -34,9 +30,6 @@ class MonsterDrop:
     item_name: str
     quantity: str | None
     rarity: str | None
-
-    def asdict(self) -> dict:
-        return {"id": self.id, "monster_id": self.monster_id, "item_name": self.item_name, "quantity": self.quantity, "rarity": self.rarity}
 
 
 @dataclass
@@ -92,38 +85,6 @@ class Monster:
     )
 
     @classmethod
-    @mcp_tool(
-        name="MonsterDetails",
-        description="Full monster details by id. Returns combat stats, drop table (item name, quantity, rarity), spawn locations (location name, coordinates, region), and slayer info. Get the id from MonsterByName or MonsterSearch first.",
-    )
-    def details(cls, conn: sqlite3.Connection, id: int) -> dict | None:
-        monster = cls.by_id(conn, id)
-        if not monster:
-            return None
-        return {
-            **monster.asdict(),
-            "drops": [d.asdict() for d in monster.drops(conn)],
-            "locations": [l.asdict() for l in monster.locations(conn)],
-        }
-
-    def asdict(self) -> dict:
-        return {
-            "id": self.id, "name": self.name, "version": self.version,
-            "combat_level": self.combat_level, "hitpoints": self.hitpoints,
-            "attack_speed": self.attack_speed, "max_hit": self.max_hit,
-            "attack_style": self.attack_style, "aggressive": self.aggressive,
-            "size": self.size, "slayer_xp": self.slayer_xp,
-            "slayer_category": self.slayer_category, "examine": self.examine,
-            "members": self.members,
-        }
-
-    @classmethod
-    def by_id(cls, conn: sqlite3.Connection, id: int) -> Monster | None:
-        row = conn.execute(f"SELECT {cls._COLS} FROM monsters WHERE id = ?", (id,)).fetchone()
-        return cls._from_row(row) if row else None
-
-    @classmethod
-    @mcp_tool(name="MonsterAll", description="List all monsters, optionally filtered by region. Returns combat_level, hitpoints, attack_speed, slayer info, and examine text. Large result set — prefer MonsterSearch or MonsterByName.")
     def all(
         cls,
         conn: sqlite3.Connection,
@@ -143,7 +104,6 @@ class Monster:
         return [cls._from_row(row) for row in rows]
 
     @classmethod
-    @mcp_tool(name="MonsterByName", description="Find a monster by exact name (e.g. 'Goblin', 'King Black Dragon'). Returns combat stats, hitpoints, attack style, slayer XP/category, and examine text. Version disambiguates multi-form monsters. Without version, returns lowest combat level variant.")
     def by_name(cls, conn: sqlite3.Connection, name: str, version: str | None = None) -> Monster | None:
         if version is not None:
             row = conn.execute(
@@ -158,7 +118,6 @@ class Monster:
         return cls._from_row(row) if row else None
 
     @classmethod
-    @mcp_tool(name="MonsterBySlayerCategory", description="Find monsters by slayer assignment category (e.g. 'Aberrant spectres', 'Black dragons', 'Gargoyles'). Returns all monsters assignable under that category.")
     def by_slayer_category(cls, conn: sqlite3.Connection, category: str) -> list[Monster]:
         rows = conn.execute(
             f"SELECT {cls._COLS} FROM monsters WHERE slayer_category = ? ORDER BY name, version",
@@ -167,7 +126,6 @@ class Monster:
         return [cls._from_row(row) for row in rows]
 
     @classmethod
-    @mcp_tool(name="MonsterSearch", description="Search monsters by partial name match (LIKE %%name%%). Use when the exact name is unknown.")
     def search(cls, conn: sqlite3.Connection, name: str) -> list[Monster]:
         """Search monsters by partial name match."""
         rows = conn.execute(

@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from ragger.enums import Facility as FacilityType, Region
 from ragger.location import DistanceMetric
-from ragger.mcp_registry import mcp_tool
 
 
 @dataclass
@@ -17,18 +16,7 @@ class FacilityEntry:
     name: str | None
     region: Region | None = None
 
-    def asdict(self) -> dict:
-        return {
-            "id": self.id,
-            "type": self.type.value,
-            "x": self.x,
-            "y": self.y,
-            "name": self.name,
-            "region": self.region.value if self.region else None,
-        }
-
     @classmethod
-    @mcp_tool(name="FacilityAll", description="List facility coordinates (banks, furnaces, anvils, altars, spinning wheels, looms, etc.), optionally filtered by type and region. Returns exact x,y coordinates for each facility instance.")
     def all(
         cls,
         conn: sqlite3.Connection,
@@ -51,7 +39,6 @@ class FacilityEntry:
         return [cls._from_row(row) for row in rows]
 
     @classmethod
-    @mcp_tool(name="FacilityNearest", description="Find the nearest facility to world coordinates. Optionally filter by type (BANK, FURNACE, ANVIL, ALTAR, SPINNING_WHEEL, LOOM, POTTERY_WHEEL, RANGE, WATER_SOURCE, TANNING). Use to answer 'where is the closest bank?'")
     def nearest(
         cls,
         conn: sqlite3.Connection,

@@ -15,9 +15,6 @@ class GroupSkillRequirement:
     boostable: bool
     operator: ComparisonOperator
 
-    def asdict(self) -> dict:
-        return {"skill": self.skill.name, "level": self.level, "boostable": self.boostable}
-
 
 @dataclass
 class GroupQuestRequirement:
@@ -26,9 +23,6 @@ class GroupQuestRequirement:
     required_quest_id: int
     partial: bool
 
-    def asdict(self) -> dict:
-        return {"required_quest_id": self.required_quest_id, "partial": self.partial}
-
 
 @dataclass
 class GroupQuestPointRequirement:
@@ -36,9 +30,6 @@ class GroupQuestPointRequirement:
     group_id: int
     points: int
     operator: ComparisonOperator
-
-    def asdict(self) -> dict:
-        return {"points": self.points}
 
 
 @dataclass
@@ -49,9 +40,6 @@ class GroupItemRequirement:
     quantity: int
     operator: ComparisonOperator
 
-    def asdict(self) -> dict:
-        return {"item_id": self.item_id, "quantity": self.quantity}
-
 
 @dataclass
 class GroupDiaryRequirement:
@@ -60,18 +48,12 @@ class GroupDiaryRequirement:
     location: DiaryLocation
     tier: DiaryTier
 
-    def asdict(self) -> dict:
-        return {"location": self.location.value, "tier": self.tier.value}
-
 
 @dataclass
 class GroupRegionRequirement:
     id: int
     group_id: int
     region: Region
-
-    def asdict(self) -> dict:
-        return {"region": self.region.value}
 
 
 @dataclass
@@ -82,9 +64,6 @@ class GroupEquipmentRequirement:
     slot: EquipmentSlot
     quantity: int
     operator: ComparisonOperator
-
-    def asdict(self) -> dict:
-        return {"item_id": self.item_id, "slot": self.slot.value, "quantity": self.quantity}
 
 
 @dataclass
