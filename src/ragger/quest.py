@@ -50,6 +50,38 @@ class Quest:
         ).fetchall()
         return [cls(*row) for row in rows]
 
+    @classmethod
+    @mcp_tool(
+        name="QuestDetails",
+        description="Full quest details by id. Returns quest info, skill/quest requirements, XP and item rewards. Get the id from QuestByName or QuestSearch first.",
+    )
+    def details(cls, conn: sqlite3.Connection, id: int) -> dict | None:
+        quest = cls.by_id(conn, id)
+        if not quest:
+            return None
+        skill_reqs = conn.execute(
+            """SELECT gsr.skill, gsr.level, gsr.boostable
+               FROM group_skill_requirements gsr
+               JOIN quest_requirement_groups qrg ON qrg.group_id = gsr.group_id
+               WHERE qrg.quest_id = ? ORDER BY gsr.level DESC""",
+            (id,),
+        ).fetchall()
+        quest_reqs = conn.execute(
+            """SELECT q.name, gqr.partial
+               FROM group_quest_requirements gqr
+               JOIN quest_requirement_groups qrg ON qrg.group_id = gqr.group_id
+               JOIN quests q ON q.id = gqr.required_quest_id
+               WHERE qrg.quest_id = ?""",
+            (id,),
+        ).fetchall()
+        return {
+            **quest.asdict(),
+            "skill_requirements": [{"skill": Skill(r[0]).name, "level": r[1], "boostable": bool(r[2])} for r in skill_reqs],
+            "quest_requirements": [{"quest": r[0], "partial": bool(r[1])} for r in quest_reqs],
+            "xp_rewards": [r.asdict() for r in quest.xp_rewards(conn)],
+            "item_rewards": [r.asdict() for r in quest.item_rewards(conn)],
+        }
+
     def asdict(self) -> dict:
         return {
             "id": self.id,
@@ -57,7 +89,6 @@ class Quest:
             "points": self.points,
         }
 
-    @mcp_tool(name="QuestXpRewards", description="XP rewards for completing a quest. Returns skill names and amounts. Pass the quest id from QuestByName.")
     def xp_rewards(self, conn: sqlite3.Connection) -> list[ExperienceReward]:
         rows = conn.execute(
             """
@@ -71,7 +102,6 @@ class Quest:
         ).fetchall()
         return [ExperienceReward(*row) for row in rows]
 
-    @mcp_tool(name="QuestItemRewards", description="Item rewards for completing a quest. Returns item_id and quantity. Pass the quest id from QuestByName.")
     def item_rewards(self, conn: sqlite3.Connection) -> list[ItemReward]:
         rows = conn.execute(
             """
@@ -88,7 +118,6 @@ class Quest:
     def requirement_groups(self, conn: sqlite3.Connection) -> list[RequirementGroup]:
         return RequirementGroup.for_quest(conn, self.id)
 
-    @mcp_tool(name="QuestSkillRequirements", description="Skill level requirements for a quest. Returns skill name, level, and whether boostable. Pass the quest id from QuestByName.")
     def skill_requirements(self, conn: sqlite3.Connection) -> list[GroupSkillRequirement]:
         rows = conn.execute(
             """
@@ -102,7 +131,6 @@ class Quest:
         ).fetchall()
         return [GroupSkillRequirement(r[0], r[1], Skill(r[2]), r[3], bool(r[4]), ComparisonOperator(r[5])) for r in rows]
 
-    @mcp_tool(name="QuestQuestRequirements", description="Prerequisite quests for a quest. Returns required_quest_id (look up with QuestByName). Pass the quest id from QuestByName.")
     def quest_requirements(self, conn: sqlite3.Connection) -> list[GroupQuestRequirement]:
         rows = conn.execute(
             """

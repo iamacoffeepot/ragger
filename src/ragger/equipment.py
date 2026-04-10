@@ -46,6 +46,36 @@ class Equipment:
         "speed, attack_range, combat_style"
     )
 
+    @classmethod
+    @mcp_tool(
+        name="EquipmentDetails",
+        description="Full equipment details by id. Returns all attack/defence bonuses, speed, combat style, and skill/quest requirements to equip. Get the id from EquipmentByName or EquipmentSearch first.",
+    )
+    def details(cls, conn: sqlite3.Connection, id: int) -> dict | None:
+        equip = cls.by_id(conn, id)
+        if not equip:
+            return None
+        skill_reqs = conn.execute(
+            """SELECT gsr.skill, gsr.level, gsr.boostable
+               FROM group_skill_requirements gsr
+               JOIN equipment_requirement_groups erg ON erg.group_id = gsr.group_id
+               WHERE erg.equipment_id = ? ORDER BY gsr.level DESC""",
+            (id,),
+        ).fetchall()
+        quest_reqs = conn.execute(
+            """SELECT q.name
+               FROM group_quest_requirements gqr
+               JOIN equipment_requirement_groups erg ON erg.group_id = gqr.group_id
+               JOIN quests q ON q.id = gqr.required_quest_id
+               WHERE erg.equipment_id = ?""",
+            (id,),
+        ).fetchall()
+        return {
+            **equip.asdict(),
+            "skill_requirements": [{"skill": Skill(r[0]).name, "level": r[1], "boostable": bool(r[2])} for r in skill_reqs],
+            "quest_requirements": [r[0] for r in quest_reqs],
+        }
+
     def asdict(self) -> dict:
         return {
             "id": self.id,
@@ -146,7 +176,6 @@ class Equipment:
     def requirement_groups(self, conn: sqlite3.Connection) -> list[RequirementGroup]:
         return RequirementGroup.for_equipment(conn, self.id)
 
-    @mcp_tool(name="EquipmentSkillRequirements", description="Skill requirements to equip an item. Returns skill name, level, and boostable. Pass the equipment id from EquipmentByName.")
     def skill_requirements(self, conn: sqlite3.Connection) -> list[GroupSkillRequirement]:
         rows = conn.execute(
             """
@@ -160,7 +189,6 @@ class Equipment:
         ).fetchall()
         return [GroupSkillRequirement(r[0], r[1], Skill(r[2]), r[3], bool(r[4]), ComparisonOperator(r[5])) for r in rows]
 
-    @mcp_tool(name="EquipmentQuestRequirements", description="Quest requirements to equip an item. Returns required_quest_id. Pass the equipment id from EquipmentByName.")
     def quest_requirements(self, conn: sqlite3.Connection) -> list[GroupQuestRequirement]:
         rows = conn.execute(
             """

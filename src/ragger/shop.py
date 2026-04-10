@@ -58,6 +58,20 @@ class Shop:
 
     _COLS = "id, name, location, location_id, owner, members, region, shop_type, sell_multiplier, buy_multiplier, delta"
 
+    @classmethod
+    @mcp_tool(
+        name="ShopDetails",
+        description="Full shop details by id. Returns shop info (location, owner, multipliers) and full inventory with item names, stock, and prices. Get the id from ShopByName, ShopSearch, or ShopSelling first.",
+    )
+    def details(cls, conn: sqlite3.Connection, id: int) -> dict | None:
+        shop = cls.by_id(conn, id)
+        if not shop:
+            return None
+        return {
+            **shop.asdict(),
+            "items": [i.asdict() for i in shop.items(conn)],
+        }
+
     def asdict(self) -> dict:
         return {
             "id": self.id,
@@ -169,7 +183,6 @@ class Shop:
             delta=row[10],
         )
 
-    @mcp_tool(name="ShopItems", description="Full inventory of a shop. Returns item_name, stock, restock rate, sell/buy prices. Pass the shop id from ShopByName or ShopSelling.")
     def items(self, conn: sqlite3.Connection) -> list[ShopItem]:
         rows = conn.execute(
             """SELECT id, shop_id, item_name, stock, restock, sell_price, buy_price

@@ -91,6 +91,21 @@ class Monster:
         "slayer_xp, slayer_category, slayer_assigned_by, attributes, examine, members"
     )
 
+    @classmethod
+    @mcp_tool(
+        name="MonsterDetails",
+        description="Full monster details by id. Returns combat stats, drop table (item name, quantity, rarity), spawn locations (location name, coordinates, region), and slayer info. Get the id from MonsterByName or MonsterSearch first.",
+    )
+    def details(cls, conn: sqlite3.Connection, id: int) -> dict | None:
+        monster = cls.by_id(conn, id)
+        if not monster:
+            return None
+        return {
+            **monster.asdict(),
+            "drops": [d.asdict() for d in monster.drops(conn)],
+            "locations": [l.asdict() for l in monster.locations(conn)],
+        }
+
     def asdict(self) -> dict:
         return {
             "id": self.id, "name": self.name, "version": self.version,
@@ -210,7 +225,6 @@ class Monster:
     def immunity_list(self) -> list[Immunity]:
         return [i for i in Immunity if self.immunities & i.mask]
 
-    @mcp_tool(name="MonsterLocations", description="Spawn locations for a monster. Returns location name, coordinates, and region. Pass the monster id from MonsterByName.")
     def locations(self, conn: sqlite3.Connection) -> list[MonsterLocation]:
         rows = conn.execute(
             "SELECT id, monster_id, location, x, y, region FROM monster_locations WHERE monster_id = ? ORDER BY location",
@@ -222,7 +236,6 @@ class Monster:
             region=Region(r[5]) if r[5] is not None else None,
         ) for r in rows]
 
-    @mcp_tool(name="MonsterDrops", description="Drop table for a monster. Returns item_name, quantity, and rarity. Pass the monster id from MonsterByName.")
     def drops(self, conn: sqlite3.Connection) -> list[MonsterDrop]:
         rows = conn.execute(
             "SELECT id, monster_id, item_name, quantity, rarity FROM monster_drops WHERE monster_id = ? ORDER BY id",

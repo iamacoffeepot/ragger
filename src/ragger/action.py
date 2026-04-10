@@ -102,6 +102,30 @@ class Action:
         return cls._from_row(row) if row else None
 
     @classmethod
+    @mcp_tool(
+        name="ActionDetails",
+        description="Full action details by id. Returns input items/materials, output items/XP, skill requirements, and ticks. Get the id from ActionByName, ActionSearch, or ActionProducingItem first.",
+    )
+    def details(cls, conn: sqlite3.Connection, id: int) -> dict | None:
+        action = cls.by_id(conn, id)
+        if not action:
+            return None
+        skill_reqs = conn.execute(
+            """SELECT gsr.skill, gsr.level, gsr.boostable
+               FROM group_skill_requirements gsr
+               JOIN action_requirement_groups arg ON arg.group_id = gsr.group_id
+               WHERE arg.action_id = ? ORDER BY gsr.level DESC""",
+            (id,),
+        ).fetchall()
+        return {
+            **action.asdict(),
+            "input_items": [i.asdict() for i in action.input_items(conn)],
+            "output_items": [i.asdict() for i in action.output_items(conn)],
+            "output_experience": [x.asdict() for x in action.output_experience(conn)],
+            "skill_requirements": [{"skill": Skill(r[0]).name, "level": r[1], "boostable": bool(r[2])} for r in skill_reqs],
+        }
+
+    @classmethod
     @mcp_tool(name="ActionAll", description="List all skilling actions. Returns name, members, ticks, notes. Very large — prefer ActionSearch, ActionProducingItem, or ActionConsumingItem.")
     def all(cls, conn: sqlite3.Connection) -> list[Action]:
         rows = conn.execute(
@@ -267,7 +291,6 @@ class Action:
 
     # --- Output methods ---
 
-    @mcp_tool(name="ActionOutputExperience", description="XP granted by an action. Returns skill name and XP amount. Pass the action id from ActionByName or ActionProducingItem.")
     def output_experience(self, conn: sqlite3.Connection) -> list[ActionOutputExperience]:
         rows = conn.execute(
             "SELECT skill, xp FROM action_output_experience WHERE action_id = ? ORDER BY skill",
@@ -275,7 +298,6 @@ class Action:
         ).fetchall()
         return [ActionOutputExperience(skill=Skill(row[0]), xp=row[1]) for row in rows]
 
-    @mcp_tool(name="ActionOutputItems", description="Items produced by an action. Returns item_name and quantity. Pass the action id.")
     def output_items(self, conn: sqlite3.Connection) -> list[ActionOutputItem]:
         rows = conn.execute(
             "SELECT item_id, item_name, quantity FROM action_output_items WHERE action_id = ? ORDER BY item_name",
@@ -292,7 +314,6 @@ class Action:
 
     # --- Input methods ---
 
-    @mcp_tool(name="ActionInputItems", description="Items consumed by an action (materials/ingredients). Returns item_name and quantity. Pass the action id.")
     def input_items(self, conn: sqlite3.Connection) -> list[ActionInputItem]:
         rows = conn.execute(
             "SELECT item_id, item_name, quantity FROM action_input_items WHERE action_id = ? ORDER BY item_name",
@@ -328,7 +349,6 @@ class Action:
     def requirement_groups(self, conn: sqlite3.Connection) -> list[RequirementGroup]:
         return RequirementGroup.for_action(conn, self.id)
 
-    @mcp_tool(name="ActionSkillRequirements", description="Skill requirements for an action. Returns skill name and level. Pass the action id.")
     def skill_requirements(self, conn: sqlite3.Connection) -> list[GroupSkillRequirement]:
         rows = conn.execute(
             """

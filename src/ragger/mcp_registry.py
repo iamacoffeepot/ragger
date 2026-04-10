@@ -55,6 +55,8 @@ def _serialize(obj: Any) -> Any:
         return obj.asdict()
     if isinstance(obj, enum.Enum):
         return obj.value
+    if isinstance(obj, dict):
+        return {k: _serialize(v) for k, v in obj.items()}
     if isinstance(obj, (int, float, str, bool)):
         return obj
     return str(obj)
