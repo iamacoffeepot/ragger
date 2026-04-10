@@ -119,15 +119,7 @@ public class ClaudeClient {
         command.add("Read");
         command.add("Glob");
         command.add("Grep");
-        command.add("mcp__ragger__RaggerActorSpawn");
-        command.add("mcp__ragger__RaggerEval");
-        command.add("mcp__ragger__RaggerActorList");
-        command.add("mcp__ragger__RaggerActorSource");
-        command.add("mcp__ragger__RaggerTemplateList");
-        command.add("mcp__ragger__RaggerTemplateSource");
-        command.add("mcp__ragger__RaggerMailSend");
-        command.add("mcp__ragger__RaggerMailRecvAsync");
-        command.add("mcp__ragger__RaggerMailRecvSync");
+        command.add("mcp__ragger__*");
 
         if (devMode) {
             command.add("Edit(/**/*)");
