@@ -39,6 +39,17 @@ SCHEMAS: list[str] = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS item_aliases (
+        item_id INTEGER NOT NULL,
+        alias TEXT NOT NULL,
+        PRIMARY KEY (item_id, alias),
+        FOREIGN KEY (item_id) REFERENCES items(id)
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_item_aliases_alias ON item_aliases(alias)
+    """,
+    """
     CREATE TABLE IF NOT EXISTS physical_currencies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,

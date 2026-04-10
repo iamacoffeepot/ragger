@@ -844,6 +844,50 @@ def link_group_requirement(
     return group_id
 
 
+def fetch_redirects_batch(pages: list[str]) -> dict[str, list[str]]:
+    """Fetch redirect source titles for up to WIKI_BATCH_SIZE target pages.
+
+    For each target page, returns the list of wiki page titles that redirect
+    to it (i.e. the target's known aliases). Empty list if the target has no
+    redirects. Handles pagination via ``rdcontinue``.
+
+    Uses ``action=query&prop=redirects`` which supports batching up to 50
+    titles per call. The MediaWiki API resolves the titles server-side and
+    returns redirects keyed by the target title.
+    """
+    result: dict[str, list[str]] = {p: [] for p in pages}
+
+    for i in range(0, len(pages), WIKI_BATCH_SIZE):
+        batch = pages[i:i + WIKI_BATCH_SIZE]
+        params: dict[str, str] = {
+            "action": "query",
+            "titles": "|".join(batch),
+            "prop": "redirects",
+            "rdlimit": "500",
+            "rdprop": "title",
+            "format": "json",
+        }
+        while True:
+            resp = requests.get(API_URL, params=params, headers=HEADERS)
+            resp.raise_for_status()
+            data = resp.json()
+            for _, page_data in data.get("query", {}).get("pages", {}).items():
+                title = page_data.get("title", "")
+                if title not in result:
+                    continue
+                for r in page_data.get("redirects", []):
+                    rtitle = r.get("title")
+                    if rtitle:
+                        result[title].append(rtitle)
+            cont = data.get("continue", {}).get("rdcontinue")
+            if not cont:
+                break
+            params["rdcontinue"] = cont
+        throttle()
+
+    return result
+
+
 def fetch_contributors_batch(pages: list[str]) -> dict[str, list[str]]:
     """Fetch contributors for up to WIKI_BATCH_SIZE pages in a single API call.
 
