@@ -17,6 +17,8 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.game.ItemManager;
 import party.iroiro.luajava.Lua;
 
+import java.awt.Shape;
+import java.awt.geom.PathIterator;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,7 +40,7 @@ public class SceneApi {
      * Register the scene table and all its functions on the Lua state.
      */
     public void register(final Lua lua) {
-        lua.createTable(0, 4);
+        lua.createTable(0, 6);
 
         lua.push(this::npcs);
         lua.setField(-2, "npcs");
@@ -51,6 +53,12 @@ public class SceneApi {
 
         lua.push(this::objects);
         lua.setField(-2, "objects");
+
+        lua.push(this::npc_hull);
+        lua.setField(-2, "npc_hull");
+
+        lua.push(this::object_hull);
+        lua.setField(-2, "object_hull");
 
         lua.setGlobal("scene");
     }
@@ -314,6 +322,130 @@ public class SceneApi {
 
         lua.rawSetI(-2, index);
         return index + 1;
+    }
+
+    /**
+     * scene:npc_hull(name_or_id) -> array of {x, y} points or nil
+     * Accepts a string name (first match) or integer NPC ID.
+     */
+    private int npc_hull(final Lua lua) {
+        final List<NPC> npcs = client.getNpcs();
+        NPC match = null;
+
+        if (lua.isString(2)) {
+            final String name = lua.toString(2).toLowerCase();
+            for (final NPC npc : npcs) {
+                if (npc != null && npc.getName() != null && npc.getName().toLowerCase().contains(name)) {
+                    match = npc;
+                    break;
+                }
+            }
+        } else {
+            final int id = (int) lua.toInteger(2);
+            for (final NPC npc : npcs) {
+                if (npc != null && npc.getId() == id) {
+                    match = npc;
+                    break;
+                }
+            }
+        }
+
+        if (match == null) {
+            lua.pushNil();
+            return 1;
+        }
+
+        final Shape hull = match.getConvexHull();
+        if (hull == null) {
+            lua.pushNil();
+            return 1;
+        }
+
+        pushShape(lua, hull);
+        return 1;
+    }
+
+    /**
+     * scene:object_hull(worldX, worldY, name?) -> array of {x, y} points or nil
+     * Finds the first object at the given tile. Optional name filter (partial, case-insensitive).
+     */
+    private int object_hull(final Lua lua) {
+        final int worldX = (int) lua.toInteger(2);
+        final int worldY = (int) lua.toInteger(3);
+        final String nameFilter = lua.getTop() >= 4 && lua.isString(4)
+            ? lua.toString(4).toLowerCase() : null;
+
+        final Scene scene = client.getScene();
+        final Tile[][][] tiles = scene.getTiles();
+        final int plane = client.getPlane();
+        final int baseX = client.getBaseX();
+        final int baseY = client.getBaseY();
+        final int sceneX = worldX - baseX;
+        final int sceneY = worldY - baseY;
+
+        if (sceneX < 0 || sceneX >= tiles[plane].length || sceneY < 0 || sceneY >= tiles[plane][0].length) {
+            lua.pushNil();
+            return 1;
+        }
+
+        final Tile tile = tiles[plane][sceneX][sceneY];
+        if (tile == null) {
+            lua.pushNil();
+            return 1;
+        }
+
+        final GameObject[] gameObjects = tile.getGameObjects();
+        if (gameObjects != null) {
+            for (final GameObject obj : gameObjects) {
+                if (obj == null) {
+                    continue;
+                }
+
+                if (nameFilter != null) {
+                    final ObjectComposition comp = client.getObjectDefinition(obj.getId());
+                    if (comp == null || comp.getName() == null || !comp.getName().toLowerCase().contains(nameFilter)) {
+                        continue;
+                    }
+                }
+
+                final Shape hull = obj.getConvexHull();
+                if (hull != null) {
+                    pushShape(lua, hull);
+                    return 1;
+                }
+            }
+        }
+
+        lua.pushNil();
+        return 1;
+    }
+
+    /**
+     * Converts a java.awt.Shape to a Lua array of {x, y} tables.
+     * Same format as CoordsApi.world_tile_poly — compatible with g:polygon()/g:fill_polygon().
+     */
+    private static void pushShape(final Lua lua, final Shape shape) {
+        final List<int[]> points = new ArrayList<>();
+        final float[] coords = new float[6];
+        final PathIterator pi = shape.getPathIterator(null);
+
+        while (!pi.isDone()) {
+            final int type = pi.currentSegment(coords);
+            if (type == PathIterator.SEG_MOVETO || type == PathIterator.SEG_LINETO) {
+                points.add(new int[]{(int) coords[0], (int) coords[1]});
+            }
+            pi.next();
+        }
+
+        lua.createTable(points.size(), 0);
+        for (int i = 0; i < points.size(); i++) {
+            lua.createTable(0, 2);
+            lua.push(points.get(i)[0]);
+            lua.setField(-2, "x");
+            lua.push(points.get(i)[1]);
+            lua.setField(-2, "y");
+            lua.rawSetI(-2, i + 1);
+        }
     }
 
     private static void pushString(final Lua lua, final String key, final String value) {

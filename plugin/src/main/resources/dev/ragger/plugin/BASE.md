@@ -413,6 +413,23 @@ for i = 1, #players do
 end
 ```
 
+```lua
+-- NPC convex hull — returns polygon point array for rendering, or nil
+local hull = scene:npc_hull("Guard")    -- by name (partial, case-insensitive)
+local hull = scene:npc_hull(3010)       -- by NPC ID
+if hull then
+    g:polygon(hull, 0xFF0000)           -- outline
+    g:fill_polygon(hull, 0x40FF0000)    -- translucent fill
+end
+```
+
+```lua
+-- Object convex hull — returns polygon point array for rendering, or nil
+local hull = scene:object_hull(3200, 3200)              -- first object at tile
+local hull = scene:object_hull(3200, 3200, "Bank booth") -- filtered by name
+if hull then g:polygon(hull, 0x00FF00) end
+```
+
 ### API: `inventory`
 
 Read the player's inventory and equipment.
