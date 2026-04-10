@@ -7,7 +7,9 @@ allowed-tools: Bash
 
 # OSRS Data Query
 
-Query the ragger SQLite database via the Python API. Run queries with:
+Query the ragger SQLite database via the Python API. **Always combine related queries into a single Bash call.** Do not make separate Bash calls for each query — one script, one connection, print all results.
+
+Run queries with:
 
 ```bash
 uv run python -c "
