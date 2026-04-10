@@ -250,16 +250,16 @@ JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home" ./grad
 
 Python MCP server at `src/ragger/mcp_server.py` exposes the following tools:
 
-- `RaggerActorSpawn(name, script)` — submit a persistent Lua actor to the plugin
-- `RaggerEval(script)` — evaluate a Lua expression and return the result
-- `RaggerActorList()` — list active actors
-- `RaggerActorSource(name)` — retrieve a running actor's source code
-- `RaggerTemplateList()` — list registered templates
-- `RaggerTemplateSource(name)` — retrieve a template's source code
-- `RaggerMailSend(name, messages)` — send one or more messages to a single actor's `on_mail` hook
-- `RaggerMailSendBatch(messages)` — send messages to multiple actors in one call
-- `RaggerMailRecvAsync(limit?, from_actor?)` — non-blocking read of messages sent to Claude
-- `RaggerMailRecvSync(count?, from_actor?, timeout?)` — blocking read, waits for messages
+- `ActorSpawn(name, script)` — submit a persistent Lua actor to the plugin
+- `Eval(script)` — evaluate a Lua expression and return the result
+- `ActorList()` — list active actors
+- `ActorSource(name)` — retrieve a running actor's source code
+- `TemplateList()` — list registered templates
+- `TemplateSource(name)` — retrieve a template's source code
+- `MailSend(name, messages)` — send one or more messages to a single actor's `on_mail` hook
+- `MailSendBatch(messages)` — send messages to multiple actors in one call
+- `MailRecvAsync(limit?, from_actor?)` — non-blocking read of messages sent to Claude
+- `MailRecvSync(count?, from_actor?, timeout?)` — blocking read, waits for messages
 
 All tools bridge through the plugin's HTTP server on localhost (default port 7919). Per-session auth token prevents unauthorized access.
 

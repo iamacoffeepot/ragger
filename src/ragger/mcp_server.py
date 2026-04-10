@@ -42,7 +42,7 @@ def _bridge_get(path: str, params: dict | None = None, timeout: int = 10) -> str
         return json.dumps({"error": "Bridge server not running"})
 
 
-@mcp.tool(name="RaggerActorSpawn")
+@mcp.tool(name="ActorSpawn")
 def ragger_actor_spawn(name: str, script: str) -> str:
     """Spawn a Lua actor in the RuneLite client.
 
@@ -53,7 +53,7 @@ def ragger_actor_spawn(name: str, script: str) -> str:
     return _bridge_post("/run", {"name": name, "script": script})
 
 
-@mcp.tool(name="RaggerEval")
+@mcp.tool(name="Eval")
 def ragger_eval(script: str) -> str:
     """Evaluate a Lua expression in the RuneLite client and return the result.
 
@@ -66,13 +66,13 @@ def ragger_eval(script: str) -> str:
     return _bridge_post("/eval", {"script": script})
 
 
-@mcp.tool(name="RaggerActorList")
+@mcp.tool(name="ActorList")
 def ragger_actor_list() -> str:
     """List all currently running Lua actors by name."""
     return _bridge_get("/list")
 
 
-@mcp.tool(name="RaggerActorSource")
+@mcp.tool(name="ActorSource")
 def ragger_actor_source(name: str) -> str:
     """Retrieve the Lua source code of a running actor by name.
 
@@ -82,13 +82,13 @@ def ragger_actor_source(name: str) -> str:
     return _bridge_post("/source", {"name": name})
 
 
-@mcp.tool(name="RaggerTemplateList")
+@mcp.tool(name="TemplateList")
 def ragger_template_list() -> str:
     """List all registered Lua actor templates by name."""
     return _bridge_get("/templates")
 
 
-@mcp.tool(name="RaggerTemplateSource")
+@mcp.tool(name="TemplateSource")
 def ragger_template_source(name: str) -> str:
     """Retrieve the Lua source code of a registered template by name.
 
@@ -98,7 +98,7 @@ def ragger_template_source(name: str) -> str:
     return _bridge_post("/template-source", {"name": name})
 
 
-@mcp.tool(name="RaggerMailRecvAsync")
+@mcp.tool(name="MailRecvAsync")
 def ragger_mail_recv_async(limit: int = 0, from_actor: str = "") -> str:
     """Pop messages from the claude mailbox without blocking.
 
@@ -117,7 +117,7 @@ def ragger_mail_recv_async(limit: int = 0, from_actor: str = "") -> str:
     return _bridge_get("/mail-recv", params)
 
 
-@mcp.tool(name="RaggerMailRecvSync")
+@mcp.tool(name="MailRecvSync")
 def ragger_mail_recv_sync(count: int = 1, from_actor: str = "", timeout: int = 30) -> str:
     """Block until exactly `count` messages arrive, then return them.
 
@@ -141,7 +141,7 @@ class BatchMailMessage(BaseModel):
     data: dict
 
 
-@mcp.tool(name="RaggerMailSend")
+@mcp.tool(name="MailSend")
 def ragger_mail_send(name: str, messages: list[dict]) -> str:
     """Send one or more messages to a single actor's on_mail hook.
 
@@ -154,7 +154,7 @@ def ragger_mail_send(name: str, messages: list[dict]) -> str:
     return _bridge_post("/mail", [{"target": name, "data": m} for m in messages])
 
 
-@mcp.tool(name="RaggerMailSendBatch")
+@mcp.tool(name="MailSendBatch")
 def ragger_mail_send_batch(messages: list[BatchMailMessage]) -> str:
     """Send messages to multiple actors in one call.
 
