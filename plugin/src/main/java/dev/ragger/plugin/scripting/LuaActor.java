@@ -69,7 +69,7 @@ public class LuaActor {
         lua.set("player", new PlayerApi(client));
         lua.set("skill", new SkillApi());
 
-        new SceneApi(client).register(lua);
+        new SceneApi(client, itemManager).register(lua);
         new CoordsApi(client).register(lua);
         new ItemsApi(itemManager).register(lua);
         new InventoryApi(client, itemManager).register(lua);

@@ -370,10 +370,9 @@ for i = 1, #items do
     -- item.plane      (int)
     -- item.ownership  (int: 0=none, 1=self, 2=other, 3=group)
     -- item.is_private (bool)
+    -- item.name      (string, item name)
 end
 ```
-
-Combine with `items:name()` and `items:grand_exchange_price()` to get names and values.
 
 ```lua
 -- Game objects — returns array of tables (trees, rocks, doors, interactables, etc.)

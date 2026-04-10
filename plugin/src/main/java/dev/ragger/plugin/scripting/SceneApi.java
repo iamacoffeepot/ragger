@@ -4,6 +4,7 @@ import net.runelite.api.Client;
 import net.runelite.api.DecorativeObject;
 import net.runelite.api.GameObject;
 import net.runelite.api.GroundObject;
+import net.runelite.api.ItemComposition;
 import net.runelite.api.NPC;
 import net.runelite.api.ObjectComposition;
 import net.runelite.api.Player;
@@ -13,6 +14,7 @@ import net.runelite.api.TileItem;
 import net.runelite.api.TileObject;
 import net.runelite.api.WallObject;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.game.ItemManager;
 import party.iroiro.luajava.Lua;
 
 import java.util.ArrayList;
@@ -25,9 +27,11 @@ import java.util.List;
 public class SceneApi {
 
     private final Client client;
+    private final ItemManager itemManager;
 
-    public SceneApi(final Client client) {
+    public SceneApi(final Client client, final ItemManager itemManager) {
         this.client = client;
+        this.itemManager = itemManager;
     }
 
     /**
@@ -148,12 +152,18 @@ public class SceneApi {
                         continue;
                     }
 
-                    lua.createTable(0, 7);
+                    lua.createTable(0, 8);
 
-                    pushInt(lua, "id", item.getId());
+                    final int itemId = item.getId();
+                    pushInt(lua, "id", itemId);
                     pushInt(lua, "quantity", item.getQuantity());
                     pushInt(lua, "ownership", item.getOwnership());
                     pushBool(lua, "is_private", item.isPrivate());
+
+                    final ItemComposition comp = itemManager.getItemComposition(itemId);
+                    if (comp != null) {
+                        pushString(lua, "name", comp.getName());
+                    }
 
                     if (wp != null) {
                         pushInt(lua, "x", wp.getX());
