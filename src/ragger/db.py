@@ -243,15 +243,6 @@ SCHEMAS: list[str] = [
         FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
     )
     """,
-    """
-    CREATE TABLE IF NOT EXISTS dialogue_node_requirement_groups (
-        node_id INTEGER NOT NULL,
-        group_id INTEGER NOT NULL,
-        PRIMARY KEY (node_id, group_id),
-        FOREIGN KEY (node_id) REFERENCES dialogue_nodes(id),
-        FOREIGN KEY (group_id) REFERENCES requirement_groups(id)
-    )
-    """,
     f"""
     CREATE TABLE IF NOT EXISTS experience_rewards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

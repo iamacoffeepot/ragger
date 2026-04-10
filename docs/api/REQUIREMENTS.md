@@ -19,5 +19,4 @@ RequirementGroup.for_monster(conn, monster_id) -> list[RequirementGroup]
 RequirementGroup.for_action(conn, action_id) -> list[RequirementGroup]
 RequirementGroup.for_diary_task(conn, diary_task_id) -> list[RequirementGroup]
 RequirementGroup.for_league_task(conn, league_task_id) -> list[RequirementGroup]
-RequirementGroup.for_dialogue_node(conn, node_id) -> list[RequirementGroup]
 ```

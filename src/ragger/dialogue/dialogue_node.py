@@ -137,11 +137,6 @@ class DialogueNode:
 
         return DialogueTag.by_node(conn, self.id)
 
-    def requirement_groups(self, conn: sqlite3.Connection):
-        from ragger.requirements import RequirementGroup
-
-        return RequirementGroup.for_dialogue_node(conn, self.id)
-
     def page(self, conn: sqlite3.Connection):
         from ragger.dialogue.dialogue_page import DialoguePage
 

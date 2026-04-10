@@ -662,7 +662,6 @@ def ingest(db_path: Path) -> None:
     conn = get_connection(db_path)
 
     # Clear previous run — order matters for FK constraints
-    conn.execute("DELETE FROM dialogue_node_requirement_groups")
     conn.execute("DELETE FROM dialogue_tags")
     conn.execute("DELETE FROM dialogue_instructions")
     conn.execute("DELETE FROM npc_dialogues")

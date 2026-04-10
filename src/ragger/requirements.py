@@ -171,10 +171,3 @@ class RequirementGroup:
         ).fetchall()
         return [RequirementGroup(r[0]) for r in rows]
 
-    @staticmethod
-    def for_dialogue_node(conn: sqlite3.Connection, node_id: int) -> list[RequirementGroup]:
-        rows = conn.execute(
-            "SELECT group_id FROM dialogue_node_requirement_groups WHERE node_id = ?",
-            (node_id,),
-        ).fetchall()
-        return [RequirementGroup(r[0]) for r in rows]
