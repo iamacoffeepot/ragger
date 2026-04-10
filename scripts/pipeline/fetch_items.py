@@ -141,6 +141,35 @@ def ingest(db_path: Path) -> None:
     )
     print(f"Inserted {alias_count} item aliases")
 
+    # Generate base-form aliases for parenthetical items: "Clue scroll (easy)"
+    # → alias "Clue scroll". Many dialogue conditions reference items by their
+    # base name without the variant suffix.
+    import re
+    paren_pattern = re.compile(r"^(.+?)\s*\(")
+    existing_aliases = {
+        row[0].lower()
+        for row in conn.execute("SELECT alias FROM item_aliases").fetchall()
+    }
+    existing_names = {name.lower() for name in item_lookup}
+    base_rows: list[tuple[int, str]] = []
+    for page_name, item_id in item_lookup.items():
+        m = paren_pattern.match(page_name)
+        if not m:
+            continue
+        base = m.group(1).strip()
+        if len(base) < 4:
+            continue
+        if base.lower() in existing_names or base.lower() in existing_aliases:
+            continue
+        base_rows.append((item_id, base))
+        existing_aliases.add(base.lower())  # dedup across variants
+    conn.executemany(
+        "INSERT OR IGNORE INTO item_aliases (item_id, alias) VALUES (?, ?)",
+        base_rows,
+    )
+    conn.commit()
+    print(f"Generated {len(base_rows)} base-form aliases from parenthetical items")
+
     # Record attributions
     record_attributions_batch(conn, "items", list(all_wikitext.keys()))
     conn.commit()
