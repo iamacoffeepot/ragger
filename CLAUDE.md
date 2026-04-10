@@ -54,16 +54,17 @@ Pipeline order (managed by `fetch_all.py`):
 23. `fetch_actions.py` — Universal action ingestion from {{Skill table}} templates. One API call per skill expands the table and parses name, level, XP, materials, tools, facilities, and secondary skills. Entity/facility pages are batch-fetched for Infobox NPC/Scenery game IDs, with ops resolved from cache dump definitions. Replaces all individual fetch_*_actions.py scripts and trigger linking scripts. Supports `--skill` to run a single skill.
 24. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
 25. `fetch_dialogues.py` — Pulls dialogue trees from Transcript: pages (namespace 120). Parses *-indented wikitext with {{topt}}, {{tcond}}, {{tact}}, {{tbox}}, {{tselect}}, {{qact}} templates into a tree in dialogue_pages + dialogue_nodes. Resolves `-> above`/`-> below`/`-> other` action references into `dialogue_nodes.continue_target_id`.
-26. `link_shop_locations.py` — Links shops to locations by matching location text
-27. `link_activity_locations.py` — Links activities to locations by matching location text
-28. `link_ground_item_locations.py` — Links ground items to items (name normalization) and nearest locations (Chebyshev distance)
-29. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
-30. `link_dialogue_entities.py` — Refines `[display](wiki:Page)` markdown links in `dialogue_nodes.text` to typed entity prefixes (`npc:`, `item:`, `quest:`, `monster:`, `location:`, `shop:`, `activity:`, `equipment:`) by looking each slug up against the entity tables. Anything not found stays as `wiki:` for downstream fallback resolution.
-31. `compute_dialogue_tags.py` — Aho-Corasick entity tagging over dialogue nodes. Matches items, NPCs, monsters, quests, locations, shops, equipment, and activities. Stores probable links in dialogue_tags.
-32. `compute_dialogue_instructions.py` — Flattens each dialogue tree into a linear per-page instruction stream, runs the canonical pass pipeline (lower_gotos → thread_jumps → inline_player_echoes → fold_select_menu → compact), writes to dialogue_instructions. Implementation lives in `src/ragger/dialogue/`.
-33. `link_npc_dialogues.py` — Links NPCs to dialogue pages by exact name match on npc-type transcripts
-34. `link_quest_dialogues.py` — Links quests to dialogue pages by exact name match on quest-type transcripts
-35. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
+26. `fetch_page_categories.py` — Batch-fetches wiki categories for all entity pages (items, quests, monsters, NPCs, locations, equipment, activities, shops) via prop=categories (50 pages/request). Links page titles to `wiki_categories` rows in `page_categories`.
+28. `link_shop_locations.py` — Links shops to locations by matching location text
+29. `link_activity_locations.py` — Links activities to locations by matching location text
+30. `link_ground_item_locations.py` — Links ground items to items (name normalization) and nearest locations (Chebyshev distance)
+31. `link_facilities.py` — Derives facility bitmasks on locations from nearest facility coordinates
+32. `link_dialogue_entities.py` — Refines `[display](wiki:Page)` markdown links in `dialogue_nodes.text` to typed entity prefixes (`npc:`, `item:`, `quest:`, `monster:`, `location:`, `shop:`, `activity:`, `equipment:`) by looking each slug up against the entity tables. Anything not found stays as `wiki:` for downstream fallback resolution.
+33. `compute_dialogue_tags.py` — Aho-Corasick entity tagging over dialogue nodes. Matches items, NPCs, monsters, quests, locations, shops, equipment, and activities. Stores probable links in dialogue_tags.
+34. `compute_dialogue_instructions.py` — Flattens each dialogue tree into a linear per-page instruction stream, runs the canonical pass pipeline (lower_gotos → thread_jumps → inline_player_echoes → fold_select_menu → compact), writes to dialogue_instructions. Implementation lives in `src/ragger/dialogue/`.
+35. `link_npc_dialogues.py` — Links NPCs to dialogue pages by exact name match on npc-type transcripts
+36. `link_quest_dialogues.py` — Links quests to dialogue pages by exact name match on quest-type transcripts
+37. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
 
 ### Import scripts (`scripts/import/`)
 

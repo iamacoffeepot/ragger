@@ -748,6 +748,18 @@ SCHEMAS: list[str] = [
     CREATE INDEX IF NOT EXISTS idx_wiki_category_parents_parent
         ON wiki_category_parents(parent_id)
     """,
+    """
+    CREATE TABLE IF NOT EXISTS page_categories (
+        page_title TEXT NOT NULL,
+        category_id INTEGER NOT NULL,
+        PRIMARY KEY (page_title, category_id),
+        FOREIGN KEY (category_id) REFERENCES wiki_categories(id)
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_page_categories_category
+        ON page_categories(category_id)
+    """,
 ]
 
 

@@ -37,6 +37,8 @@ SCRIPTS = [
     "scripts/pipeline/fetch_actions.py",
     "scripts/pipeline/fetch_wiki_vars.py",
     "scripts/pipeline/fetch_dialogues.py",
+    # Category mapping (depends on all entity tables + wiki_categories)
+    "scripts/pipeline/fetch_page_categories.py",
     # Linking / compute passes (depend on multiple tables)
     "scripts/pipeline/link_shop_locations.py",
     "scripts/pipeline/link_activity_locations.py",

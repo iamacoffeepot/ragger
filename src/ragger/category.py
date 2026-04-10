@@ -91,6 +91,26 @@ class WikiCategory:
         return [self._from_row(r) for r in rows]
 
     @classmethod
+    def for_page(cls, conn: sqlite3.Connection, page_title: str) -> list[WikiCategory]:
+        """All categories a wiki page belongs to."""
+        rows = conn.execute(
+            f"""SELECT {cls._COLS} FROM wiki_categories
+                JOIN page_categories ON wiki_categories.id = page_categories.category_id
+                WHERE page_categories.page_title = ?
+                ORDER BY name""",
+            (page_title,),
+        ).fetchall()
+        return [cls._from_row(r) for r in rows]
+
+    def pages(self, conn: sqlite3.Connection) -> list[str]:
+        """All page titles in this category."""
+        rows = conn.execute(
+            "SELECT page_title FROM page_categories WHERE category_id = ? ORDER BY page_title",
+            (self.id,),
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    @classmethod
     def _from_row(cls, row: tuple) -> WikiCategory:
         return cls(
             id=row[0],
