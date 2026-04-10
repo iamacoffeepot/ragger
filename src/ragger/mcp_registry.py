@@ -60,8 +60,21 @@ def _serialize(obj: Any) -> Any:
     return str(obj)
 
 
+def _unwrap_enum(annotation: Any) -> type[enum.Enum] | None:
+    """Extract the enum type from an annotation, handling Optional[Enum] and Enum | None."""
+    if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
+        return annotation
+    args = getattr(annotation, "__args__", None)
+    if args is None:
+        return None
+    for arg in args:
+        if isinstance(arg, type) and issubclass(arg, enum.Enum):
+            return arg
+    return None
+
+
 def _is_enum_type(annotation: Any) -> bool:
-    return isinstance(annotation, type) and issubclass(annotation, enum.Enum)
+    return _unwrap_enum(annotation) is not None
 
 
 def _coerce_enum(value: Any, enum_type: type[enum.Enum]) -> enum.Enum:
@@ -146,8 +159,9 @@ def register_all(mcp, db_path: str) -> None:
             original = sig.parameters[param_name]
             annotation = hints.get(param_name, str)
 
-            if _is_enum_type(annotation):
-                coercions[param_name] = annotation
+            enum_type = _unwrap_enum(annotation)
+            if enum_type is not None:
+                coercions[param_name] = enum_type
 
             schema_type = _schema_annotation(annotation)
             new_params.append(

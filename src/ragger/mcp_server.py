@@ -19,6 +19,7 @@ import ragger.game_variable
 import ragger.ground_item
 import ragger.item
 import ragger.location
+import ragger.map
 import ragger.monster
 import ragger.npc
 import ragger.object
