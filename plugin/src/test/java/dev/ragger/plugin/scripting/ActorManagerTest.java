@@ -12,7 +12,7 @@ public class ActorManagerTest {
     @Before
     public void setUp() {
         // childName is a pure method — null deps are fine for these tests
-        manager = new ActorManager(null, null, null);
+        manager = new ActorManager(null, null, null, null);
     }
 
     @Test

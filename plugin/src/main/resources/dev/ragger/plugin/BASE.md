@@ -949,6 +949,19 @@ Event hooks fire after `on_tick` on game tick frames, delivering buffered game e
 
 If an actor does not return a table, it runs once top-to-bottom (one-shot mode). Locals defined in the actor body are captured by hook closures and persist for the actor's lifetime.
 
+### API: `worldmap`
+
+Place markers on the world map. Markers are cleaned up automatically when the actor stops.
+
+```lua
+worldmap:add(3200, 3200, "Quest NPC")             -- add marker with tooltip
+worldmap:add(3200, 3200, "Quest NPC", 0x00FF00)   -- with custom color (RGB)
+worldmap:remove(3200, 3200)                        -- remove marker at coords
+worldmap:clear()                                   -- remove all markers owned by this actor
+```
+
+Markers snap to the world map edge when the target is off-screen and jump to the location on click.
+
 ### API: `mail`
 
 Send messages between actors. Mail is asynchronous — messages sent during one tick are delivered at the start of the next tick.

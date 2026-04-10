@@ -15,6 +15,7 @@ import java.util.regex.PatternSyntaxException;
 import net.runelite.api.Client;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +67,7 @@ public class ActorManager {
     private final Client client;
     private final ChatMessageManager chatMessageManager;
     private final ItemManager itemManager;
+    private final WorldMapPointManager worldMapPointManager;
 
     // --- Actor and template storage ---
 
@@ -92,11 +94,16 @@ public class ActorManager {
     private int maxDepth = 3;
     private int maxChildren = 50;
 
-    public ActorManager(final Client client, final ChatMessageManager chatMessageManager,
-                        final ItemManager itemManager) {
+    public ActorManager(
+        final Client client,
+        final ChatMessageManager chatMessageManager,
+        final ItemManager itemManager,
+        final WorldMapPointManager worldMapPointManager
+    ) {
         this.client = client;
         this.chatMessageManager = chatMessageManager;
         this.itemManager = itemManager;
+        this.worldMapPointManager = worldMapPointManager;
     }
 
     /**
@@ -193,7 +200,7 @@ public class ActorManager {
         }
 
         final LuaActor script = new LuaActor(
-            name, source, client, chatMessageManager, itemManager, this, args
+            name, source, client, chatMessageManager, itemManager, worldMapPointManager, this, args
         );
         scripts.put(name, script);
         script.start();
@@ -498,7 +505,8 @@ public class ActorManager {
      */
     public String eval(final String script) {
         final LuaActor temp = new LuaActor(
-            "__eval", "return " + script, client, chatMessageManager, itemManager, this, null
+            "__eval", "return " + script, client, chatMessageManager, itemManager,
+            worldMapPointManager, this, null
         );
 
         try {

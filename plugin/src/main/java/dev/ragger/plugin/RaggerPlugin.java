@@ -47,6 +47,7 @@ import net.runelite.client.input.MouseManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
@@ -91,6 +92,9 @@ public class RaggerPlugin extends Plugin {
     private MouseManager mouseManager;
 
     @Inject
+    private WorldMapPointManager worldMapPointManager;
+
+    @Inject
     private RaggerConfig config;
 
     @Provides
@@ -118,7 +122,7 @@ public class RaggerPlugin extends Plugin {
 
     @Override
     protected void startUp() {
-        actorManager = new ActorManager(client, chatMessageManager, itemManager);
+        actorManager = new ActorManager(client, chatMessageManager, itemManager, worldMapPointManager);
         actorManager.setLimits(config.actorMaxDepth(), config.actorMaxChildren());
         serviceManager = new ServiceManager(actorManager);
         actorOverlay = new ActorOverlay(actorManager);

@@ -3,6 +3,7 @@ package dev.ragger.plugin.scripting;
 import net.runelite.api.Client;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import party.iroiro.luajava.Lua;
@@ -26,6 +27,7 @@ public class LuaActor {
     private final Client client;
     private final ChatMessageManager chatMessageManager;
     private final ItemManager itemManager;
+    private final WorldMapPointManager worldMapPointManager;
     private final ActorManager actorManager;
     private final Map<String, Object> args;
     private final OverlayApi overlayApi = new OverlayApi();
@@ -33,6 +35,7 @@ public class LuaActor {
 
     private Lua lua;
     private UiApi uiApi;
+    private WorldMapApi worldMapApi;
     private boolean running = false;
     private boolean hasHooks = false;
     private boolean requestStop = false;
@@ -43,6 +46,7 @@ public class LuaActor {
         final Client client,
         final ChatMessageManager chatMessageManager,
         final ItemManager itemManager,
+        final WorldMapPointManager worldMapPointManager,
         final ActorManager actorManager,
         final Map<String, Object> args
     ) {
@@ -51,6 +55,7 @@ public class LuaActor {
         this.client = client;
         this.chatMessageManager = chatMessageManager;
         this.itemManager = itemManager;
+        this.worldMapPointManager = worldMapPointManager;
         this.actorManager = actorManager;
         this.args = args;
     }
@@ -86,6 +91,9 @@ public class LuaActor {
         new VarApi(client).register(lua);
         new JsonApi().register(lua);
         new Base64Api().register(lua);
+
+        worldMapApi = new WorldMapApi(worldMapPointManager);
+        worldMapApi.register(lua);
 
         // Inject args table if provided
         if (args != null && !args.isEmpty()) {
@@ -213,6 +221,11 @@ public class LuaActor {
     public void stop() {
         if (running && hasHooks) {
             callHook("on_stop");
+        }
+
+        if (worldMapApi != null) {
+            worldMapApi.destroy();
+            worldMapApi = null;
         }
 
         if (uiApi != null) {
