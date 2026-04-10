@@ -23,8 +23,10 @@ from __future__ import annotations
 import re
 import sqlite3
 
-# Markdown wiki link: [display](wiki:slug) where slug may include #anchor.
-_WIKI_LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(wiki:([^)]+)\)")
+# Markdown wiki link: [display](wiki:slug) where slug may include #anchor
+# and parenthetical variant suffixes like Clue_scroll_(easy).
+# The slug group uses (?:[^()]+|\([^)]*\))* to allow balanced inner parens.
+_WIKI_LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(wiki:((?:[^()]+|\([^)]*\))*)\)")
 
 # Priority order for resolving name conflicts. Lower-priority sources are
 # loaded first so higher-priority sources overwrite their entries in the
@@ -40,16 +42,40 @@ _ENTITY_SOURCES: list[tuple[str, str]] = [
     ("SELECT id, name FROM quests", "quest"),
 ]
 
+# Alias tables loaded at the SAME priority as their parent entity type.
+# Loaded before canonical sources so canonical names win on conflicts.
+_ALIAS_SOURCES: list[tuple[str, str]] = [
+    # (alias_query returning (alias, entity_id), entity_type)
+    ("SELECT alias, item_id FROM item_aliases", "item"),
+    ("SELECT ea.alias, MIN(e.id) FROM equipment_aliases ea JOIN equipment e ON e.name = ea.equipment_name GROUP BY ea.alias", "equipment"),
+    ("SELECT na.alias, MIN(n.id) FROM npc_aliases na JOIN npcs n ON n.name = na.npc_name GROUP BY na.alias", "npc"),
+    ("SELECT ma.alias, MIN(m.id) FROM monster_aliases ma JOIN monsters m ON m.name = ma.monster_name GROUP BY ma.alias", "monster"),
+    ("SELECT alias, quest_id FROM quest_aliases", "quest"),
+    ("SELECT alias, location_id FROM location_aliases", "location"),
+]
+
 
 def build_entity_lookup(conn: sqlite3.Connection) -> dict[str, tuple[str, int]]:
     """Build ``{lowercase_name: (entity_type, entity_id)}`` from entity tables.
 
-    Sources are loaded in priority order (lowest first), so a name that
-    appears in multiple tables ends up classified as the most specific
-    type — quests beat npcs beat monsters beat activities beat shops
-    beat locations beat items beat equipment.
+    Loads both canonical names and wiki-redirect aliases. Sources are
+    loaded in priority order (lowest first), so a name that appears in
+    multiple tables ends up classified as the most specific type —
+    quests beat npcs beat monsters beat activities beat shops beat
+    locations beat items beat equipment. Aliases are loaded before
+    canonical names so canonical names always win on conflicts.
     """
     lookup: dict[str, tuple[str, int]] = {}
+    # Load aliases first (lower priority than canonical names)
+    for query, entity_type in _ALIAS_SOURCES:
+        try:
+            for alias, entity_id in conn.execute(query).fetchall():
+                if not alias:
+                    continue
+                lookup[alias.lower()] = (entity_type, entity_id)
+        except Exception:
+            pass  # alias tables may not exist yet
+    # Load canonical names (overwrite aliases on conflict)
     for query, entity_type in _ENTITY_SOURCES:
         for entity_id, name in conn.execute(query).fetchall():
             if not name:
