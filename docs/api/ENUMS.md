@@ -19,6 +19,8 @@
 - `ActionTriggerType(int, Enum)` — CLICK_OBJECT, CLICK_NPC, CLICK_ITEM, USE_ITEM_ON_OBJECT, USE_ITEM_ON_NPC, USE_ITEM_ON_ITEM, CLICK_WIDGET, WIDGET_ON_ITEM with `mask`, `label` properties
 - `Facility(int, Enum)` — Bank, Furnace, Anvil, Range, Altar, Spinning wheel, Loom with `mask`, `label` properties
 - `Immunity(int, Enum)` — Poison, Venom, Cannon, Thrall, Burn with `mask`, `label` properties
+- `Spellbook(str, Enum)` — normal, ancient, lunar, arceuus with `from_label` (maps "Standard" to NORMAL)
+- `Element(str, Enum)` — air, water, earth, fire, ice, shadow, blood, smoke with `from_label`
 - `MapSquareType(str, Enum)` — color, collision, water
 - `MapLinkType(str, Enum)` — entrance, exit, fairy_ring, charter_ship, spirit_tree, gnome_glider, canoe, teleport, minecart, ship, quetzal, walkable, npc_transport
 - `MAP_LINK_ANYWHERE` — constant `"ANYWHERE"` for teleport from_location (castable from any location)

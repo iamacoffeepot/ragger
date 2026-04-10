@@ -22,6 +22,9 @@ ENTITY_TABLES = [
     "equipment",
     "activities",
     "shops",
+    "combat_spells",
+    "utility_spells",
+    "teleport_spells",
 ]
 
 

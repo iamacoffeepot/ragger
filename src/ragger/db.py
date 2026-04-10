@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from ragger.enums import ALL_SKILLS_MASK, ActivityType, ComparisonOperator, DiaryLocation, DiaryTier, EquipmentSlot, Region, ShopType, Skill, TaskDifficulty
+from ragger.enums import ALL_SKILLS_MASK, ActivityType, ComparisonOperator, DiaryLocation, DiaryTier, Element, EquipmentSlot, Region, ShopType, Skill, Spellbook, TaskDifficulty
 
 _skill_ids = ", ".join(str(s.value) for s in Skill)
 _region_ids = ", ".join(str(r.value) for r in Region)
@@ -11,6 +11,8 @@ _diary_location_values = ", ".join(f"'{l.value}'" for l in DiaryLocation)
 _diary_tier_values = ", ".join(f"'{t.value}'" for t in DiaryTier)
 _equipment_slot_values = ", ".join(f"'{s.value}'" for s in EquipmentSlot)
 _comparison_operator_values = ", ".join(f"'{o.value}'" for o in ComparisonOperator)
+_spellbook_values = ", ".join(f"'{s.value}'" for s in Spellbook)
+_element_values = ", ".join(f"'{e.value}'" for e in Element)
 
 SCHEMAS: list[str] = [
     """
@@ -759,6 +761,80 @@ SCHEMAS: list[str] = [
     """
     CREATE INDEX IF NOT EXISTS idx_page_categories_category
         ON page_categories(category_id)
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS combat_spells (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        members INTEGER NOT NULL DEFAULT 0,
+        level INTEGER NOT NULL,
+        spellbook TEXT NOT NULL CHECK(spellbook IN ({_spellbook_values})),
+        experience REAL NOT NULL DEFAULT 0,
+        speed INTEGER,
+        cooldown INTEGER,
+        element TEXT CHECK(element IN ({_element_values}) OR element IS NULL),
+        max_damage INTEGER,
+        description TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS combat_spell_runes (
+        spell_id INTEGER NOT NULL,
+        item_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        PRIMARY KEY (spell_id, item_id),
+        FOREIGN KEY (spell_id) REFERENCES combat_spells(id),
+        FOREIGN KEY (item_id) REFERENCES items(id)
+    )
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS utility_spells (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        members INTEGER NOT NULL DEFAULT 0,
+        level INTEGER NOT NULL,
+        spellbook TEXT NOT NULL CHECK(spellbook IN ({_spellbook_values})),
+        experience REAL NOT NULL DEFAULT 0,
+        speed INTEGER,
+        cooldown INTEGER,
+        description TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS utility_spell_runes (
+        spell_id INTEGER NOT NULL,
+        item_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        PRIMARY KEY (spell_id, item_id),
+        FOREIGN KEY (spell_id) REFERENCES utility_spells(id),
+        FOREIGN KEY (item_id) REFERENCES items(id)
+    )
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS teleport_spells (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        members INTEGER NOT NULL DEFAULT 0,
+        level INTEGER NOT NULL,
+        spellbook TEXT NOT NULL CHECK(spellbook IN ({_spellbook_values})),
+        experience REAL NOT NULL DEFAULT 0,
+        speed INTEGER,
+        destination TEXT,
+        dst_x INTEGER,
+        dst_y INTEGER,
+        lectern TEXT,
+        description TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS teleport_spell_runes (
+        spell_id INTEGER NOT NULL,
+        item_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        PRIMARY KEY (spell_id, item_id),
+        FOREIGN KEY (spell_id) REFERENCES teleport_spells(id),
+        FOREIGN KEY (item_id) REFERENCES items(id)
+    )
     """,
 ]
 

@@ -32,6 +32,7 @@ SCRIPTS = [
     "scripts/pipeline/fetch_magic_teleports.py",
     "scripts/pipeline/fetch_activities.py",
     "scripts/pipeline/fetch_npcs.py",
+    "scripts/pipeline/fetch_spells.py",
     "scripts/pipeline/fetch_ground_items.py",
     "scripts/pipeline/fetch_npc_locations.py",
     "scripts/pipeline/fetch_actions.py",

@@ -49,12 +49,13 @@ Pipeline order (managed by `fetch_all.py`):
 18. `fetch_magic_teleports.py` — Parses all spellbook teleports (Standard, Ancient, Lunar) and item teleports (jewellery, etc.)
 19. `fetch_activities.py` — Pulls activities/minigames with type, coordinates, skills bitmask, and region from Category:Activities
 20. `fetch_npcs.py` — Pulls non-combat NPC data (name, version, location, options, region) from Category:Non-player characters
-21. `fetch_ground_items.py` — Pulls ground item spawns by finding pages using {{ItemSpawnLine}} template. Parses item name, location, members, coordinates, and league region. One row per spawn coordinate.
-22. `fetch_npc_locations.py` — Associates NPC game IDs with wiki-stated coordinates by parsing versioned id and map fields from Infobox NPC
-23. `fetch_actions.py` — Universal action ingestion from {{Skill table}} templates. One API call per skill expands the table and parses name, level, XP, materials, tools, facilities, and secondary skills. Entity/facility pages are batch-fetched for Infobox NPC/Scenery game IDs, with ops resolved from cache dump definitions. Replaces all individual fetch_*_actions.py scripts and trigger linking scripts. Supports `--skill` to run a single skill.
-24. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
-25. `fetch_dialogues.py` — Pulls dialogue trees from Transcript: pages (namespace 120). Parses *-indented wikitext with {{topt}}, {{tcond}}, {{tact}}, {{tbox}}, {{tselect}}, {{qact}} templates into a tree in dialogue_pages + dialogue_nodes. Resolves `-> above`/`-> below`/`-> other` action references into `dialogue_nodes.continue_target_id`.
-26. `fetch_page_categories.py` — Batch-fetches wiki categories for all entity pages (items, quests, monsters, NPCs, locations, equipment, activities, shops) via prop=categories (50 pages/request). Links page titles to `wiki_categories` rows in `page_categories`.
+21. `fetch_spells.py` — Fetches all spells from Category:Spells, parses {{Infobox Spell}} and {{RuneReq}}. Inserts into `combat_spells` (element, max_damage), `utility_spells`, or `teleport_spells` (destination coordinates, lectern) based on type. Rune costs resolved to item IDs in `*_spell_runes` tables.
+22. `fetch_ground_items.py` — Pulls ground item spawns by finding pages using {{ItemSpawnLine}} template. Parses item name, location, members, coordinates, and league region. One row per spawn coordinate.
+23. `fetch_npc_locations.py` — Associates NPC game IDs with wiki-stated coordinates by parsing versioned id and map fields from Infobox NPC
+24. `fetch_actions.py` — Universal action ingestion from {{Skill table}} templates. One API call per skill expands the table and parses name, level, XP, materials, tools, facilities, and secondary skills. Entity/facility pages are batch-fetched for Infobox NPC/Scenery game IDs, with ops resolved from cache dump definitions. Replaces all individual fetch_*_actions.py scripts and trigger linking scripts. Supports `--skill` to run a single skill.
+25. `fetch_wiki_vars.py` — Scrapes RuneScape:Varplayer/* and RuneScape:Varbit/* wiki pages for descriptions, content links, var class, and value annotations (quest stages, etc.)
+26. `fetch_dialogues.py` — Pulls dialogue trees from Transcript: pages (namespace 120). Parses *-indented wikitext with {{topt}}, {{tcond}}, {{tact}}, {{tbox}}, {{tselect}}, {{qact}} templates into a tree in dialogue_pages + dialogue_nodes. Resolves `-> above`/`-> below`/`-> other` action references into `dialogue_nodes.continue_target_id`.
+27. `fetch_page_categories.py` — Batch-fetches wiki categories for all entity pages (items, quests, monsters, NPCs, locations, equipment, activities, shops, spells) via prop=categories (50 pages/request). Links page titles to `wiki_categories` rows in `page_categories`.
 28. `link_shop_locations.py` — Links shops to locations by matching location text
 29. `link_activity_locations.py` — Links activities to locations by matching location text
 30. `link_ground_item_locations.py` — Links ground items to items (name normalization) and nearest locations (Chebyshev distance)
@@ -183,6 +184,7 @@ All API methods accept a `sqlite3.Connection` so connections can be reused. Per-
 - `CATEGORY.md` — WikiCategory graph traversal (children, parents, ancestors, descendants)
 - `ACTION.md` — Action with inputs, outputs, requirements, triggers
 - `NPC.md` — Non-combat NPC lookup, NpcLocation (game ID to coordinates)
+- `SPELL.md` — CombatSpell, UtilitySpell, TeleportSpell with rune costs and coordinates
 - `DIALOGUE.md` — DialoguePage, DialogueNode (tree traversal, subtree CTE, continue_target_id), DialogueTag (entity tagging), Instruction (flattened per-page IR with passes pipeline), Atom (structured condition predicates via frame-based parser with AC entity normalization)
 - `OBJECT.md` — ObjectLocation (interactive object spawns by game ID and coordinates)
 - `MONSTER.md` — Monster stats, locations, drops, immunities

@@ -648,6 +648,42 @@ class DialogueEntityType(StrEnum):
     ACTIVITY = "activity"
 
 
+class Spellbook(str, Enum):
+    NORMAL = "normal"
+    ANCIENT = "ancient"
+    LUNAR = "lunar"
+    ARCEUUS = "arceuus"
+
+    @classmethod
+    def from_label(cls, label: str) -> "Spellbook":
+        cleaned = label.strip().lower()
+        if cleaned == "standard":
+            return cls.NORMAL
+        for member in cls:
+            if member.value == cleaned:
+                return member
+        raise ValueError(f"Unknown spellbook: {label}")
+
+
+class Element(str, Enum):
+    AIR = "air"
+    WATER = "water"
+    EARTH = "earth"
+    FIRE = "fire"
+    ICE = "ice"
+    SHADOW = "shadow"
+    BLOOD = "blood"
+    SMOKE = "smoke"
+
+    @classmethod
+    def from_label(cls, label: str) -> "Element":
+        cleaned = label.strip().lower()
+        for member in cls:
+            if member.value == cleaned:
+                return member
+        raise ValueError(f"Unknown element: {label}")
+
+
 class InstructionOp(StrEnum):
     SPEAK = "SPEAK"
     BOX = "BOX"
