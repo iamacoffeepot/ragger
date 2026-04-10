@@ -25,6 +25,7 @@ class Skill(int, Enum):
     FIREMAKING = 20
     WOODCUTTING = 21
     FARMING = 22
+    SAILING = 23
 
     @property
     def label(self) -> str:
@@ -63,6 +64,7 @@ SKILL_LABELS: dict["Skill", str] = {
     Skill.FIREMAKING: "Firemaking",
     Skill.WOODCUTTING: "Woodcutting",
     Skill.FARMING: "Farming",
+    Skill.SAILING: "Sailing",
 }
 
 _SKILL_LABEL_LOOKUP: dict[str, Skill] = {v.lower(): k for k, v in SKILL_LABELS.items()}
