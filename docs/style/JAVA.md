@@ -119,6 +119,28 @@ public LuaActor(
 public void send(final ChatMessageType type, final String message) {
 ```
 
+## Switch over chained equals — prefer pattern switch for dispatch
+
+When an if-else chain compares the same value with `.equals()`, use a switch expression/statement instead. Cleaner to read, easier to extend, and the compiler checks for exhaustiveness on sealed types.
+
+```java
+// WRONG — repetitive equals chains
+if ("bridgePort".equals(key)) {
+    restartBridge();
+} else if ("consoleModel".equals(key) || "consoleDevMode".equals(key)) {
+    rebuildConsole();
+} else if ("agentModel".equals(key)) {
+    rebuildAgent();
+}
+
+// RIGHT — switch with grouped cases
+switch (key) {
+    case "bridgePort" -> restartBridge();
+    case "consoleModel", "consoleDevMode" -> rebuildConsole();
+    case "agentModel" -> rebuildAgent();
+}
+```
+
 ## Imports — never inline qualified names
 
 Always use import statements. Never write fully qualified names inline.
