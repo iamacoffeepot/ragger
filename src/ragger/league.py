@@ -179,6 +179,18 @@ class LeagueTask:
 
 
 @dataclass
+class RelicChoice:
+    name: str
+    description: str
+
+
+@dataclass
+class RelicTier:
+    tier: int
+    choices: list[RelicChoice]
+
+
+@dataclass
 class LeagueConfig:
     starting_region: Region
     starting_location: str
@@ -191,6 +203,7 @@ class LeagueConfig:
     xp_multipliers: list[int] = field(default_factory=list)
     drop_multipliers: list[int] = field(default_factory=list)
     minigame_multipliers: list[int] = field(default_factory=list)
+    relics: list[RelicTier] = field(default_factory=list)
 
     @staticmethod
     def from_yaml(path: Path) -> LeagueConfig:
@@ -208,6 +221,17 @@ class LeagueConfig:
                 return raw
             return [raw[k] for k in sorted(raw)]
 
+        relics: list[RelicTier] = []
+        raw_relics = data.get("relics")
+        if raw_relics:
+            for tier_num in sorted(raw_relics):
+                tier_data = raw_relics[tier_num]
+                choices = [
+                    RelicChoice(name=c["name"], description=c["description"].strip())
+                    for c in tier_data["choices"]
+                ]
+                relics.append(RelicTier(tier=tier_num, choices=choices))
+
         return LeagueConfig(
             starting_region=Region.from_label(data["starting-region"]),
             starting_location=data.get("starting-location", ""),
@@ -220,6 +244,7 @@ class LeagueConfig:
             xp_multipliers=_parse_tier_list(data.get("xp-multipliers")),
             drop_multipliers=_parse_tier_list(data.get("drop-multipliers")),
             minigame_multipliers=_parse_tier_list(data.get("minigame-multipliers")),
+            relics=relics,
         )
 
     def completed_quests(self, conn: sqlite3.Connection, resolve_chains: bool = True) -> list[Quest]:

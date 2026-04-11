@@ -65,6 +65,151 @@ minigame-multipliers:
   7: 8
   8: 8
 
+relics:
+  1:
+    choices:
+      - name: Endless Harvest
+        description: >
+          Resources gathered are sent to bank. Endlessly gather from depleted
+          nodes. Fishing, Woodcutting, and Mining resources multiplied by 2x
+          with XP for all additional resources.
+      - name: Barbarian Gathering
+        description: >
+          Grants the knapsack (140 capacity, 3 resource types). Gather with
+          bare hands equivalent to crystal tools, no bait needed. +10%
+          Strength and Agility XP while gathering. 50% chance to succeed on
+          failure.
+      - name: Abundance
+        description: >
+          All non-combat skills permanently boosted by 10. Every XP drop
+          grants an additional 2 XP (affected by league multiplier). Gain
+          2x coins per XP earned.
+
+  2:
+    choices:
+      - name: Hotfoot
+        description: >
+          Grants searing boots. Agility XP while running. Fish auto-cooked,
+          ore auto-smelted. Picking up marks/termites auto-completes the lap.
+          100% success rate on Agility and Cooking. 2x course completions
+          and 25% bonus XP.
+      - name: Friendly Forager
+        description: >
+          Grants forager's pouch. Gathering resources finds random grimy herbs
+          (up to Herblore+25). Acts as silklined herb sack. Herblore: all
+          items processed at once, 90% secondary save chance, potions have
+          4 doses.
+      - name: Woodsman
+        description: >
+          Logs auto-burned for full Firemaking XP. All Fletching processed at
+          once (stackable capped at 10x). 100% Hunter success. Traps attract
+          faster, double loot/XP, drop herb/tree seeds. 2x implings loot
+          (noted). 2x termites, 10x crystal shards.
+
+  3:
+    choices:
+      - name: Bank Heist
+        description: >
+          Grants banker's briefcase. Teleport to any bank, bank chest, or
+          deposit box. Ignores wilderness teleport restrictions.
+      - name: Evil Eye
+        description: >
+          Grants the evil eye. Teleport to any boss or raid entrance in the
+          combat achievements list. Barrows has chest/surface options. Ignores
+          wilderness teleport restrictions.
+      - name: Map of Alacrity
+        description: >
+          Grants the map of alacrity. Teleport to any agility shortcut (sent
+          to the less favourable side). Shortcuts retain their requirements.
+          Ignores wilderness teleport restrictions.
+
+  4:
+    choices:
+      - name: Transmutation
+        description: >
+          Grants the Transmutation ledger (equippable, infinite nature runes).
+          High/Low Alchemy become Alchemic Divergence (upgrade resources) and
+          Alchemic Convergence (downgrade resources). 10 items per cast, 1
+          nature rune, 10 Magic XP each. Auto-recasts on noted items.
+      - name: Conniving Clues
+        description: >
+          Reward caskets give 1/3 chance of clue contracts (teleport to
+          current step). 1/4 chance of same-tier scroll box in caskets.
+          Creature/impling clue rate 1/15. Skilling clue vessels 10x more
+          common. Min steps, max reward rolls. No emote/Falo item reqs.
+      - name: Butler's Bell
+        description: >
+          Grants Butler's bell. Summon a demon butler to gather resources
+          (ores 8/min, fish 14/min, logs 10/min, flax 50/min, herbs 10/min)
+          or process them at half rate. Works offline. Grants 10 XP per
+          resource processed.
+
+  5:
+    choices:
+      - name: Nature's Accord
+        description: >
+          Grants fairy mushroom (teleport to any fairy ring, spirit tree, or
+          tool leprechaun). Autocompletes Tree Gnome Village. Farming patches
+          have no level requirements. 10x yield (noted), plants never die,
+          20% chance to save seeds.
+      - name: Larcenist
+        description: >
+          100% Thieving success. Auto-repickpocket and auto-resteal. Items
+          from pickpocketing and stalls are noted. Stalls never deplete.
+          10x coin pouch capacity. 10x loot from pickpocketing, stalls, and
+          Varlamore house valuables.
+      - name: Soul Harvest
+        description: >
+          Bones and ashes convert to stackable soul shards. Shards replace
+          pure essence for Runecraft. 100 shards can be sacrificed at the
+          Teomat libation bowl for 550 Prayer XP. Gain shards from farming
+          harvests (1 per 4 XP).
+
+  6:
+    choices:
+      - name: Grimoire
+        description: >
+          Grants the arcane grimoire. Freely swap spellbooks. Acts as book
+          of the dead. Unlocks all prayers and spells regardless of area,
+          quest, or diary requirements.
+      - name: Eternal Sustenance
+        description: >
+          Food is no longer consumed when eaten.
+      - name: Culling Spree
+        description: >
+          Choose slayer task from 3 options (1+ boss). Selectable kill count
+          (5-200). Superiors 50% chance to spawn another on death. Superiors
+          drop 1-3 elite clues. Slayer helm(i) effects without wearing.
+          All slayer shop perks free.
+
+  7:
+    choices:
+      - name: Flow State
+        description: >
+          Mining, Woodcutting, Fishing, Cooking, Firemaking, bone offering,
+          Fletching, Smelting, Crafting, Farming, Magic, and minigame
+          interactions (Wintertodt, Tempoross, stealing valuables) all occur
+          at 2-tick (1.2s) speed. Stacks with fletching knife and diabolic
+          worms.
+      - name: Reloaded
+        description: >
+          Choose another relic from any tier below this one.
+
+  8:
+    choices:
+      - name: Minion
+        description: >
+          Grants minion whistle. Summon a combat minion for 30 minutes.
+          Stats: 3-10 hit, 1.8 speed, 45k accuracy. AoE in multi-combat.
+          Consume up to 5 Zamorak items for +2 max hit each. Auto-loots
+          kills with configurable value threshold.
+      - name: Flask of Fervour
+        description: >
+          Grants flask of fervour. Fully restores HP, prayer, and special
+          attack. 3 explosions over 2.4s dealing 60% Prayer level damage
+          (30% PvP) to nearby enemies. Damage immunity during effect.
+          3-minute cooldown, reduced by 0.6s per 10 damage dealt.
+
 autocompleted-quests:
   - Dragon Slayer I
   - Learning the Ropes
