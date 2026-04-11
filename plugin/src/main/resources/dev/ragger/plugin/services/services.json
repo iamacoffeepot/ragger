@@ -5,6 +5,7 @@
     { "name": "timers", "template": "timer" },
     { "name": "loot",   "template": "loot-tracker" },
     { "name": "stats",  "template": "stat-monitor" },
-    { "name": "radar", "template": "radar" }
+    { "name": "radar", "template": "radar" },
+    { "name": "pathfinder", "template": "pathfinder" }
   ]
 }

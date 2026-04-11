@@ -42,6 +42,7 @@ The plugin starts managed services automatically on login. These run under the `
 | **loot** | `svc/loot` | `{action="start"}`, `{action="stop"}`, `{action="report"}` (replies with loot/total), `{action="reset"}` |
 | **stats** | `svc/stats` | `{action="watch", skill="mining"}`, `{action="unwatch", skill="mining"}`, `{action="clear"}`, `{action="report"}` (replies with gains) |
 | **radar** | `svc/radar` | `{action="report"}` (replies with npcs/players/items), `{action="report", filter="npcs"}` (filter: `"npcs"`, `"players"`, or `"items"`) |
+| **pathfinder** | `svc/pathfinder` | `{action="navigate", destination="Place Name"}` — computes cross-region route via claude:agent and renders waypoints. `{action="stop"}` clears route. `{action="status"}` replies with progress. Agent replies with `{action="route", requester="actor", legs={{dst_x, dst_y, type, instruction}, ...}}`. |
 
 Prefer sending mail to these services over writing new actors when the task fits. For example, "highlight goblins in red" → send one mail to `svc/npcs`. "Set a 5 minute herb timer" → send one mail to `svc/timers`.
 
