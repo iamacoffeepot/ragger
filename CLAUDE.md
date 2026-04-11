@@ -168,7 +168,7 @@ Language-specific style rules in `docs/style/`:
 
 ## Python API
 
-All API methods accept a `sqlite3.Connection` so connections can be reused. Per-module API docs in `docs/api/`:
+All API methods accept a `sqlite3.Connection` so connections can be reused. Per-module API docs in `docs/python/`:
 
 - `QUEST.md` — Quest with rewards, requirements, requirement chains
 - `ITEM.md` — Item lookup by name, game ID, search

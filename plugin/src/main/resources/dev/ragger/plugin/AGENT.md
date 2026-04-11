@@ -31,7 +31,7 @@ print(item)
 "
 ```
 
-Always execute code via Bash — do not just describe what the code would return. The API modules and their methods are documented in `docs/api/`.
+Always execute code via Bash — do not just describe what the code would return. The API modules and their methods are documented in `docs/python/`.
 
 ## Guidelines
 
