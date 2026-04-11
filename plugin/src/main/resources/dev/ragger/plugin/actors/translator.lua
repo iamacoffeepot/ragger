@@ -249,65 +249,12 @@ local function check_roots()
 end
 
 local function parse_translations(data)
-    -- Direct table result with batch_id and translations
-    if type(data.result) == "table" then
-        if data.result.batch_id and data.result.translations then
-            return data.result.batch_id, data.result.translations
-        end
-        if data.result[1] ~= nil and type(data.result[1]) == "string" then
-            return nil, data.result
-        end
+    if data.batch_id and data.translations and type(data.translations) == "table" then
+        return data.batch_id, data.translations
     end
-
-    -- Parse from text/string result
-    local text = data.text
-    if not text and type(data.result) == "string" then
-        text = data.result
+    if not data.batch_id and type(data[1]) == "string" then
+        return nil, data
     end
-    if not text then return nil, nil end
-
-    -- Try parsing a JSON object with batch_id and translations
-    local obj_start = text:find("{")
-    if obj_start then
-        local depth = 0
-        local obj_end = nil
-        for i = obj_start, #text do
-            local c = text:sub(i, i)
-            if c == "{" then depth = depth + 1
-            elseif c == "}" then
-                depth = depth - 1
-                if depth == 0 then obj_end = i; break end
-            end
-        end
-        if obj_end then
-            local ok, result = pcall(json.decode, text:sub(obj_start, obj_end))
-            if ok and type(result) == "table" and result.batch_id and result.translations then
-                return result.batch_id, result.translations
-            end
-        end
-    end
-
-    -- Fallback: bare JSON array (no batch_id)
-    local depth = 0
-    local arr_start = nil
-    local arr_end = nil
-    for i = 1, #text do
-        local c = text:sub(i, i)
-        if c == "[" then
-            if depth == 0 then arr_start = i end
-            depth = depth + 1
-        elseif c == "]" then
-            depth = depth - 1
-            if depth == 0 then arr_end = i; break end
-        end
-    end
-    if arr_start and arr_end then
-        local ok, result = pcall(json.decode, text:sub(arr_start, arr_end))
-        if ok and type(result) == "table" then
-            return nil, result
-        end
-    end
-
     return nil, nil
 end
 
