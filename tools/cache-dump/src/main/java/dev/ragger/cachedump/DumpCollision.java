@@ -9,6 +9,8 @@ import net.runelite.cache.region.Region;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -147,13 +149,14 @@ public class DumpCollision {
             // Types 4-8 (wall decorations): no collision
         }
 
-        // Step 3: render to image
+        // Step 3: render to image — encode raw flags as pixel values
+        // Each pixel's RGB channels store the collision flags directly.
+        // Alpha is always 0xFF. Flags value is stored in the low 24 bits.
+        // Python reads with: flags = pixel & 0xFFFFFF
         BufferedImage img = new BufferedImage(REGION_SIZE, REGION_SIZE, BufferedImage.TYPE_INT_ARGB);
         for (int x = 0; x < REGION_SIZE; x++) {
             for (int y = 0; y < REGION_SIZE; y++) {
-                boolean blocked = (flags[x][y] & BLOCK_FULL) != 0
-                    || (flags[x][y] & (BLOCK_W | BLOCK_N | BLOCK_E | BLOCK_S)) == (BLOCK_W | BLOCK_N | BLOCK_E | BLOCK_S);
-                img.setRGB(x, REGION_SIZE - 1 - y, blocked ? 0xFFFF0000 : 0xFFFFFFFF);
+                img.setRGB(x, REGION_SIZE - 1 - y, 0xFF000000 | flags[x][y]);
             }
         }
 

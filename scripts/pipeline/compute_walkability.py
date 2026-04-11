@@ -26,9 +26,30 @@ DEFAULT_AREA_THRESHOLD = 0.6  # proportion of cell walkable area reachable from 
 DEFAULT_EDGE_SAMPLES = 40  # sample points along the shared Voronoi edge
 
 
-COLLISION_BLOCKED = (255, 0, 0)  # 0xFF0000 — red pixel in collision tiles
-COLLISION_WALKABLE = (255, 255, 255)  # 0xFFFFFF — white pixel in collision tiles
 WATER_BLUE = (0, 102, 204)  # 0x0066CC — blue pixel in water tiles
+
+# Collision flags encoded in pixel values (must match DumpCollision.java)
+BLOCK_W = 0x1
+BLOCK_N = 0x2
+BLOCK_E = 0x4
+BLOCK_S = 0x8
+BLOCK_FULL = 0x10
+
+# Direction table: (dx, dy, flag on source blocking this direction)
+# Cardinals
+_DIRS_CARDINAL = [
+    (0, 1, BLOCK_N),   # north
+    (0, -1, BLOCK_S),  # south
+    (1, 0, BLOCK_E),   # east
+    (-1, 0, BLOCK_W),  # west
+]
+# Diagonals: (dx, dy, horizontal cardinal flag, vertical cardinal flag)
+_DIRS_DIAGONAL = [
+    (1, 1, BLOCK_E, BLOCK_N),    # NE
+    (-1, 1, BLOCK_W, BLOCK_N),   # NW
+    (1, -1, BLOCK_E, BLOCK_S),   # SE
+    (-1, -1, BLOCK_W, BLOCK_S),  # SW
+]
 
 
 def load_layers(conn) -> tuple[np.ndarray, np.ndarray, np.ndarray, int, int, int, int]:
@@ -56,42 +77,132 @@ def load_layers(conn) -> tuple[np.ndarray, np.ndarray, np.ndarray, int, int, int
     return collision, water, color, x_min, x_max, y_min, y_max
 
 
-def make_blocked_checker(collision: np.ndarray, water: np.ndarray, x_min: int, x_max: int, y_min: int, y_max: int):
-    """Return a function that checks if a game coordinate is blocked.
+def build_flags_grid(collision: np.ndarray, water: np.ndarray, x_min: int, x_max: int, y_min: int, y_max: int) -> np.ndarray:
+    """Build a 2D array of collision flags from the stitched collision and water images.
 
-    Uses collision map (red = blocked) and water map (blue = water) directly.
-    No heuristics — exact color matching against known constants.
+    Collision pixels encode raw directional flags in their RGB channels.
+    Water pixels add BLOCK_FULL where blue.
+    Returns an int32 array indexed as flags_grid[py, px] where
+    px = gx - x_min, py = y_max - 1 - gy.
     """
     height, width = collision.shape[:2]
+
+    # Decode flags from pixel RGB: flags = R | (G << 8) | (B << 16)
+    flags_grid = (
+        collision[:, :, 0].astype(np.int32)
+        | (collision[:, :, 1].astype(np.int32) << 8)
+        | (collision[:, :, 2].astype(np.int32) << 16)
+    )
+
+    # Mark water tiles as fully blocked
+    water_mask = (
+        (water[:, :, 0] == WATER_BLUE[0])
+        & (water[:, :, 1] == WATER_BLUE[1])
+        & (water[:, :, 2] == WATER_BLUE[2])
+    )
+    flags_grid[water_mask] |= BLOCK_FULL
+
+    # Mark void tiles (where collision pixel is all zero = no data) as fully blocked
+    void_mask = (collision[:, :, 0] == 0) & (collision[:, :, 1] == 0) & (collision[:, :, 2] == 0)
+    flags_grid[void_mask] |= BLOCK_FULL
+
+    return flags_grid
+
+
+def make_blocked_checker(flags_grid: np.ndarray, x_min: int, x_max: int, y_min: int, y_max: int):
+    """Return a function that checks if a game coordinate is fully blocked.
+
+    Used for the simple blocked grid in flood_fill_check. For directional
+    checks, use can_move() with the flags grid directly.
+    """
+    height, width = flags_grid.shape
 
     def is_blocked(gx: float, gy: float) -> bool:
         px = int(gx - x_min)
         py = int(y_max - 1 - gy)
         if px < 0 or py < 0 or px >= width or py >= height:
             return True
-        cr, cg, cb = int(collision[py, px, 0]), int(collision[py, px, 1]), int(collision[py, px, 2])
-        # Exact red = blocked
-        if (cr, cg, cb) == COLLISION_BLOCKED:
-            return True
-        # Not exact white = no data / void
-        if (cr, cg, cb) != COLLISION_WALKABLE:
-            return True
-        # Exact blue in water map = water
-        wr, wg, wb = int(water[py, px, 0]), int(water[py, px, 1]), int(water[py, px, 2])
-        if (wr, wg, wb) == WATER_BLUE:
-            return True
-        return False
+        return (flags_grid[py, px] & BLOCK_FULL) != 0
 
     return is_blocked
 
 
+def _can_move(flags_grid: np.ndarray, cy: int, cx: int, dy: int, dx: int, gh: int, gw: int) -> bool:
+    """Check if movement from (cy, cx) in direction (dy, dx) is allowed.
+
+    Note: the flags grid is indexed as [py, px] where py increases upward in
+    game coords but downward in array coords. dy in array coords is inverted
+    from game coords: array dy=-1 means game north, dy=+1 means game south.
+
+    Game direction mapping (array coords):
+      dy=-1 (up in array = north in game) -> BLOCK_N
+      dy=+1 (down in array = south in game) -> BLOCK_S
+      dx=+1 (right = east) -> BLOCK_E
+      dx=-1 (left = west) -> BLOCK_W
+    """
+    ny, nx = cy + dy, cx + dx
+    if ny < 0 or ny >= gh or nx < 0 or nx >= gw:
+        return False
+
+    src = int(flags_grid[cy, cx])
+    dst = int(flags_grid[ny, nx])
+
+    # Destination fully blocked
+    if dst & BLOCK_FULL:
+        return False
+
+    # Cardinal movement
+    if dx == 0 or dy == 0:
+        # Map array direction to game direction flag on source
+        if dy == -1:
+            return not (src & BLOCK_N)
+        elif dy == 1:
+            return not (src & BLOCK_S)
+        elif dx == 1:
+            return not (src & BLOCK_E)
+        elif dx == -1:
+            return not (src & BLOCK_W)
+
+    # Diagonal movement — check both cardinal components on source
+    h_flag = BLOCK_E if dx == 1 else BLOCK_W
+    v_flag = BLOCK_N if dy == -1 else BLOCK_S
+
+    # Source must not block the diagonal's cardinal components
+    if src & h_flag or src & v_flag:
+        return False
+
+    # Intermediate cardinal tiles must be passable
+    hx_y, hx_x = cy, cx + dx  # horizontal step
+    vy_y, vy_x = cy + dy, cx  # vertical step
+
+    if 0 <= hx_y < gh and 0 <= hx_x < gw:
+        h_tile = int(flags_grid[hx_y, hx_x])
+        if h_tile & BLOCK_FULL:
+            return False
+        if h_tile & v_flag:
+            return False
+    else:
+        return False
+
+    if 0 <= vy_y < gh and 0 <= vy_x < gw:
+        v_tile = int(flags_grid[vy_y, vy_x])
+        if v_tile & BLOCK_FULL:
+            return False
+        if v_tile & h_flag:
+            return False
+    else:
+        return False
+
+    return True
+
+
 def _flood_count(
     seeds: set[tuple[int, int]],
-    blocked: np.ndarray,
+    flags_local: np.ndarray,
     cell_mask: np.ndarray,
     gh: int, gw: int,
 ) -> int:
-    """BFS from seeds, constrained to cell_mask, return number of pixels reached."""
+    """BFS from seeds using directional collision checks, constrained to cell_mask."""
     visited = np.zeros((gh, gw), dtype=bool)
     queue = deque()
     count = 0
@@ -102,12 +213,17 @@ def _flood_count(
             count += 1
     while queue:
         cy, cx = queue.popleft()
-        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            ny, nx = cy + dy, cx + dx
-            if 0 <= ny < gh and 0 <= nx < gw and not visited[ny, nx] and not blocked[ny, nx] and cell_mask[ny, nx]:
-                visited[ny, nx] = True
-                queue.append((ny, nx))
-                count += 1
+        # 8-directional movement
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if dy == 0 and dx == 0:
+                    continue
+                ny, nx = cy + dy, cx + dx
+                if 0 <= ny < gh and 0 <= nx < gw and not visited[ny, nx] and cell_mask[ny, nx]:
+                    if _can_move(flags_local, cy, cx, dy, dx, gh, gw):
+                        visited[ny, nx] = True
+                        queue.append((ny, nx))
+                        count += 1
     return count
 
 
@@ -118,7 +234,9 @@ def flood_fill_check(
     v0: np.ndarray,
     v1: np.ndarray,
     tree: KDTree,
-    is_blocked,
+    flags_grid: np.ndarray,
+    x_min: int,
+    y_max: int,
     resolution: int,
     edge_samples: int,
     area_threshold: float,
@@ -126,11 +244,13 @@ def flood_fill_check(
     """Check if two Voronoi neighbors are walkable via edge flood fill.
 
     Samples points along the shared Voronoi edge, flood fills from walkable
-    edge samples into each cell, and checks if the flood reaches a significant
-    proportion of each cell's walkable area.
+    edge samples into each cell using directional collision checks, and
+    verifies that the flood reaches a significant proportion of each cell's
+    walkable area.
     """
     a = points[idx_a]
     b = points[idx_b]
+    full_h, full_w = flags_grid.shape
 
     # Bounding box covering both cells and the edge
     pad = max(abs(a[0] - b[0]), abs(a[1] - b[1])) * 0.5 + 50
@@ -157,19 +277,23 @@ def flood_fill_check(
     mask_a = owners == idx_a
     mask_b = owners == idx_b
 
-    # Blocked grid (only check pixels in our two cells)
-    blocked_grid = np.ones((gh, gw), dtype=bool)
+    # Build local flags grid from the global one
+    flags_local = np.full((gh, gw), BLOCK_FULL, dtype=np.int32)
     for gy in range(gh):
         for gx in range(gw):
             if mask_a[gy, gx] or mask_b[gy, gx]:
                 game_x = bx_min + gx * resolution
                 game_y = by_min + gy * resolution
-                if not is_blocked(game_x, game_y):
-                    blocked_grid[gy, gx] = False
+                fpx = game_x - x_min
+                fpy = y_max - 1 - game_y
+                if 0 <= fpx < full_w and 0 <= fpy < full_h:
+                    flags_local[gy, gx] = flags_grid[fpy, fpx]
+                # else: stays BLOCK_FULL (out of bounds)
 
-    # Total walkable pixels in each cell
-    walkable_a = int(np.sum(mask_a & ~blocked_grid))
-    walkable_b = int(np.sum(mask_b & ~blocked_grid))
+    # Total walkable pixels in each cell (not fully blocked)
+    not_blocked = (flags_local & BLOCK_FULL) == 0
+    walkable_a = int(np.sum(mask_a & not_blocked))
+    walkable_b = int(np.sum(mask_b & not_blocked))
     if walkable_a == 0 or walkable_b == 0:
         return False
 
@@ -185,7 +309,7 @@ def flood_fill_check(
         for dy in range(-2, 3):
             for dx in range(-2, 3):
                 ny, nx = gy + dy, gx + dx
-                if 0 <= ny < gh and 0 <= nx < gw and not blocked_grid[ny, nx]:
+                if 0 <= ny < gh and 0 <= nx < gw and not (flags_local[ny, nx] & BLOCK_FULL):
                     if mask_a[ny, nx]:
                         seeds_a.add((ny, nx))
                     elif mask_b[ny, nx]:
@@ -195,8 +319,8 @@ def flood_fill_check(
         return False
 
     # Flood fill from edge into each cell, measure reachable area
-    reached_a = _flood_count(seeds_a, blocked_grid, mask_a, gh, gw)
-    reached_b = _flood_count(seeds_b, blocked_grid, mask_b, gh, gw)
+    reached_a = _flood_count(seeds_a, flags_local, mask_a, gh, gw)
+    reached_b = _flood_count(seeds_b, flags_local, mask_b, gh, gw)
 
     ratio_a = reached_a / walkable_a
     ratio_b = reached_b / walkable_b
@@ -262,7 +386,7 @@ def ingest(db_path: Path, resolution: int, area_threshold: float, edge_samples: 
 
     print("Loading map layers from database...")
     collision, water, color, x_min, x_max, y_min, y_max = load_layers(conn)
-    is_blocked = make_blocked_checker(collision, water, x_min, x_max, y_min, y_max)
+    flags_grid = build_flags_grid(collision, water, x_min, x_max, y_min, y_max)
     print(f"Collision: {collision.shape[1]}x{collision.shape[0]} px, game coords {x_min}-{x_max} x {y_min}-{y_max}")
 
     for world_name, y_op, y_threshold in [("overworld", "<", 5000), ("underworld", ">=", 5000)]:
@@ -301,7 +425,7 @@ def ingest(db_path: Path, resolution: int, area_threshold: float, edge_samples: 
 
             is_walkable = flood_fill_check(
                 points, pt_indices[0], pt_indices[1],
-                v0, v1, tree, is_blocked,
+                v0, v1, tree, flags_grid, x_min, y_max,
                 resolution, edge_samples, area_threshold,
             )
 
