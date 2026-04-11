@@ -7,6 +7,7 @@ import dev.ragger.plugin.scripting.ActorManager;
 import dev.ragger.plugin.scripting.ActorOverlay;
 import dev.ragger.plugin.scripting.LuaEvent;
 import dev.ragger.plugin.scripting.MinimapOverlay;
+import dev.ragger.plugin.scripting.ActorTemplateLoader;
 import dev.ragger.plugin.scripting.ServiceManager;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
@@ -106,6 +107,7 @@ public class RaggerPlugin extends Plugin {
     private NavigationButton navButton;
     private ActorManager actorManager;
     private ServiceManager serviceManager;
+    private ActorTemplateLoader templateLoader;
     private ActorOverlay actorOverlay;
     private MinimapOverlay minimapOverlay;
     private ConsoleOverlay consoleOverlay;
@@ -126,6 +128,8 @@ public class RaggerPlugin extends Plugin {
         actorManager = new ActorManager(client, chatMessageManager, itemManager, worldMapPointManager);
         actorManager.setLimits(config.actorMaxDepth(), config.actorMaxChildren());
         serviceManager = new ServiceManager(actorManager);
+        templateLoader = new ActorTemplateLoader(actorManager);
+        templateLoader.load();
         actorOverlay = new ActorOverlay(actorManager);
         minimapOverlay = new MinimapOverlay(actorManager);
         overlayManager.add(actorOverlay);
