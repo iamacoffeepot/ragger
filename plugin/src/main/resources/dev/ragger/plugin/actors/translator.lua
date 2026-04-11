@@ -142,6 +142,7 @@ local function process_widget(k, queue_new)
         id = k.id,
         index = k.index,
         width = k.width,
+        height = k.height,
         font_id = k.font_id
     }
 
@@ -206,7 +207,7 @@ local function send_batch()
     info("Translating " .. #order .. " texts (batch " .. bid .. ")...")
 
     mail:send("claude:agent", {
-        question = "Translate these texts to " .. language .. ". Return ONLY a JSON object: {\"batch_id\":" .. bid .. ",\"translations\":[...]} where translations is an array of translated strings in the same order. Preserve any <col=hex> or <br> tags exactly. Do not add extra tags. Texts:\n" .. json.encode(order)
+        question = "Translate these texts to " .. language .. ". Return ONLY a JSON object: {\"batch_id\":" .. bid .. ",\"translations\":[...]} where translations is an array of translated strings in the same order. Preserve any <col=hex> or <br> tags and escape sequences (\\n, \\r, etc.) exactly as they appear. Do not add extra tags. Texts:\n" .. json.encode(order)
     })
 
     batch = {}
@@ -307,8 +308,10 @@ return {
             if not ref then goto continue end
 
             local text_to_apply
-            if ref.width and ref.width > 0 then
-                text_to_apply = text:fit(translated, ref.font_id or 495, ref.width)
+            local font = ref.font_id or 495
+            local multiline = translated:find("<br>") or (ref.height and ref.height >= 2 * text:height(font))
+            if ref.width and ref.width > 0 and not multiline then
+                text_to_apply = text:fit(translated, font, ref.width)
             else
                 text_to_apply = translated
             end
@@ -329,14 +332,38 @@ return {
                     if current and cache[current] then
                         originals[key] = current
                         widget_refs[key] = ref
-                        local refit = text:fit(cache[current], ref.font_id or 495, ref.width)
+                        local cached = cache[current]
+                        local rfont = ref.font_id or 495
+                        local rmulti = cached:find("<br>") or (ref.height and ref.height >= 2 * text:height(rfont))
+                        local refit = rmulti and cached or text:fit(cached, rfont, ref.width)
                         widget:set_text(ref.id, refit, ref.index)
                         applied[key] = refit
                     end
                 end
             else
-                set_widget_text(ref, text_to_apply)
-                applied[key] = text_to_apply
+                local w = widget:component(ref.id)
+                if not w then goto continue end
+                local current = w.text
+                if current == text_to_apply then
+                    applied[key] = text_to_apply
+                elseif current == orig then
+                    set_widget_text(ref, text_to_apply)
+                    applied[key] = text_to_apply
+                else
+                    originals[key] = nil
+                    applied[key] = nil
+                    widget_refs[key] = nil
+                    if current and cache[current] then
+                        originals[key] = current
+                        widget_refs[key] = ref
+                        local cached = cache[current]
+                        local rfont = ref.font_id or 495
+                        local rmulti = cached:find("<br>") or (ref.height and ref.height >= 2 * text:height(rfont))
+                        local refit = rmulti and cached or text:fit(cached, rfont, ref.width)
+                        set_widget_text(ref, refit)
+                        applied[key] = refit
+                    end
+                end
             end
             ::continue::
         end
