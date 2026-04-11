@@ -24,7 +24,6 @@ local sent_order = {}
 local batch = {}
 local widget_refs = {}
 local known_groups = {}
-local fitted = {}
 
 local PREFIX = "[translator]"
 local MIN_LEN = 4
@@ -43,33 +42,6 @@ local function dbg(msg)
     if DEBUG then
         chat:game(PREFIX .. " " .. msg)
     end
-end
-
-local TRANSLIT_PATTERNS = {
-    {"\195\160", "a"}, {"\195\161", "a"}, {"\195\162", "a"}, {"\195\163", "a"}, {"\195\164", "a"}, {"\195\165", "a"},
-    {"\195\168", "e"}, {"\195\169", "e"}, {"\195\170", "e"}, {"\195\171", "e"},
-    {"\195\172", "i"}, {"\195\173", "i"}, {"\195\174", "i"}, {"\195\175", "i"},
-    {"\195\178", "o"}, {"\195\179", "o"}, {"\195\180", "o"}, {"\195\181", "o"}, {"\195\182", "o"},
-    {"\195\185", "u"}, {"\195\186", "u"}, {"\195\187", "u"}, {"\195\188", "u"},
-    {"\195\177", "n"}, {"\195\167", "c"}, {"\195\189", "y"}, {"\195\191", "y"},
-    {"\195\128", "A"}, {"\195\129", "A"}, {"\195\130", "A"}, {"\195\131", "A"}, {"\195\132", "A"}, {"\195\133", "A"},
-    {"\195\136", "E"}, {"\195\137", "E"}, {"\195\138", "E"}, {"\195\139", "E"},
-    {"\195\140", "I"}, {"\195\141", "I"}, {"\195\142", "I"}, {"\195\143", "I"},
-    {"\195\146", "O"}, {"\195\147", "O"}, {"\195\148", "O"}, {"\195\149", "O"}, {"\195\150", "O"},
-    {"\195\153", "U"}, {"\195\154", "U"}, {"\195\155", "U"}, {"\195\156", "U"},
-    {"\195\145", "N"}, {"\195\135", "C"}, {"\195\157", "Y"},
-    {"\197\147", "oe"}, {"\197\146", "OE"},
-    {"\195\166", "ae"}, {"\195\134", "AE"},
-    {"\195\159", "ss"},
-}
-
-local function transliterate(text)
-    local result = text
-    for _, pair in ipairs(TRANSLIT_PATTERNS) do
-        result = result:gsub(pair[1], pair[2])
-    end
-    result = result:gsub("[\128-\255]+", "?")
-    return result
 end
 
 local function widget_key(k)
@@ -295,13 +267,6 @@ local function parse_translations(data)
     return nil
 end
 
-local FONTS = {
-    [494] = {"RuneScape Small", "plain", 11},
-    [495] = {"RuneScape", "plain", 14},
-    [496] = {"RuneScape Bold", "bold", 14},
-    [497] = {"RuneScape Large", "plain", 20},
-}
-
 return {
     on_start = function()
         chat:game(PREFIX .. " Active - language: " .. language .. (DEBUG and " [DEBUG]" or ""))
@@ -312,73 +277,6 @@ return {
             end
         end
         full_scan()
-    end,
-
-    on_render = function(g)
-        for key, orig in pairs(originals) do
-            local translated = cache[orig]
-            if not translated then goto continue end
-
-            local ref = widget_refs[key]
-            if not ref or not ref.width or ref.width <= 0 then goto continue end
-
-            local w = ref.width
-            local f = ref.font_id or 495
-            local fit_key = orig .. "|" .. w .. "|" .. f
-
-            if fitted[fit_key] ~= nil then goto continue end
-
-            local font = FONTS[f] or FONTS[495]
-            g:font(font[1], font[2], font[3])
-            local plain = translated:gsub("<[^>]+>", "")
-            local tw = g:text_width(plain)
-
-            if tw <= w then
-                fitted[fit_key] = translated
-            else
-                local dots_w = g:text_width("...")
-                local target = w - dots_w
-                if target <= 0 then
-                    fitted[fit_key] = "..."
-                else
-                    local lo, hi = 1, #plain
-                    while lo < hi do
-                        local mid = math.floor((lo + hi + 1) / 2)
-                        if g:text_width(plain:sub(1, mid)) <= target then
-                            lo = mid
-                        else
-                            hi = mid - 1
-                        end
-                    end
-
-                    local count = 0
-                    local cut_pos = #translated
-                    for i = 1, #translated do
-                        local c = translated:sub(i, i)
-                        if c == "<" then
-                            local tag_end = translated:find(">", i)
-                            if tag_end then end
-                        elseif count < lo then
-                            local in_tag = false
-                            for j = i, 1, -1 do
-                                local ch = translated:sub(j, j)
-                                if ch == ">" then break end
-                                if ch == "<" then in_tag = true; break end
-                            end
-                            if not in_tag then
-                                count = count + 1
-                            end
-                            if count >= lo then
-                                cut_pos = i
-                                break
-                            end
-                        end
-                    end
-                    fitted[fit_key] = translated:sub(1, cut_pos) .. "..."
-                end
-            end
-            ::continue::
-        end
     end,
 
     on_frame = function()
@@ -412,13 +310,8 @@ return {
             if not ref then goto continue end
 
             local text_to_apply
-            local w = ref.width
-            local f = ref.font_id or 495
-
-            if w and w > 0 then
-                local fit_key = orig .. "|" .. w .. "|" .. f
-                text_to_apply = fitted[fit_key]
-                if not text_to_apply then goto continue end
+            if ref.width and ref.width > 0 then
+                text_to_apply = text:fit(translated, ref.font_id or 495, ref.width)
             else
                 text_to_apply = translated
             end
@@ -439,12 +332,9 @@ return {
                     if current and cache[current] then
                         originals[key] = current
                         widget_refs[key] = ref
-                        local refit_key = current .. "|" .. w .. "|" .. f
-                        local refit = fitted[refit_key]
-                        if refit then
-                            widget:set_text(ref.id, refit, ref.index)
-                            applied[key] = refit
-                        end
+                        local refit = text:fit(cache[current], ref.font_id or 495, ref.width)
+                        widget:set_text(ref.id, refit, ref.index)
+                        applied[key] = refit
                     end
                 end
             else
@@ -493,7 +383,6 @@ return {
             batch_in_flight = false
             batch_started_frame = 0
             widget_refs = {}
-            fitted = {}
             needs_full_scan = true
             chat:game(PREFIX .. " Language changed to: " .. language)
             return
@@ -506,7 +395,7 @@ return {
             for i = 1, math.min(#translations, #sent_order) do
                 local orig = sent_order[i]
                 if orig and translations[i] and type(translations[i]) == "string" then
-                    local clean = transliterate(translations[i])
+                    local clean = text:ascii(translations[i])
                     cache[orig] = clean
                     reverse[clean] = orig
                     pending[orig] = nil
