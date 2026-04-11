@@ -133,4 +133,15 @@ public interface RaggerConfig extends Config {
     default String agentExtraTools() {
         return "";
     }
+
+    @ConfigItem(
+        keyName = "agentMaxRequests",
+        name = "Agent Max Requests",
+        description = "Restart agent after this many responses to keep context fresh (0 = never)",
+        position = 24,
+        section = "agent"
+    )
+    default int agentMaxRequests() {
+        return 5;
+    }
 }

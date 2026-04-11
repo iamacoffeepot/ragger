@@ -23,9 +23,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Lightweight HTTP server bridging MCP tools to the RuneLite client thread.
@@ -52,6 +54,7 @@ public class BridgeServer {
     private final ConcurrentLinkedQueue<PendingRequest> pendingRequests = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<PendingRun> pendingRuns = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<PendingMailRecv> pendingMailRecvs = new ConcurrentLinkedQueue<>();
+    private final ConcurrentHashMap<String, AtomicInteger> channelResponseCounts = new ConcurrentHashMap<>();
 
     private HttpServer server;
 
@@ -62,6 +65,18 @@ public class BridgeServer {
 
     public String getToken() {
         return token;
+    }
+
+    /**
+     * Returns and resets the response count for a channel.
+     * Used to track agent activity for auto-reset.
+     */
+    public int getAndResetResponseCount(final String channel) {
+        final AtomicInteger counter = channelResponseCounts.get(channel);
+        if (counter == null) {
+            return 0;
+        }
+        return counter.getAndSet(0);
     }
 
     public void start(final int port) throws IOException {
@@ -560,6 +575,9 @@ public class BridgeServer {
             final String channel = params.getOrDefault("channel", "console");
             final String sender = "claude:" + channel;
             final JsonElement parsed = new JsonParser().parse(body);
+
+            channelResponseCounts.computeIfAbsent(channel, k -> new AtomicInteger())
+                .incrementAndGet();
 
             // Batch mode: array of {target, data} messages
             if (parsed.isJsonArray()) {

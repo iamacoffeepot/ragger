@@ -123,6 +123,7 @@ public class RaggerPlugin extends Plugin {
     private final int[] prevInventoryIds = new int[28];
     private final int[] prevInventoryQtys = new int[28];
     private int prevWorld = -1;
+    private int agentResponseCount;
 
     @Override
     protected void startUp() {
@@ -263,6 +264,28 @@ public class RaggerPlugin extends Plugin {
         diffInventory();
         actorManager.markGameTick();
         serviceManager.tick();
+        checkAgentReset();
+    }
+
+    private void checkAgentReset() {
+        final int maxRequests = config.agentMaxRequests();
+        if (maxRequests <= 0 || agentClaude == null) {
+            return;
+        }
+
+        agentResponseCount += bridgeServer.getAndResetResponseCount("agent");
+        if (agentResponseCount < maxRequests) {
+            return;
+        }
+
+        if (actorManager.countClaudeMailbox("agent", null) > 0) {
+            return;
+        }
+
+        log.info("Agent reached {} responses, restarting with fresh session", agentResponseCount);
+        agentResponseCount = 0;
+        stopAgent();
+        startAgent();
     }
 
     /**
