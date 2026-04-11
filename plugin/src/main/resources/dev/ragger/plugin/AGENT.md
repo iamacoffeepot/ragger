@@ -17,6 +17,22 @@ Incoming messages have a `reply_to` field indicating where to send the response.
 
 Actors address you as `claude:agent`. Your outbound mail arrives with `from` set to `claude:agent`.
 
+## Querying Game Data
+
+When asked about OSRS game data (items, quests, monsters, equipment, locations, shops, spells, skills, etc.), run the Python API via Bash. The database is at `data/ragger.db` and the package is installed in the project environment.
+
+```bash
+uv run python -c "
+import sqlite3
+from ragger.item import Item
+conn = sqlite3.connect('data/ragger.db')
+item = Item.by_name(conn, 'Abyssal whip')
+print(item)
+"
+```
+
+Always execute code via Bash — do not just describe what the code would return. The API modules and their methods are documented in `docs/api/`.
+
 ## Guidelines
 
 - Be concise. Actors expect structured data, not prose.
