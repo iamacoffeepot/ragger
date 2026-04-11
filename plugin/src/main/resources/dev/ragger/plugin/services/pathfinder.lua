@@ -15,13 +15,33 @@ local legs = {}
 local leg_idx = 0
 local requester = nil
 local pending = false
+local trail = {}
 local ARRIVE_DIST = 5
+local TRAIL_REFRESH = 10
+local trail_tick = 0
 
 local function clear()
     legs = {}
     leg_idx = 0
     requester = nil
     pending = false
+    trail = {}
+    trail_tick = 0
+end
+
+local function recompute_trail()
+    trail = {}
+    local leg = nil
+    if leg_idx >= 1 and leg_idx <= #legs then
+        leg = legs[leg_idx]
+    end
+    if not leg then return end
+    local px = player:x()
+    local py = player:y()
+    local path = pathfinding:find_path_toward(px, py, leg.dst_x, leg.dst_y)
+    if path then
+        trail = path
+    end
 end
 
 local function current_leg()
@@ -56,16 +76,23 @@ return {
             local px = player:x()
             local py = player:y()
             mail:send("claude:agent", {
-                question = "Find a path from coordinates ("
-                    .. px .. ", " .. py
-                    .. ") to " .. data.destination
-                    .. ". Reply by mailing svc/pathfinder with: "
-                    .. "{action=\"route\", requester=\"" .. from .. "\", "
-                    .. "legs={{dst_x=N, dst_y=N, type=\"TYPE\", instruction=\"text\"}, ...}}. "
-                    .. "Each leg needs dst_x, dst_y (the tile to walk/teleport to), "
-                    .. "type (WALKABLE, TELEPORT, FAIRY_RING, ENTRANCE, EXIT, CHARTER_SHIP, QUETZAL, or SPIRIT_TREE), "
-                    .. "and instruction (what the player should do). "
-                    .. "Use the Python find_path API to compute the route."
+                question = "Run this Python code via Bash and mail the result back to svc/pathfinder:\n\n"
+                    .. "```python\n"
+                    .. "import sqlite3, json\n"
+                    .. "from ragger.location import Location\n"
+                    .. "from ragger.map import find_path\n"
+                    .. "conn = sqlite3.connect('data/ragger.db')\n"
+                    .. "nearest = Location.nearest(conn, " .. px .. ", " .. py .. ")\n"
+                    .. "path = find_path(conn, nearest.name, '" .. data.destination .. "')\n"
+                    .. "if path:\n"
+                    .. "    legs = [{'dst_x': l.dst_x, 'dst_y': l.dst_y, 'type': l.link_type.name, "
+                    .. "'instruction': l.description} for l in path]\n"
+                    .. "    print(json.dumps(legs))\n"
+                    .. "else:\n"
+                    .. "    print('[]')\n"
+                    .. "```\n\n"
+                    .. "Then use MailSend to send to svc/pathfinder with:\n"
+                    .. '{action="route", requester="' .. from .. '", legs=<the JSON array from above>}'
             })
             chat:game("[pathfinder] Computing route to " .. data.destination .. "...")
 
@@ -81,6 +108,7 @@ return {
             if leg and leg.instruction then
                 chat:game("[pathfinder] " .. leg.instruction)
             end
+            recompute_trail()
 
         elseif data.action == "stop" then
             clear()
@@ -107,6 +135,14 @@ return {
         local dy = math.abs(py - leg.dst_y)
         if math.max(dx, dy) <= ARRIVE_DIST then
             advance()
+            recompute_trail()
+            trail_tick = 0
+            return
+        end
+        trail_tick = trail_tick + 1
+        if trail_tick >= TRAIL_REFRESH then
+            recompute_trail()
+            trail_tick = 0
         end
     end,
 
@@ -114,10 +150,37 @@ return {
         local leg = current_leg()
         if not leg then return end
 
+        -- find closest trail point to player and only render ahead of it
+        local px = player:x()
+        local py = player:y()
+        local best_i = 1
+        local best_dist = 999999
+        for i, wp in ipairs(trail) do
+            local d = math.max(math.abs(wp.x - px), math.abs(wp.y - py))
+            if d < best_dist then
+                best_dist = d
+                best_i = i
+            end
+        end
+
+        -- draw trail breadcrumbs from player onward
+        for i = best_i, #trail do
+            local wp = trail[i]
+            local poly = coords:world_tile_poly(wp.x, wp.y)
+            if poly and #poly >= 3 then
+                g:fill_polygon(poly, 0x3000FF00)
+            end
+            -- minimap trail dots
+            local mx, my = coords:world_to_minimap(wp.x, wp.y)
+            if mx then
+                g:fill_circle(mx, my, 2, 0x8000FF00)
+            end
+        end
+
         -- highlight destination tile
         local poly = coords:world_tile_poly(leg.dst_x, leg.dst_y)
         if poly and #poly >= 3 then
-            g:fill_polygon(poly, 0x4000FF00)
+            g:fill_polygon(poly, 0x6000FF00)
             for j = 1, #poly do
                 local nxt = j < #poly and j + 1 or 1
                 g:line(poly[j].x, poly[j].y, poly[nxt].x, poly[nxt].y, 0x00FF00)
@@ -134,7 +197,7 @@ return {
             g:text(tx, ty + 14, "Leg " .. leg_idx .. "/" .. #legs, 0xFFFF00)
         end
 
-        -- minimap dot
+        -- minimap destination dot
         local mx, my = coords:world_to_minimap(leg.dst_x, leg.dst_y)
         if mx then
             g:fill_circle(mx, my, 4, 0x00FF00)

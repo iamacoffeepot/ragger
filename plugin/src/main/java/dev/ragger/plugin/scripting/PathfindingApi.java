@@ -35,16 +35,22 @@ public class PathfindingApi {
     private static final int BLOCK_NE = CollisionDataFlag.BLOCK_MOVEMENT_NORTH_EAST;
     private static final int BLOCK_FULL = CollisionDataFlag.BLOCK_MOVEMENT_FULL;
 
-    /** 8-directional neighbours: dx, dy, required clear flags on destination. */
+    /**
+     * 8-directional neighbours.
+     * Cardinals: dx, dy, flag on SOURCE blocking this direction, 0, 0.
+     * Diagonals: dx, dy, flag on SOURCE blocking this diagonal,
+     *            flag on SOURCE blocking the horizontal cardinal component,
+     *            flag on SOURCE blocking the vertical cardinal component.
+     */
     private static final int[][] DIRS = {
-        { 0,  1, BLOCK_SOUTH},  // moving north: dst must not block from south
-        { 0, -1, BLOCK_NORTH},  // moving south
-        { 1,  0, BLOCK_WEST},   // moving east
-        {-1,  0, BLOCK_EAST},   // moving west
-        { 1,  1, BLOCK_SW},     // moving north-east
-        {-1,  1, BLOCK_SE},     // moving north-west
-        { 1, -1, BLOCK_NW},     // moving south-east
-        {-1, -1, BLOCK_NE},     // moving south-west
+        { 0,  1, BLOCK_NORTH, 0, 0},
+        { 0, -1, BLOCK_SOUTH, 0, 0},
+        { 1,  0, BLOCK_EAST,  0, 0},
+        {-1,  0, BLOCK_WEST,  0, 0},
+        { 1,  1, BLOCK_NE, BLOCK_EAST, BLOCK_NORTH},
+        {-1,  1, BLOCK_NW, BLOCK_WEST, BLOCK_NORTH},
+        { 1, -1, BLOCK_SE, BLOCK_EAST, BLOCK_SOUTH},
+        {-1, -1, BLOCK_SW, BLOCK_WEST, BLOCK_SOUTH},
     };
 
     private final Client client;
@@ -54,10 +60,13 @@ public class PathfindingApi {
     }
 
     public void register(final Lua lua) {
-        lua.createTable(0, 3);
+        lua.createTable(0, 5);
 
         lua.push(this::find_path);
         lua.setField(-2, "find_path");
+
+        lua.push(this::find_path_toward);
+        lua.setField(-2, "find_path_toward");
 
         lua.push(this::can_reach);
         lua.setField(-2, "can_reach");
@@ -65,7 +74,37 @@ public class PathfindingApi {
         lua.push(this::distance);
         lua.setField(-2, "distance");
 
+        lua.push(this::flags_at);
+        lua.setField(-2, "flags_at");
+
         lua.setGlobal("pathfinding");
+    }
+
+    /**
+     * pathfinding:flags_at(worldX, worldY) -> int collision flags or nil
+     */
+    private int flags_at(final Lua lua) {
+        final int worldX = (int) lua.toInteger(2);
+        final int worldY = (int) lua.toInteger(3);
+
+        final CollisionData[] collisionData = client.getCollisionMaps();
+        if (collisionData == null) {
+            lua.pushNil();
+            return 1;
+        }
+
+        final int plane = client.getPlane();
+        final int[][] flags = collisionData[plane].getFlags();
+        final int sx = worldX - client.getBaseX();
+        final int sy = worldY - client.getBaseY();
+
+        if (!inBounds(sx, sy)) {
+            lua.pushNil();
+            return 1;
+        }
+
+        lua.push(flags[sx][sy]);
+        return 1;
     }
 
     /**
@@ -83,17 +122,7 @@ public class PathfindingApi {
             return 1;
         }
 
-        lua.createTable(path.size(), 0);
-        for (int i = 0; i < path.size(); i++) {
-            lua.createTable(0, 2);
-            lua.push(path.get(i)[0]);
-            lua.setField(-2, "x");
-            lua.push(path.get(i)[1]);
-            lua.setField(-2, "y");
-            lua.rawSetI(-2, i + 1);
-        }
-
-        return 1;
+        return pushPath(lua, path);
     }
 
     /**
@@ -120,6 +149,142 @@ public class PathfindingApi {
 
         final List<int[]> path = astar(fromX, fromY, toX, toY);
         lua.push(path != null ? path.size() - 1 : -1);
+        return 1;
+    }
+
+    /**
+     * pathfinding:find_path_toward(fromX, fromY, toX, toY) -> array of {x, y} waypoints or nil
+     *
+     * Like find_path, but if the destination is unreachable (out of scene or blocked),
+     * flood fills from the source and paths to the reachable tile closest to the target.
+     */
+    private int find_path_toward(final Lua lua) {
+        final int fromX = (int) lua.toInteger(2);
+        final int fromY = (int) lua.toInteger(3);
+        final int toX = (int) lua.toInteger(4);
+        final int toY = (int) lua.toInteger(5);
+
+        // Try direct path first
+        List<int[]> path = astar(fromX, fromY, toX, toY);
+        if (path != null) {
+            return pushPath(lua, path);
+        }
+
+        // Flood fill to find the reachable tile closest to the target
+        final int[] best = floodFillClosest(fromX, fromY, toX, toY);
+        if (best == null) {
+            lua.pushNil();
+            return 1;
+        }
+
+        path = astar(fromX, fromY, best[0], best[1]);
+        if (path == null) {
+            lua.pushNil();
+            return 1;
+        }
+
+        return pushPath(lua, path);
+    }
+
+    /**
+     * Flood fill from a world coordinate and return the reachable tile closest
+     * to the target (Chebyshev distance). Uses the same movement rules as A*.
+     */
+    private int[] floodFillClosest(final int fromWorldX, final int fromWorldY, final int toWorldX, final int toWorldY) {
+        final CollisionData[] collisionData = client.getCollisionMaps();
+        if (collisionData == null) {
+            return null;
+        }
+
+        final int plane = client.getPlane();
+        final int[][] flags = collisionData[plane].getFlags();
+        final int baseX = client.getBaseX();
+        final int baseY = client.getBaseY();
+
+        final int sx = fromWorldX - baseX;
+        final int sy = fromWorldY - baseY;
+
+        if (!inBounds(sx, sy) || (flags[sx][sy] & BLOCK_FULL) != 0) {
+            return null;
+        }
+
+        final boolean[][] visited = new boolean[SCENE_SIZE][SCENE_SIZE];
+        final java.util.ArrayDeque<int[]> queue = new java.util.ArrayDeque<>();
+        queue.add(new int[]{sx, sy});
+        visited[sx][sy] = true;
+
+        int bestX = sx;
+        int bestY = sy;
+        int bestDist = chebyshev(sx + baseX, sy + baseY, toWorldX, toWorldY);
+
+        while (!queue.isEmpty()) {
+            final int[] tile = queue.poll();
+            final int cx = tile[0];
+            final int cy = tile[1];
+
+            for (final int[] dir : DIRS) {
+                final int nx = cx + dir[0];
+                final int ny = cy + dir[1];
+
+                if (!inBounds(nx, ny) || visited[nx][ny]) {
+                    continue;
+                }
+
+                if ((flags[nx][ny] & BLOCK_FULL) != 0) {
+                    continue;
+                }
+
+                if ((flags[cx][cy] & dir[2]) != 0) {
+                    continue;
+                }
+
+                if (dir[0] != 0 && dir[1] != 0) {
+                    if ((flags[cx][cy] & dir[3]) != 0 || (flags[cx][cy] & dir[4]) != 0) {
+                        continue;
+                    }
+                    final int hx = cx + dir[0];
+                    final int vy = cy + dir[1];
+                    if ((flags[hx][cy] & BLOCK_FULL) != 0 || (flags[cx][vy] & BLOCK_FULL) != 0) {
+                        continue;
+                    }
+                    if ((flags[hx][cy] & dir[4]) != 0 || (flags[cx][vy] & dir[3]) != 0) {
+                        continue;
+                    }
+                }
+
+                visited[nx][ny] = true;
+                queue.add(new int[]{nx, ny});
+
+                final int dist = chebyshev(nx + baseX, ny + baseY, toWorldX, toWorldY);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestX = nx;
+                    bestY = ny;
+                }
+            }
+        }
+
+        final int worldX = bestX + baseX;
+        final int worldY = bestY + baseY;
+
+        // Don't return the start tile as the "best"
+        if (worldX == fromWorldX && worldY == fromWorldY) {
+            return null;
+        }
+
+        return new int[]{worldX, worldY};
+    }
+
+    private int pushPath(final Lua lua, final List<int[]> path) {
+        lua.createTable(path.size(), 0);
+        for (int i = 0; i < path.size(); i++) {
+            lua.createTable(0, 2);
+            lua.push(path.get(i)[0]);
+            lua.setField(-2, "x");
+            lua.push(path.get(i)[1]);
+            lua.setField(-2, "y");
+            lua.rawSetI(-2, i + 1);
+        }
         return 1;
     }
 
@@ -188,14 +353,26 @@ public class PathfindingApi {
                     continue;
                 }
 
-                if ((flags[nx][ny] & dir[2]) != 0) {
+                if ((flags[cx][cy] & dir[2]) != 0) {
                     continue;
                 }
 
-                // For diagonal movement, also check that the two adjacent cardinal tiles are clear
+                // For diagonal movement, check cardinal components on source
+                // and that intermediate tiles are passable
                 if (dir[0] != 0 && dir[1] != 0) {
-                    if ((flags[cx + dir[0]][cy] & BLOCK_FULL) != 0 ||
-                        (flags[cx][cy + dir[1]] & BLOCK_FULL) != 0) {
+                    // Source must allow both cardinal components
+                    if ((flags[cx][cy] & dir[3]) != 0 || (flags[cx][cy] & dir[4]) != 0) {
+                        continue;
+                    }
+                    // Intermediate cardinal tiles must not be fully blocked
+                    final int hx = cx + dir[0];
+                    final int vy = cy + dir[1];
+                    if ((flags[hx][cy] & BLOCK_FULL) != 0 || (flags[cx][vy] & BLOCK_FULL) != 0) {
+                        continue;
+                    }
+                    // Horizontal intermediate must allow vertical component
+                    // Vertical intermediate must allow horizontal component
+                    if ((flags[hx][cy] & dir[4]) != 0 || (flags[cx][vy] & dir[3]) != 0) {
                         continue;
                     }
                 }
