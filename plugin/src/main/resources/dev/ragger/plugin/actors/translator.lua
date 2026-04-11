@@ -5,6 +5,8 @@
 -- Mail API:
 --   {language="French"}           — switch target language, clears cache
 --   {log_level="info"}            — set log level: "silent", "info", "debug"
+--   {action="ignore", id=N}       — add component ID to ignore list
+--   {action="unignore", id=N}     — remove component ID from ignore list
 --
 -- Config (via args table when spawned from template):
 --   args.language                  — initial target language (default "UwU")
@@ -32,8 +34,12 @@ local pending = {}
 local pending_frame = {}
 local batch = {}
 local widget_refs = {}
+local original_widths = {}
 local known_groups = {}
 local in_flight = {}
+local ignore_ids = {
+    [162 * 65536 + 57] = true,  -- CHATBOX chat input line
+}
 
 local PREFIX = "[translator]"
 local MIN_LEN = 4
@@ -84,6 +90,14 @@ local function set_widget_text(ref, text)
     end
 end
 
+local function set_widget_width(ref, w)
+    if ref.index and ref.index >= 0 then
+        widget:set_width(ref.id, w, ref.index)
+    else
+        widget:set_width(ref.id, w)
+    end
+end
+
 local function restore_all()
     local restored = 0
     for key, orig in pairs(originals) do
@@ -91,6 +105,9 @@ local function restore_all()
             local ref = widget_refs[key]
             if ref then
                 set_widget_text(ref, orig)
+                if original_widths[key] then
+                    set_widget_width(ref, original_widths[key])
+                end
                 restored = restored + 1
             end
         end
@@ -133,9 +150,16 @@ local function find_text_widgets()
     return all
 end
 
+local function is_ignored(k)
+    if ignore_ids[k.id] then return true end
+    if k.parent_id and ignore_ids[k.parent_id] then return true end
+    return false
+end
+
 local function process_widget(k, queue_new)
     local text = k.text
     if not text then return end
+    if is_ignored(k) then return end
     local key = widget_key(k)
 
     widget_refs[key] = {
@@ -307,24 +331,30 @@ return {
             local ref = widget_refs[key]
             if not ref then goto continue end
 
-            local text_to_apply
             local font = ref.font_id or 495
+            local orig_w = original_widths[key] or ref.width
+
+            -- Resize widget if translated text is wider (single-line only)
             local multiline = translated:find("<br>") or (ref.height and ref.height >= 2 * text:height(font))
-            if ref.width and ref.width > 0 and not multiline then
-                text_to_apply = text:fit(translated, font, ref.width)
-            else
-                text_to_apply = translated
+            if orig_w and orig_w > 0 and not multiline then
+                local tw = text:width(translated, font)
+                if tw > orig_w then
+                    if not original_widths[key] then
+                        original_widths[key] = orig_w
+                    end
+                    set_widget_width(ref, tw)
+                end
             end
 
             if ref.index and ref.index >= 0 then
                 local cw = widget:child(ref.id, ref.index)
                 if not cw then goto continue end
                 local current = cw.text
-                if current == text_to_apply then
-                    applied[key] = text_to_apply
+                if current == translated then
+                    applied[key] = translated
                 elseif current == orig then
-                    widget:set_text(ref.id, text_to_apply, ref.index)
-                    applied[key] = text_to_apply
+                    widget:set_text(ref.id, translated, ref.index)
+                    applied[key] = translated
                 else
                     originals[key] = nil
                     applied[key] = nil
@@ -332,23 +362,19 @@ return {
                     if current and cache[current] then
                         originals[key] = current
                         widget_refs[key] = ref
-                        local cached = cache[current]
-                        local rfont = ref.font_id or 495
-                        local rmulti = cached:find("<br>") or (ref.height and ref.height >= 2 * text:height(rfont))
-                        local refit = rmulti and cached or text:fit(cached, rfont, ref.width)
-                        widget:set_text(ref.id, refit, ref.index)
-                        applied[key] = refit
+                        widget:set_text(ref.id, cache[current], ref.index)
+                        applied[key] = cache[current]
                     end
                 end
             else
                 local w = widget:component(ref.id)
                 if not w then goto continue end
                 local current = w.text
-                if current == text_to_apply then
-                    applied[key] = text_to_apply
+                if current == translated then
+                    applied[key] = translated
                 elseif current == orig then
-                    set_widget_text(ref, text_to_apply)
-                    applied[key] = text_to_apply
+                    set_widget_text(ref, translated)
+                    applied[key] = translated
                 else
                     originals[key] = nil
                     applied[key] = nil
@@ -356,12 +382,8 @@ return {
                     if current and cache[current] then
                         originals[key] = current
                         widget_refs[key] = ref
-                        local cached = cache[current]
-                        local rfont = ref.font_id or 495
-                        local rmulti = cached:find("<br>") or (ref.height and ref.height >= 2 * text:height(rfont))
-                        local refit = rmulti and cached or text:fit(cached, rfont, ref.width)
-                        set_widget_text(ref, refit)
-                        applied[key] = refit
+                        set_widget_text(ref, cache[current])
+                        applied[key] = cache[current]
                     end
                 end
             end
@@ -391,6 +413,18 @@ return {
             return
         end
 
+        if data and data.action == "ignore" and data.id then
+            ignore_ids[data.id] = true
+            info("Ignoring component " .. data.id)
+            return
+        end
+
+        if data and data.action == "unignore" and data.id then
+            ignore_ids[data.id] = nil
+            info("Unignored component " .. data.id)
+            return
+        end
+
         if data and data.language then
             restore_all()
             language = data.language
@@ -398,6 +432,7 @@ return {
             reverse = {}
             applied = {}
             originals = {}
+            original_widths = {}
             pending = {}
             pending_frame = {}
             in_flight = {}

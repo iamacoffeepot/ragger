@@ -61,6 +61,15 @@ public class WidgetApi {
         lua.push(this::set_text);
         lua.setField(-2, "set_text");
 
+        lua.push(this::set_width);
+        lua.setField(-2, "set_width");
+
+        lua.push(this::set_height);
+        lua.setField(-2, "set_height");
+
+        lua.push(this::set_scroll_height);
+        lua.setField(-2, "set_scroll_height");
+
         // Register InterfaceID constants (BANK, INVENTORY, etc.)
         registerInterfaceConstants(lua);
 
@@ -520,6 +529,7 @@ public class WidgetApi {
             final String text = lua.toString(4);
             if (w != null && text != null) {
                 w.setText(text);
+                w.revalidate();
             }
         } else if (top >= 4) {
             // widget:set_text(componentId, text, childIndex)
@@ -531,6 +541,7 @@ public class WidgetApi {
                 final Widget child = findChildByWidgetIndex(parent, childIndex);
                 if (child != null) {
                     child.setText(text);
+                    child.revalidate();
                 }
             }
         } else {
@@ -540,6 +551,112 @@ public class WidgetApi {
             final String text = lua.toString(3);
             if (w != null && text != null) {
                 w.setText(text);
+                w.revalidate();
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * widget:set_width(componentId, width)
+     * widget:set_width(componentId, width, childIndex)
+     * Sets the original width of a widget and revalidates layout.
+     */
+    private int set_width(final Lua lua) {
+        final int top = lua.getTop();
+
+        if (top >= 4) {
+            // widget:set_width(componentId, width, childIndex)
+            final int componentId = (int) lua.toInteger(2);
+            final int width = (int) lua.toInteger(3);
+            final int childIndex = (int) lua.toInteger(4);
+            final Widget parent = client.getWidget(componentId);
+            if (parent != null) {
+                final Widget child = findChildByWidgetIndex(parent, childIndex);
+                if (child != null) {
+                    child.setOriginalWidth(width);
+                    child.revalidate();
+                }
+            }
+        } else {
+            // widget:set_width(componentId, width)
+            final int componentId = (int) lua.toInteger(2);
+            final int width = (int) lua.toInteger(3);
+            final Widget w = client.getWidget(componentId);
+            if (w != null) {
+                w.setOriginalWidth(width);
+                w.revalidate();
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * widget:set_height(componentId, height)
+     * widget:set_height(componentId, height, childIndex)
+     * Sets the original height of a widget and revalidates layout.
+     */
+    private int set_height(final Lua lua) {
+        final int top = lua.getTop();
+
+        if (top >= 4) {
+            // widget:set_height(componentId, height, childIndex)
+            final int componentId = (int) lua.toInteger(2);
+            final int height = (int) lua.toInteger(3);
+            final int childIndex = (int) lua.toInteger(4);
+            final Widget parent = client.getWidget(componentId);
+            if (parent != null) {
+                final Widget child = findChildByWidgetIndex(parent, childIndex);
+                if (child != null) {
+                    child.setOriginalHeight(height);
+                    child.revalidate();
+                }
+            }
+        } else {
+            // widget:set_height(componentId, height)
+            final int componentId = (int) lua.toInteger(2);
+            final int height = (int) lua.toInteger(3);
+            final Widget w = client.getWidget(componentId);
+            if (w != null) {
+                w.setOriginalHeight(height);
+                w.revalidate();
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * widget:set_scroll_height(componentId, height)
+     * widget:set_scroll_height(componentId, height, childIndex)
+     * Sets the scroll height of a scrollable widget and revalidates scroll.
+     */
+    private int set_scroll_height(final Lua lua) {
+        final int top = lua.getTop();
+
+        if (top >= 4) {
+            // widget:set_scroll_height(componentId, height, childIndex)
+            final int componentId = (int) lua.toInteger(2);
+            final int height = (int) lua.toInteger(3);
+            final int childIndex = (int) lua.toInteger(4);
+            final Widget parent = client.getWidget(componentId);
+            if (parent != null) {
+                final Widget child = findChildByWidgetIndex(parent, childIndex);
+                if (child != null) {
+                    child.setScrollHeight(height);
+                    child.revalidateScroll();
+                }
+            }
+        } else {
+            // widget:set_scroll_height(componentId, height)
+            final int componentId = (int) lua.toInteger(2);
+            final int height = (int) lua.toInteger(3);
+            final Widget w = client.getWidget(componentId);
+            if (w != null) {
+                w.setScrollHeight(height);
+                w.revalidateScroll();
             }
         }
 

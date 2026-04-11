@@ -653,9 +653,19 @@ local results = widget:find(componentId, {
 
 -- Set text on a dynamic child by widget index
 widget:set_text(componentId, "new text", childIndex)
+
+-- Set width/height (uses setOriginalWidth/Height + revalidate)
+widget:set_width(componentId, 300)
+widget:set_width(componentId, 300, childIndex)
+widget:set_height(componentId, 40)
+widget:set_height(componentId, 40, childIndex)
+
+-- Set scroll height on a scrollable container (revalidates scroll)
+widget:set_scroll_height(componentId, 800)
+widget:set_scroll_height(componentId, 800, childIndex)
 ```
 
-All methods accepting a component ID also accept `(groupId, childId)` form.
+All methods accepting a component ID also accept `(groupId, childId)` form (except `set_width`, `set_height`, `set_scroll_height` which use `componentId` only).
 
 #### Widget table shape
 
