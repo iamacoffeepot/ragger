@@ -4,7 +4,12 @@ starting-location: Civitas illa Fortis
 
 always-accessible:
   - Varlamore
-  - Karamja
+
+# Karamja is the mandatory first area unlock in DPL (unlike RE/TRL where it
+# was free from spawn). Triggered by completing a task threshold.
+mandatory-unlocks:
+  - region: Karamja
+    tasks-required: 80
 
 unlockable-regions:
   - Asgarnia
@@ -16,16 +21,18 @@ unlockable-regions:
   - Wilderness
   - Kourend
 
-max-region-unlocks: 3
+max-region-unlocks: 3  # on top of Karamja
 
 starting-skills:
   Herblore: 3
   Runecraft: 5
 
-# Relic tier point thresholds (tier 3 = area unlock, no relic)
+# Relic tier point thresholds. DPL tier 2 confirmed at 600 (RE was 750, TRL 500).
+# Tiers 3-8 still unconfirmed for DPL — values below are RE carryovers and
+# should be verified against the DPL pact tree in-game.
 relic-thresholds:
   1: 0
-  2: 750
+  2: 600
   3: 1500
   4: 2500
   5: 5000
