@@ -398,6 +398,17 @@ SCHEMAS: list[str] = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_port_transits_src ON port_transits(src_port_id)",
     """
+    CREATE TABLE IF NOT EXISTS port_crossings (
+        src_port_id INTEGER NOT NULL,
+        dst_port_id INTEGER NOT NULL,
+        distance INTEGER NOT NULL,
+        PRIMARY KEY (src_port_id, dst_port_id),
+        FOREIGN KEY (src_port_id) REFERENCES ports(id),
+        FOREIGN KEY (dst_port_id) REFERENCES ports(id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_port_crossings_src ON port_crossings(src_port_id)",
+    """
     CREATE TABLE IF NOT EXISTS map_links (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         src_location TEXT NOT NULL,

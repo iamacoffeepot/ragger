@@ -69,6 +69,7 @@ Pipeline order (managed by `fetch_all.py`):
 38. `compute_blobs.py` — Flood fills each Voronoi cell under the full directional collision model (walls, water, void, diagonal corner rules) and assigns each maximal walkable region a global blob ID. Writes per-tile blob labels as 16-bit PNG map squares of `MapSquareType.BLOB` and records per-blob owner + tile count in the `blobs` table.
 39. `compute_ports.py` — Samples each Voronoi ridge and looks up the walkable blob on each side (offsetting normal to the ridge). Contiguous samples sharing the same `(blob_a, blob_b)` pair collapse into a port pair (one row per side) in the `ports` table, linking the ridge to the blob it touches on each side.
 40. `compute_port_transits.py` — For each blob touched by ≥2 ports, BFS from each port's representative tile through the blob under the full directional collision model to all other same-blob ports. Writes Chebyshev-step distances as edges in the `port_transits` table.
+41. `compute_port_crossings.py` — Self-joins ports on `(ridge_a, ridge_b, sample_start, sample_end)` with side mismatch to pair up A-side and B-side ports of the same segment. Writes directed crossing edges (src, dst, Chebyshev between rep tiles) into the `port_crossings` table.
 
 ### Import scripts (`scripts/import/`)
 
