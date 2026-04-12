@@ -867,24 +867,5 @@ def create_tables(db_path: Path) -> None:
     conn = get_connection(db_path)
     for schema in SCHEMAS:
         conn.execute(schema)
-    _migrate_league_tasks_league_column(conn)
     conn.commit()
     conn.close()
-
-
-def _migrate_league_tasks_league_column(conn: sqlite3.Connection) -> None:
-    """Backfill `league` column on pre-existing league_tasks rows.
-
-    When a DB predates the column, SQLite's CREATE TABLE IF NOT EXISTS is a no-op
-    and the column is missing. Add it with a default stamp so existing rows keep
-    working. Users re-running fetch_league_tasks.py for a specific league will
-    overwrite those rows with the correct league value.
-    """
-    cols = {row[1] for row in conn.execute("PRAGMA table_info(league_tasks)")}
-    if "league" in cols:
-        return
-    conn.execute(
-        f"ALTER TABLE league_tasks ADD COLUMN league INTEGER NOT NULL "
-        f"DEFAULT {League.DEMONIC_PACTS.value} "
-        f"CHECK(league IN ({_league_ids}))"
-    )
