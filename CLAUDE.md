@@ -66,6 +66,7 @@ Pipeline order (managed by `fetch_all.py`):
 35. `link_npc_dialogues.py` — Links NPCs to dialogue pages by exact name match on npc-type transcripts
 36. `link_quest_dialogues.py` — Links quests to dialogue pages by exact name match on quest-type transcripts
 37. `compute_walkability.py` — Computes walkable connections via Voronoi edge flood fill and map tile collision data. Supports `--area-threshold`, `--edge-samples`, `--resolution`, `--debug` flags.
+38. `compute_blobs.py` — Flood fills each Voronoi cell under the full directional collision model (walls, water, void, diagonal corner rules) and assigns each maximal walkable region a global blob ID. Writes per-tile blob labels as 16-bit PNG map squares of `MapSquareType.BLOB` and records per-blob owner + tile count in the `blobs` table.
 
 ### Import scripts (`scripts/import/`)
 
@@ -184,6 +185,7 @@ All API methods accept a `sqlite3.Connection` so connections can be reused. Per-
 - `LOCATION.md` — Location with adjacency, facilities, distance metrics
 - `FACILITY.md` — FacilityEntry coordinates (banks, furnaces, etc.)
 - `MAP.md` — MapLink, MapSquare (stitch with scaling), pathfinding (A* with Chebyshev)
+- `COLLISION.md` — Flags grid decode, directional movement predicate shared by walkability and blob flood fills
 - `GROUND_ITEM.md` — GroundItem spawns by name, location, proximity
 - `ACTIVITY.md` — Activity/minigame lookup
 - `CATEGORY.md` — WikiCategory graph traversal (children, parents, ancestors, descendants)

@@ -350,6 +350,7 @@ class MapSquareType(str, Enum):
     COLOR = "color"
     COLLISION = "collision"
     WATER = "water"
+    BLOB = "blob"
 
 
 class MapLinkType(str, Enum):

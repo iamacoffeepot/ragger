@@ -358,6 +358,15 @@ SCHEMAS: list[str] = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS blobs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        location_id INTEGER NOT NULL,
+        tile_count INTEGER NOT NULL,
+        FOREIGN KEY (location_id) REFERENCES locations(id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_blobs_location_id ON blobs(location_id)",
+    """
     CREATE TABLE IF NOT EXISTS map_links (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         src_location TEXT NOT NULL,

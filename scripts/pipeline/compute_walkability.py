@@ -16,183 +16,14 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial import KDTree, Voronoi
 
+from ragger.collision import BLOCK_FULL, build_flags_grid, can_move, load_layers
 from ragger.db import create_tables, get_connection
-from ragger.enums import MapLinkType, MapSquareType
-from ragger.map import GAME_TILES_PER_REGION, MapSquare, PIXELS_PER_REGION
+from ragger.enums import MapLinkType
 
 
 DEFAULT_RESOLUTION = 1  # game tiles per pixel in the flood fill grid
 DEFAULT_AREA_THRESHOLD = 0.6  # proportion of cell walkable area reachable from edge
 DEFAULT_EDGE_SAMPLES = 40  # sample points along the shared Voronoi edge
-
-
-WATER_BLUE = (0, 102, 204)  # 0x0066CC — blue pixel in water tiles
-
-# Collision flags encoded in pixel values (must match DumpCollision.java)
-BLOCK_W = 0x1
-BLOCK_N = 0x2
-BLOCK_E = 0x4
-BLOCK_S = 0x8
-BLOCK_FULL = 0x10
-DATA_PRESENT = 0x20
-
-# Direction table: (dx, dy, flag on source blocking this direction)
-# Cardinals
-_DIRS_CARDINAL = [
-    (0, 1, BLOCK_N),   # north
-    (0, -1, BLOCK_S),  # south
-    (1, 0, BLOCK_E),   # east
-    (-1, 0, BLOCK_W),  # west
-]
-# Diagonals: (dx, dy, horizontal cardinal flag, vertical cardinal flag)
-_DIRS_DIAGONAL = [
-    (1, 1, BLOCK_E, BLOCK_N),    # NE
-    (-1, 1, BLOCK_W, BLOCK_N),   # NW
-    (1, -1, BLOCK_E, BLOCK_S),   # SE
-    (-1, -1, BLOCK_W, BLOCK_S),  # SW
-]
-
-
-def load_layers(conn) -> tuple[np.ndarray, np.ndarray, np.ndarray, int, int, int, int]:
-    """Load collision, water, and color canvases from the database.
-
-    Returns (collision, water, color, x_min, x_max, y_min, y_max).
-    Collision and water are 1 px per tile. Color is 4 px per tile.
-    """
-    row = conn.execute(
-        "SELECT MIN(region_x), MAX(region_x), MIN(region_y), MAX(region_y) "
-        "FROM map_squares WHERE plane = 0 AND type = 'collision'"
-    ).fetchone()
-    if row[0] is None:
-        raise ValueError("No collision map squares in database. Run import_map_squares.py first.")
-
-    x_min = row[0] * GAME_TILES_PER_REGION
-    x_max = (row[1] + 1) * GAME_TILES_PER_REGION
-    y_min = row[2] * GAME_TILES_PER_REGION
-    y_max = (row[3] + 1) * GAME_TILES_PER_REGION
-
-    collision, _ = MapSquare.stitch(conn, x_min, x_max, y_min, y_max, type=MapSquareType.COLLISION, region_padding=0)
-    water, _ = MapSquare.stitch(conn, x_min, x_max, y_min, y_max, type=MapSquareType.WATER, region_padding=0)
-    color, _ = MapSquare.stitch(conn, x_min, x_max, y_min, y_max, type=MapSquareType.COLOR, region_padding=0)
-
-    return collision, water, color, x_min, x_max, y_min, y_max
-
-
-def build_flags_grid(collision: np.ndarray, water: np.ndarray, x_min: int, x_max: int, y_min: int, y_max: int) -> np.ndarray:
-    """Build a 2D array of collision flags from the stitched collision and water images.
-
-    Collision pixels encode raw directional flags in their RGB channels.
-    Water pixels add BLOCK_FULL where blue.
-    Returns an int32 array indexed as flags_grid[py, px] where
-    px = gx - x_min, py = y_max - 1 - gy.
-    """
-    height, width = collision.shape[:2]
-
-    # Decode flags from pixel blue channel. Java packs as 0xAARRGGBB —
-    # our flag values (0x00-0x3F) fit entirely in the low byte (blue channel).
-    raw = collision[:, :, 2].astype(np.int32)
-
-    # Void tiles have no DATA_PRESENT bit — mark as fully blocked
-    void_mask = (raw & DATA_PRESENT) == 0
-    flags_grid = raw & ~DATA_PRESENT  # strip presence bit
-    flags_grid[void_mask] = BLOCK_FULL
-
-    # Mark water tiles as fully blocked
-    water_mask = (
-        (water[:, :, 0] == WATER_BLUE[0])
-        & (water[:, :, 1] == WATER_BLUE[1])
-        & (water[:, :, 2] == WATER_BLUE[2])
-    )
-    flags_grid[water_mask] |= BLOCK_FULL
-
-    return flags_grid
-
-
-def make_blocked_checker(flags_grid: np.ndarray, x_min: int, x_max: int, y_min: int, y_max: int):
-    """Return a function that checks if a game coordinate is fully blocked.
-
-    Used for the simple blocked grid in flood_fill_check. For directional
-    checks, use can_move() with the flags grid directly.
-    """
-    height, width = flags_grid.shape
-
-    def is_blocked(gx: float, gy: float) -> bool:
-        px = int(gx - x_min)
-        py = int(y_max - 1 - gy)
-        if px < 0 or py < 0 or px >= width or py >= height:
-            return True
-        return (flags_grid[py, px] & BLOCK_FULL) != 0
-
-    return is_blocked
-
-
-def _can_move(flags_grid: np.ndarray, cy: int, cx: int, dy: int, dx: int, gh: int, gw: int) -> bool:
-    """Check if movement from (cy, cx) in direction (dy, dx) is allowed.
-
-    Note: the flags grid is indexed as [py, px] where py increases upward in
-    game coords but downward in array coords. dy in array coords is inverted
-    from game coords: array dy=-1 means game north, dy=+1 means game south.
-
-    Game direction mapping (array coords):
-      dy=-1 (up in array = north in game) -> BLOCK_N
-      dy=+1 (down in array = south in game) -> BLOCK_S
-      dx=+1 (right = east) -> BLOCK_E
-      dx=-1 (left = west) -> BLOCK_W
-    """
-    ny, nx = cy + dy, cx + dx
-    if ny < 0 or ny >= gh or nx < 0 or nx >= gw:
-        return False
-
-    src = int(flags_grid[cy, cx])
-    dst = int(flags_grid[ny, nx])
-
-    # Destination fully blocked
-    if dst & BLOCK_FULL:
-        return False
-
-    # Cardinal movement
-    if dx == 0 or dy == 0:
-        # Map array direction to game direction flag on source
-        if dy == -1:
-            return not (src & BLOCK_N)
-        elif dy == 1:
-            return not (src & BLOCK_S)
-        elif dx == 1:
-            return not (src & BLOCK_E)
-        elif dx == -1:
-            return not (src & BLOCK_W)
-
-    # Diagonal movement — check both cardinal components on source
-    h_flag = BLOCK_E if dx == 1 else BLOCK_W
-    v_flag = BLOCK_N if dy == -1 else BLOCK_S
-
-    # Source must not block the diagonal's cardinal components
-    if src & h_flag or src & v_flag:
-        return False
-
-    # Intermediate cardinal tiles must be passable
-    hx_y, hx_x = cy, cx + dx  # horizontal step
-    vy_y, vy_x = cy + dy, cx  # vertical step
-
-    if 0 <= hx_y < gh and 0 <= hx_x < gw:
-        h_tile = int(flags_grid[hx_y, hx_x])
-        if h_tile & BLOCK_FULL:
-            return False
-        if h_tile & v_flag:
-            return False
-    else:
-        return False
-
-    if 0 <= vy_y < gh and 0 <= vy_x < gw:
-        v_tile = int(flags_grid[vy_y, vy_x])
-        if v_tile & BLOCK_FULL:
-            return False
-        if v_tile & h_flag:
-            return False
-    else:
-        return False
-
-    return True
 
 
 def _flood_count(
@@ -219,7 +50,7 @@ def _flood_count(
                     continue
                 ny, nx = cy + dy, cx + dx
                 if 0 <= ny < gh and 0 <= nx < gw and not visited[ny, nx] and cell_mask[ny, nx]:
-                    if _can_move(flags_local, cy, cx, dy, dx, gh, gw):
+                    if can_move(flags_local, cy, cx, dy, dx, gh, gw):
                         visited[ny, nx] = True
                         queue.append((ny, nx))
                         count += 1
@@ -385,7 +216,7 @@ def ingest(db_path: Path, resolution: int, area_threshold: float, edge_samples: 
 
     print("Loading map layers from database...")
     collision, water, color, x_min, x_max, y_min, y_max = load_layers(conn)
-    flags_grid = build_flags_grid(collision, water, x_min, x_max, y_min, y_max)
+    flags_grid = build_flags_grid(collision, water)
     print(f"Collision: {collision.shape[1]}x{collision.shape[0]} px, game coords {x_min}-{x_max} x {y_min}-{y_max}")
 
     for world_name, y_op, y_threshold in [("overworld", "<", 5000), ("underworld", ">=", 5000)]:
