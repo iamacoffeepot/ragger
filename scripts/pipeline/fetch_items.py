@@ -52,6 +52,7 @@ def parse_item(name: str, wikitext: str) -> dict:
     item["members"] = parse_bool(parse_template_param(block, "members"))
     item["tradeable"] = parse_bool(parse_template_param(block, "tradeable"))
     item["weight"] = parse_float(parse_template_param(block, "weight"))
+    item["value"] = parse_int(parse_template_param(block, "value"))
 
     raw_id = parse_template_param(block, "id")
     game_ids: list[int] = []
@@ -110,12 +111,12 @@ def ingest(db_path: Path) -> None:
         item = parse_item(page_name, wikitext)
 
         # Update metadata columns
-        if any(item.get(k) is not None for k in ("members", "tradeable", "weight", "examine")):
+        if any(item.get(k) is not None for k in ("members", "tradeable", "weight", "examine", "value")):
             conn.execute(
-                """UPDATE items SET members = ?, tradeable = ?, weight = ?, examine = ?
+                """UPDATE items SET members = ?, tradeable = ?, weight = ?, examine = ?, value = ?
                    WHERE name = ?""",
                 (item.get("members"), item.get("tradeable"), item.get("weight"),
-                 item.get("examine"), page_name),
+                 item.get("examine"), item.get("value"), page_name),
             )
             updated += 1
 

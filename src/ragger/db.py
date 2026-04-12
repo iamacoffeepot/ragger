@@ -44,7 +44,8 @@ SCHEMAS: list[str] = [
         members INTEGER,
         tradeable INTEGER,
         weight REAL,
-        examine TEXT
+        examine TEXT,
+        value INTEGER
     )
     """,
     """

@@ -12,8 +12,9 @@ class Item:
     tradeable: bool | None
     weight: float | None
     examine: str | None
+    value: int | None
 
-    _COLS = "id, name, members, tradeable, weight, examine"
+    _COLS = "id, name, members, tradeable, weight, examine, value"
 
     @classmethod
     def all(cls, conn: sqlite3.Connection) -> list[Item]:
@@ -61,4 +62,5 @@ class Item:
             tradeable=bool(row[3]) if row[3] is not None else None,
             weight=row[4],
             examine=row[5],
+            value=row[6],
         )
