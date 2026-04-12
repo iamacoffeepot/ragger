@@ -24,7 +24,7 @@ from ragger.db import create_tables, get_connection
 from ragger.map import GAME_TILES_PER_REGION, MapSquare
 
 Y_WORLD_SPLIT = 5000  # overworld < 5000 <= underworld (matches compute_blobs)
-DEFAULT_EDGE_SAMPLES = 40
+DEFAULT_EDGE_SAMPLES = 128
 MAX_SIDE_OFFSET = 6  # tiles to scan away from the ridge while resolving a side blob
 
 
@@ -143,6 +143,10 @@ def ingest(db_path: Path, edge_samples: int = DEFAULT_EDGE_SAMPLES) -> None:
     blob_grid, extent = MapSquare.stitch_blobs(conn, x_min, x_max, y_min, y_max)
     print(f"Blob grid: {blob_grid.shape[1]}x{blob_grid.shape[0]} tiles")
 
+    # Dependent edges reference ports.id; wipe them first so the delete below
+    # doesn't trip the foreign-key check.
+    conn.execute("DELETE FROM port_transits")
+    conn.execute("DELETE FROM port_crossings")
     conn.execute("DELETE FROM ports")
 
     port_rows: list[tuple[int, int, int, int, int, int, int, int]] = []

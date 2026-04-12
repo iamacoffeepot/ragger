@@ -409,6 +409,22 @@ SCHEMAS: list[str] = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_port_crossings_src ON port_crossings(src_port_id)",
     """
+    CREATE TABLE IF NOT EXISTS blob_adjacencies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        blob_a_id INTEGER NOT NULL,
+        blob_b_id INTEGER NOT NULL,
+        a_x INTEGER NOT NULL,
+        a_y INTEGER NOT NULL,
+        b_x INTEGER NOT NULL,
+        b_y INTEGER NOT NULL,
+        distance INTEGER NOT NULL,
+        FOREIGN KEY (blob_a_id) REFERENCES blobs(id),
+        FOREIGN KEY (blob_b_id) REFERENCES blobs(id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_blob_adjacencies_a ON blob_adjacencies(blob_a_id)",
+    "CREATE INDEX IF NOT EXISTS idx_blob_adjacencies_b ON blob_adjacencies(blob_b_id)",
+    """
     CREATE TABLE IF NOT EXISTS map_links (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         src_location TEXT NOT NULL,

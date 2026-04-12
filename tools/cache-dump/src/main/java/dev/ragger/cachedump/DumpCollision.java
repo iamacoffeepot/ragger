@@ -108,10 +108,17 @@ public class DumpCollision {
             if (def == null) continue;
 
             int interactType = def.getInteractType();
-            if (interactType == 0) continue; // non-solid
+            if (interactType == 0) continue; // purely decorative
 
             int type = loc.getType();
             int orientation = loc.getOrientation();
+
+            // Walkthrough arches / open gates: wall objects with interactType=1
+            // (clickable scenery, usually just Examine) AND obstructsGround=false
+            // are physically walkable in-game even though they render as walls.
+            // Skip their collision so pathing can route through them. Fences and
+            // solid walls have interactType=2 and remain blocked.
+            if (type >= 0 && type <= 3 && interactType == 1 && !def.isObstructsGround()) continue;
             int lx = loc.getPosition().getX() - baseX;
             int ly = loc.getPosition().getY() - baseY;
 

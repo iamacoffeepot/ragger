@@ -56,6 +56,7 @@ SCRIPTS = [
     "scripts/pipeline/compute_ports.py",
     "scripts/pipeline/compute_port_transits.py",
     "scripts/pipeline/compute_port_crossings.py",
+    "scripts/pipeline/scan_blob_adjacencies.py",
     "scripts/pipeline/compute_map_link_blobs.py",
 ]
 

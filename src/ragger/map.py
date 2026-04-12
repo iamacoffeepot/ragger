@@ -401,6 +401,26 @@ def find_path(
     for s, d, dist in conn.execute("SELECT src_port_id, dst_port_id, distance FROM port_crossings"):
         adj[("port", s)].append((("port", d), dist, None))
 
+    # Blob adjacencies patch narrow-passage connections the Voronoi sampling
+    # missed. Each row is a directed "step into this blob at (a_x, a_y), land
+    # in the neighbor blob at (b_x, b_y)" pair.
+    adj_rows = conn.execute(
+        "SELECT id, blob_a_id, blob_b_id, a_x, a_y, b_x, b_y, distance FROM blob_adjacencies"
+    ).fetchall()
+    adj_coords: dict[int, tuple[int, int, int, int]] = {}
+    for row_id, _ba, _bb, ax, ay, bx, by, _dist in adj_rows:
+        adj_coords[row_id] = (ax, ay, bx, by)
+    for row_id, ba, bb, ax, ay, bx, by, dist in adj_rows:
+        na = ("adj_a", row_id)
+        nb = ("adj_b", row_id)
+        adj[na].append((nb, dist, None))
+        for pid in ports_by_blob.get(ba, []):
+            px, py = port_coords[pid]
+            adj[("port", pid)].append((na, _chebyshev(px, py, ax, ay), None))
+        for pid in ports_by_blob.get(bb, []):
+            px, py = port_coords[pid]
+            adj[nb].append((("port", pid), _chebyshev(bx, by, px, py), None))
+
     SRC = ("src", 0)
     DST = ("dst", 0)
 
@@ -451,6 +471,14 @@ def find_path(
         px, py = port_coords[pid]
         adj[("port", pid)].append((DST, _chebyshev(px, py, dst_x, dst_y), None))
 
+    # Src and dst blobs may have no ports of their own; in that case the only
+    # way to enter / leave them is via blob_adjacencies.
+    for row_id, ba, bb, ax, ay, bx, by, dist in adj_rows:
+        if ba == src_blob:
+            adj[SRC].append((("adj_a", row_id), _chebyshev(src_x, src_y, ax, ay), None))
+        if bb == dst_blob:
+            adj[("adj_b", row_id)].append((DST, _chebyshev(bx, by, dst_x, dst_y), None))
+
     def node_xy(node: tuple) -> tuple[int, int]:
         kind, key = node
         if kind == "src":
@@ -463,6 +491,12 @@ def find_path(
             return (links_by_id[key].src_x, links_by_id[key].src_y)
         if kind == "p_dst":
             return (links_by_id[key].dst_x, links_by_id[key].dst_y)
+        if kind == "adj_a":
+            ax, ay, _, _ = adj_coords[key]
+            return (ax, ay)
+        if kind == "adj_b":
+            _, _, bx, by = adj_coords[key]
+            return (bx, by)
         raise ValueError(f"unknown node kind: {kind}")
 
     g_score: dict[tuple, int] = {SRC: 0}
