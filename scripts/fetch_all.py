@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from ragger.enums import League
+
 SCRIPTS = [
     # Metadata (no dependencies)
     "scripts/pipeline/fetch_categories.py",
@@ -72,8 +74,6 @@ def run(db_path: Path, league: str | None = None) -> None:
 
 
 if __name__ == "__main__":
-    from ragger.enums import League
-
     parser = argparse.ArgumentParser(description="Fetch all OSRS data into the database")
     parser.add_argument(
         "--db",

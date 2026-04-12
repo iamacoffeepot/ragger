@@ -23,7 +23,7 @@ All scripts require the package to be installed: `uv pip install -e .`
 Runs all ingestion scripts in the correct order. Items must be populated first since other scripts reference the items table.
 
 ```sh
-uv run python scripts/fetch_all.py [--db data/ragger.db] [--league Raging_Echoes_League/Tasks]
+uv run python scripts/fetch_all.py [--db data/ragger.db] [--league DEMONIC_PACTS|RAGING_ECHOES]
 ```
 
 ### Pipeline scripts (`scripts/pipeline/`)
@@ -78,7 +78,7 @@ Pipeline order (managed by `fetch_all.py`):
 - `classify_game_vars.py` — Classifies game variable names using Claude CLI. Tags vars with content categories and functional tags. Supports `--workers`, `--batch-size`, `--session-reset`, `--model`, `--reclassify` flags.
 - `validate_wiki_cache.py` — Bulk-validates wiki cache revids against current wiki state. Bumps `fetched_at` on fresh entries, evicts stale ones. Run before ingestion to avoid per-page revid checks. Supports `--cache` flag.
 
-`fetch_league_tasks.py` is in `scripts/pipeline/` but run separately via `fetch_all.py --league`.
+`fetch_league_tasks.py` is in `scripts/pipeline/` but run separately via `fetch_all.py --league`. The script takes a `League` enum name (`RAGING_ECHOES`, `DEMONIC_PACTS`) and stamps every inserted row with that league, so multiple league catalogs can coexist. Re-running it for a league cascades-deletes that league's existing tasks and requirement-group rows before reinserting.
 
 ## Cache Dump Tool
 

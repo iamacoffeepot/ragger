@@ -1,12 +1,29 @@
+### League (`src/ragger/enums.py`)
+
+Every row in `league_tasks` is tagged with the league it was ingested from, so multiple league catalogs coexist in the same database. `UNIQUE(name, league)` means the same task name across two leagues is two distinct rows.
+
+```python
+from ragger.enums import League
+
+League.RAGING_ECHOES
+League.DEMONIC_PACTS
+League.from_label("demonic-pacts")  # accepts "demonic pacts", "demonic_pacts", etc.
+league.label -> "Demonic Pacts"
+```
+
 ### LeagueTask (`src/ragger/league.py`)
+
+All class methods take an optional `league` filter. When omitted, rows from every league are returned — useful for cross-league lookups but rarely what a running simulation wants. `Account` automatically passes `config.league`.
 
 ```python
 from ragger.league import LeagueTask
+from ragger.enums import League
 
-LeagueTask.all(conn, difficulty?, region?) -> list[LeagueTask]
-LeagueTask.by_name(conn, name) -> LeagueTask | None
-LeagueTask.search(conn, name) -> list[LeagueTask]  # partial name match
-LeagueTask.by_skill(conn, skill, difficulty?, region?) -> list[LeagueTask]
+LeagueTask.all(conn, difficulty?, region?, league?) -> list[LeagueTask]
+LeagueTask.by_name(conn, name, league?) -> LeagueTask | None
+LeagueTask.search(conn, name, league?) -> list[LeagueTask]  # partial name match
+LeagueTask.by_skill(conn, skill, difficulty?, region?, league?) -> list[LeagueTask]
+task.league -> League
 task.points -> int                                    # derived from difficulty
 task.requirement_groups(conn) -> list[RequirementGroup]
 task.skill_requirements(conn) -> list[GroupSkillRequirement]
@@ -18,10 +35,19 @@ task.region_requirements(conn) -> list[GroupRegionRequirement]
 
 ### LeagueConfig (`src/ragger/league.py`)
 
+YAML configs must declare `league:` (matching a `League` label) so the loaded config knows which task catalog to pull from.
+
+```yaml
+league: demonic-pacts
+starting-region: Varlamore
+# ...
+```
+
 ```python
 from ragger.league import LeagueConfig
 
 config = LeagueConfig.from_yaml(Path("config/demonic-pacts.yaml"))
+config.league -> League
 config.starting_region -> Region
 config.starting_location -> str
 config.always_accessible -> list[Region]
