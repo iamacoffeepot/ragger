@@ -268,6 +268,50 @@ def parse_league_tasks(wikitext: str) -> list[LeagueTaskData]:
     return tasks
 
 
+_REQUIREMENT_TABLES = (
+    "group_skill_requirements",
+    "group_quest_requirements",
+    "group_item_requirements",
+    "group_diary_requirements",
+    "group_region_requirements",
+)
+
+
+def _clear_league_tasks(conn, league: League) -> None:
+    """Delete all tasks for a league along with their requirement-group rows.
+
+    Walks league_tasks → league_task_requirement_groups → requirement_groups +
+    the per-kind group_*_requirements tables. Without this, re-ingesting a
+    league would orphan every row it previously wrote.
+    """
+    task_ids = [
+        r[0] for r in conn.execute(
+            "SELECT id FROM league_tasks WHERE league = ?", (league.value,),
+        ).fetchall()
+    ]
+    if not task_ids:
+        return
+
+    task_ph = ",".join("?" * len(task_ids))
+    group_ids = [
+        r[0] for r in conn.execute(
+            f"SELECT group_id FROM league_task_requirement_groups "
+            f"WHERE league_task_id IN ({task_ph})",
+            task_ids,
+        ).fetchall()
+    ]
+    conn.execute(
+        f"DELETE FROM league_task_requirement_groups WHERE league_task_id IN ({task_ph})",
+        task_ids,
+    )
+    if group_ids:
+        group_ph = ",".join("?" * len(group_ids))
+        for table in _REQUIREMENT_TABLES:
+            conn.execute(f"DELETE FROM {table} WHERE group_id IN ({group_ph})", group_ids)
+        conn.execute(f"DELETE FROM requirement_groups WHERE id IN ({group_ph})", group_ids)
+    conn.execute("DELETE FROM league_tasks WHERE league = ?", (league.value,))
+
+
 def ingest(db_path: Path, page: str = "Raging_Echoes_League/Tasks") -> None:
     create_tables(db_path)
     conn = get_connection(db_path)
@@ -285,9 +329,10 @@ def ingest(db_path: Path, page: str = "Raging_Echoes_League/Tasks") -> None:
     wikitext = fetch_page_wikitext_with_attribution(conn, page, "league_tasks")
     tasks = parse_league_tasks(wikitext)
 
-    # Clear only this league's existing rows so other leagues' task catalogs
-    # survive across ingestions.
-    conn.execute("DELETE FROM league_tasks WHERE league = ?", (league.value,))
+    # Clear only this league's existing rows (and their requirement groups) so
+    # other leagues' task catalogs survive across ingestions. SQLite FKs here
+    # don't cascade, so we walk the graph manually.
+    _clear_league_tasks(conn, league)
 
     skill_req_count = 0
     quest_req_count = 0
