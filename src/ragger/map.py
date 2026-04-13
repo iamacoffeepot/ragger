@@ -843,14 +843,20 @@ def render_path_tiles(
     basemap, extent = MapSquare.stitch(conn, x_min, x_max, y_min, y_max, region_padding=0)
     ax.imshow(basemap, extent=extent, aspect="equal")
 
-    # Concatenate consecutive walking segments into a single tile run so the
-    # string-pull pass can collapse port-hop detours across blob boundaries.
-    current_run: list[tuple[int, int]] = []
+    # Each contiguous block of walking PathSteps becomes one tile-level BFS
+    # from the block's start to its end, skipping every intermediate port
+    # waypoint the A* port graph picked. The port graph already proved
+    # reachability at the blob level; for the rendered route we want the
+    # single best tile-level path, not a chain through arbitrary port reps.
+    run_start: tuple[int, int] | None = None
+    run_end: tuple[int, int] | None = None
 
     def flush_run() -> None:
-        if not current_run:
+        nonlocal run_start, run_end
+        if run_start is None or run_end is None:
             return
-        turns = string_pull(current_run)
+        tiles = bfs_tiles(*run_start, *run_end)
+        turns = string_pull(tiles)
         rendered: list[tuple[int, int]] = []
         for a, b in zip(turns, turns[1:]):
             seg = octile_line(*a, *b)
@@ -866,14 +872,13 @@ def render_path_tiles(
         ax.add_collection(PatchCollection(
             rects, facecolor="red", edgecolor="none", alpha=0.75, zorder=10,
         ))
-        current_run.clear()
+        run_start = run_end = None
 
     for step in path:
         if step.link is None:
-            seg = bfs_tiles(step.src_x, step.src_y, step.dst_x, step.dst_y)
-            if current_run and seg and current_run[-1] == seg[0]:
-                seg = seg[1:]
-            current_run.extend(seg)
+            if run_start is None:
+                run_start = (step.src_x, step.src_y)
+            run_end = (step.dst_x, step.dst_y)
         else:
             flush_run()
             ax.annotate(
