@@ -19,13 +19,19 @@ import numpy as np
 from ragger.enums import MapSquareType
 from ragger.map import GAME_TILES_PER_REGION, MapSquare
 
-# Collision flags encoded in pixel values (must match DumpCollision.java)
+# Collision flags encoded in pixel values (must match DumpCollision.java).
+# Blue channel holds cardinal flags + BLOCK_FULL + DATA_PRESENT; green channel
+# holds diagonal flags (shifted up by 8). The decoded int fits in 12 bits.
 BLOCK_W = 0x1
 BLOCK_N = 0x2
 BLOCK_E = 0x4
 BLOCK_S = 0x8
 BLOCK_FULL = 0x10
 DATA_PRESENT = 0x20
+BLOCK_NW = 0x100
+BLOCK_NE = 0x200
+BLOCK_SE = 0x400
+BLOCK_SW = 0x800
 
 # Blue pixel value identifying water tiles
 WATER_BLUE = (0, 102, 204)
@@ -62,7 +68,7 @@ def build_flags_grid(collision: np.ndarray, water: np.ndarray) -> np.ndarray:
     Void tiles (no DATA_PRESENT bit) and water tiles are marked BLOCK_FULL.
     Directional wall flags are preserved from the collision raster.
     """
-    raw = collision[:, :, 2].astype(np.int32)
+    raw = (collision[:, :, 1].astype(np.int32) << 8) | collision[:, :, 2].astype(np.int32)
 
     void_mask = (raw & DATA_PRESENT) == 0
     flags = raw & ~DATA_PRESENT
@@ -110,6 +116,21 @@ def can_move(flags: np.ndarray, cy: int, cx: int, dy: int, dx: int, gh: int, gw:
     v_flag = BLOCK_N if dy == -1 else BLOCK_S
 
     if src & h_flag or src & v_flag:
+        return False
+
+    # Diagonal-only corner pieces (wall types 1/3) — source blocks outgoing
+    # diagonal, destination mirrors with the opposite-direction flag.
+    # dy=-1 is game-north; dx=+1 is game-east.
+    if dy == -1 and dx == -1:
+        d_src, d_dst = BLOCK_NW, BLOCK_SE
+    elif dy == -1 and dx == 1:
+        d_src, d_dst = BLOCK_NE, BLOCK_SW
+    elif dy == 1 and dx == 1:
+        d_src, d_dst = BLOCK_SE, BLOCK_NW
+    else:
+        d_src, d_dst = BLOCK_SW, BLOCK_NE
+
+    if src & d_src or dst & d_dst:
         return False
 
     hx_y, hx_x = cy, cx + dx

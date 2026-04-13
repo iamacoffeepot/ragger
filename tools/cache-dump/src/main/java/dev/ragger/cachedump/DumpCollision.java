@@ -31,7 +31,7 @@ public class DumpCollision {
 
     private static final int REGION_SIZE = 64;
 
-    // Directional collision flags
+    // Cardinal collision flags (blue channel bits 0-3)
     private static final int BLOCK_W = 0x1;
     private static final int BLOCK_N = 0x2;
     private static final int BLOCK_E = 0x4;
@@ -40,6 +40,13 @@ public class DumpCollision {
 
     /** Marker bit to distinguish data-present tiles from void (all zeros). */
     private static final int DATA_PRESENT = 0x20;
+
+    // Diagonal collision flags — block only the diagonal corner traversal
+    // (green channel bits 0-3 when packed to PNG).
+    private static final int BLOCK_NW = 0x100;
+    private static final int BLOCK_NE = 0x200;
+    private static final int BLOCK_SE = 0x400;
+    private static final int BLOCK_SW = 0x800;
 
     public static void main(String[] args) throws Exception {
         String cachePath = null;
@@ -159,14 +166,18 @@ public class DumpCollision {
             // Types 4-8 (wall decorations): no collision
         }
 
-        // Step 3: render to image — encode raw flags as pixel values
-        // Each pixel's RGB channels store the collision flags directly.
-        // Alpha is always 0xFF. Flags value is stored in the low 24 bits.
-        // Python reads with: flags = pixel & 0xFFFFFF
+        // Step 3: render to image — encode raw flags as pixel values across
+        // two channels so diagonal flags fit alongside the cardinal ones.
+        // Blue channel  = cardinal flags + BLOCK_FULL + DATA_PRESENT (bits 0-7)
+        // Green channel = diagonal flags (bits 8-15, shifted down to 0-7)
+        // Python decodes with: flags = (green << 8) | blue
         BufferedImage img = new BufferedImage(REGION_SIZE, REGION_SIZE, BufferedImage.TYPE_INT_ARGB);
         for (int x = 0; x < REGION_SIZE; x++) {
             for (int y = 0; y < REGION_SIZE; y++) {
-                img.setRGB(x, REGION_SIZE - 1 - y, 0xFF000000 | DATA_PRESENT | flags[x][y]);
+                int packed = DATA_PRESENT | flags[x][y];
+                int blue = packed & 0xFF;
+                int green = (packed >> 8) & 0xFF;
+                img.setRGB(x, REGION_SIZE - 1 - y, 0xFF000000 | (green << 8) | blue);
             }
         }
 
@@ -177,12 +188,16 @@ public class DumpCollision {
     /**
      * Apply wall collision based on loc type (0-3) and orientation (0-3).
      *
-     * Type 0: straight wall — blocks 1 cardinal direction
-     * Type 1: diagonal corner — blocks 2 adjacent cardinals
+     * Type 0: straight wall — blocks 1 cardinal edge
+     * Type 1: thin diagonal corner piece — blocks 1 diagonal only
      * Type 2: L-corner (wall connector) — blocks 2 adjacent cardinals
-     * Type 3: diagonal wall — blocks 2 adjacent cardinals
+     * Type 3: thin diagonal wall — blocks 1 diagonal only (same as type 1)
      *
-     * Orientation 0=W, 1=N, 2=E, 3=S for type 0.
+     * Canonical semantics from Jagex's CollisionMap.addWall (see LocShape).
+     * Types 1 and 3 are rendered as thin pieces at the tile corner and only
+     * obstruct diagonal traversal through that corner; cardinal movement
+     * through the tile's edges is unaffected. This is what makes archways
+     * and open gates walkable even though they're drawn as walls.
      */
     private static void applyWallCollision(int[][] flags, int lx, int ly, int type, int orientation) {
         if (lx < 0 || lx >= REGION_SIZE || ly < 0 || ly >= REGION_SIZE) return;
@@ -208,27 +223,23 @@ public class DumpCollision {
                 }
             }
         } else if (type == 1 || type == 3) {
-            // Diagonal corner / diagonal wall — blocks two adjacent cardinals
+            // Thin diagonal corner / wall — blocks one diagonal traversal only
             switch (orientation) {
-                case 0 -> { // NW corner
-                    flags[lx][ly] |= BLOCK_N | BLOCK_W;
-                    if (ly < REGION_SIZE - 1) flags[lx][ly + 1] |= BLOCK_S;
-                    if (lx > 0) flags[lx - 1][ly] |= BLOCK_E;
+                case 0 -> { // NW diagonal
+                    flags[lx][ly] |= BLOCK_NW;
+                    if (lx > 0 && ly < REGION_SIZE - 1) flags[lx - 1][ly + 1] |= BLOCK_SE;
                 }
-                case 1 -> { // NE corner
-                    flags[lx][ly] |= BLOCK_N | BLOCK_E;
-                    if (ly < REGION_SIZE - 1) flags[lx][ly + 1] |= BLOCK_S;
-                    if (lx < REGION_SIZE - 1) flags[lx + 1][ly] |= BLOCK_W;
+                case 1 -> { // NE diagonal
+                    flags[lx][ly] |= BLOCK_NE;
+                    if (lx < REGION_SIZE - 1 && ly < REGION_SIZE - 1) flags[lx + 1][ly + 1] |= BLOCK_SW;
                 }
-                case 2 -> { // SE corner
-                    flags[lx][ly] |= BLOCK_S | BLOCK_E;
-                    if (ly > 0) flags[lx][ly - 1] |= BLOCK_N;
-                    if (lx < REGION_SIZE - 1) flags[lx + 1][ly] |= BLOCK_W;
+                case 2 -> { // SE diagonal
+                    flags[lx][ly] |= BLOCK_SE;
+                    if (lx < REGION_SIZE - 1 && ly > 0) flags[lx + 1][ly - 1] |= BLOCK_NW;
                 }
-                case 3 -> { // SW corner
-                    flags[lx][ly] |= BLOCK_S | BLOCK_W;
-                    if (ly > 0) flags[lx][ly - 1] |= BLOCK_N;
-                    if (lx > 0) flags[lx - 1][ly] |= BLOCK_E;
+                case 3 -> { // SW diagonal
+                    flags[lx][ly] |= BLOCK_SW;
+                    if (lx > 0 && ly > 0) flags[lx - 1][ly - 1] |= BLOCK_NE;
                 }
             }
         } else if (type == 2) {
