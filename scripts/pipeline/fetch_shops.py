@@ -40,15 +40,21 @@ def parse_infobox_shop(wikitext: str) -> dict | None:
 
 
 def parse_store_table_head(wikitext: str) -> dict:
-    """Extract pricing multipliers from {{StoreTableHead}}."""
+    """Extract pricing multipliers and currency from {{StoreTableHead}}.
+
+    The `currency` param is free-text (e.g. "Tokkul", "Slayer reward
+    points"); resolution to `physical_currencies` / `virtual_currencies`
+    happens during ingest where the DB is available.
+    """
     match = re.search(r"\{\{StoreTableHead([^}]*)\}\}", wikitext)
     if not match:
-        return {"sell_multiplier": 1000, "buy_multiplier": 1000, "delta": 0}
+        return {"sell_multiplier": 1000, "buy_multiplier": 1000, "delta": 0, "currency": None}
 
     block = match.group(1)
     sell = parse_template_param(block, "sellmultiplier")
     buy = parse_template_param(block, "buymultiplier")
     delta = parse_template_param(block, "delta")
+    currency = parse_template_param(block, "currency")
 
     def parse_int(val: str | None, default: int) -> int:
         if not val:
@@ -62,13 +68,47 @@ def parse_store_table_head(wikitext: str) -> dict:
         "sell_multiplier": parse_int(sell, 1000),
         "buy_multiplier": parse_int(buy, 1000),
         "delta": parse_int(delta, 0),
+        "currency": strip_wiki_links(currency).strip() if currency else None,
     }
 
 
+def resolve_currency(conn, name: str | None) -> tuple[int | None, int | None]:
+    """Resolve a currency name into (physical_currency_id, virtual_currency_id).
+
+    Unspecified / unmatched names default to Coins (the most common case —
+    the wiki only writes `currency=` when the shop uses something other
+    than Coins). Returns (None, None) only if Coins itself can't be found,
+    which would mean fetch_currencies hasn't populated physical_currencies.
+    """
+    if not name:
+        name = "Coins"
+    row = conn.execute(
+        "SELECT id FROM physical_currencies WHERE lower(name) = lower(?)", (name,),
+    ).fetchone()
+    if row is not None:
+        return row[0], None
+    row = conn.execute(
+        "SELECT id FROM virtual_currencies WHERE lower(name) = lower(?)", (name,),
+    ).fetchone()
+    if row is not None:
+        return None, row[0]
+    # Fall back to Coins if the wiki's currency value is ambiguous.
+    row = conn.execute(
+        "SELECT id FROM physical_currencies WHERE name = 'Coins'",
+    ).fetchone()
+    return (row[0] if row else None), None
+
+
 def parse_store_lines(wikitext: str) -> list[dict]:
-    """Extract all {{StoreLine}} entries."""
+    """Extract all {{StoreLine}} and {{Tzhaar shop row}} entries.
+
+    TzHaar shops use `{{Tzhaar shop row}}` (same param shape: name, stock,
+    restock, optional sell/buy) because they price in Tokkul and layer a
+    sell/buy multiplier on top of the default StoreTableHead. Ignoring it
+    dropped Mor Ul Rek shops entirely — see #1.
+    """
     items: list[dict] = []
-    for match in re.finditer(r"\{\{StoreLine([^}]*)\}\}", wikitext):
+    for match in re.finditer(r"\{\{(?:StoreLine|Tzhaar shop row)([^}]*)\}\}", wikitext):
         block = match.group(1)
         name = parse_template_param(block, "name")
         if not name:
@@ -132,11 +172,14 @@ def ingest(db_path: Path) -> None:
         region = resolve_region(infobox["leagueRegion"])
         members = 1 if infobox["members"] != "No" else 0
         shop_type = ShopType.from_label(infobox["special"] or "")
+        physical_currency_id, virtual_currency_id = resolve_currency(conn, pricing["currency"])
 
         conn.execute(
             """INSERT OR IGNORE INTO shops
-               (name, location, owner, members, region, shop_type, sell_multiplier, buy_multiplier, delta)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (name, location, owner, members, region, shop_type,
+                sell_multiplier, buy_multiplier, delta,
+                physical_currency_id, virtual_currency_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 infobox["name"],
                 infobox["location"],
@@ -147,6 +190,8 @@ def ingest(db_path: Path) -> None:
                 pricing["sell_multiplier"],
                 pricing["buy_multiplier"],
                 pricing["delta"],
+                physical_currency_id,
+                virtual_currency_id,
             ),
         )
         shop_row = conn.execute(

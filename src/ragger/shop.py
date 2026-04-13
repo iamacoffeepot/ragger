@@ -43,8 +43,14 @@ class Shop:
     sell_multiplier: int
     buy_multiplier: int
     delta: int
+    physical_currency_id: int | None
+    virtual_currency_id: int | None
 
-    _COLS = "id, name, location, location_id, owner, members, region, shop_type, sell_multiplier, buy_multiplier, delta"
+    _COLS = (
+        "id, name, location, location_id, owner, members, region, shop_type,"
+        " sell_multiplier, buy_multiplier, delta,"
+        " physical_currency_id, virtual_currency_id"
+    )
 
     @classmethod
     def all(
@@ -88,7 +94,8 @@ class Shop:
 
     _S_COLS = (
         "s.id, s.name, s.location, s.location_id, s.owner, s.members,"
-        " s.region, s.shop_type, s.sell_multiplier, s.buy_multiplier, s.delta"
+        " s.region, s.shop_type, s.sell_multiplier, s.buy_multiplier, s.delta,"
+        " s.physical_currency_id, s.virtual_currency_id"
     )
 
     @classmethod
@@ -133,7 +140,28 @@ class Shop:
             sell_multiplier=row[8],
             buy_multiplier=row[9],
             delta=row[10],
+            physical_currency_id=row[11],
+            virtual_currency_id=row[12],
         )
+
+    def currency_name(self, conn: sqlite3.Connection) -> str | None:
+        """Return the shop's currency name, or None if unknown.
+
+        Resolves against `physical_currencies` first, then `virtual_currencies`.
+        """
+        if self.physical_currency_id is not None:
+            row = conn.execute(
+                "SELECT name FROM physical_currencies WHERE id = ?",
+                (self.physical_currency_id,),
+            ).fetchone()
+            return row[0] if row else None
+        if self.virtual_currency_id is not None:
+            row = conn.execute(
+                "SELECT name FROM virtual_currencies WHERE id = ?",
+                (self.virtual_currency_id,),
+            ).fetchone()
+            return row[0] if row else None
+        return None
 
     def items(self, conn: sqlite3.Connection) -> list[ShopItem]:
         rows = conn.execute(

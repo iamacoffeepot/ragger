@@ -351,6 +351,9 @@ SCHEMAS: list[str] = [
         sell_multiplier INTEGER NOT NULL DEFAULT 1000,
         buy_multiplier INTEGER NOT NULL DEFAULT 1000,
         delta INTEGER NOT NULL DEFAULT 0,
+        physical_currency_id INTEGER REFERENCES physical_currencies(id),
+        virtual_currency_id INTEGER REFERENCES virtual_currencies(id),
+        CHECK(NOT (physical_currency_id IS NOT NULL AND virtual_currency_id IS NOT NULL)),
         FOREIGN KEY (location_id) REFERENCES locations(id)
     )
     """,
