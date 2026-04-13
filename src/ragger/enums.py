@@ -1,7 +1,7 @@
-from enum import Enum, StrEnum
+from enum import Enum, IntEnum, StrEnum
 
 
-class Skill(int, Enum):
+class Skill(IntEnum):
     ATTACK = 0
     STRENGTH = 1
     DEFENCE = 2
@@ -82,7 +82,7 @@ COMBAT_SKILLS_MASK = (
 )
 
 
-class Region(int, Enum):
+class Region(IntEnum):
     GENERAL = 0
     ASGARNIA = 1
     DESERT = 2
@@ -129,7 +129,7 @@ _REGION_LABEL_LOOKUP: dict[str, Region] = {v.lower(): k for k, v in REGION_LABEL
 ALL_REGIONS_MASK = (1 << len(Region)) - 1
 
 
-class TaskDifficulty(int, Enum):
+class TaskDifficulty(IntEnum):
     EASY = 0
     MEDIUM = 1
     HARD = 2
@@ -162,7 +162,7 @@ TASK_DIFFICULTY_POINTS: dict["TaskDifficulty", int] = {
 }
 
 
-class League(int, Enum):
+class League(IntEnum):
     TRAILBLAZER_RELOADED = 2
     RAGING_ECHOES = 0
     DEMONIC_PACTS = 1
@@ -256,7 +256,7 @@ _KARAMJA_DIARY_MIN_LEVEL: dict[DiaryTier, int] = {
 }
 
 
-class ActionTriggerType(int, Enum):
+class ActionTriggerType(IntEnum):
     """Action trigger types corresponding to client interaction packets (oploc, opnpc, etc.)."""
 
     CLICK_OBJECT = 0
@@ -289,7 +289,7 @@ TRIGGER_TYPE_LABELS: dict["ActionTriggerType", str] = {
 }
 
 
-class Facility(int, Enum):
+class Facility(IntEnum):
     BANK = 0
     FURNACE = 1
     ANVIL = 2
@@ -318,7 +318,7 @@ FACILITY_LABELS: dict["Facility", str] = {
 }
 
 
-class Immunity(int, Enum):
+class Immunity(IntEnum):
     POISON = 0
     VENOM = 1
     CANNON = 2

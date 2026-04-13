@@ -1,8 +1,8 @@
 ## Enums (`src/ragger/enums.py`)
 
-- `Skill(int, Enum)` — 23 OSRS skills, int-based with `label`, `mask` properties
-- `Region(int, Enum)` — 12 regions (including GENERAL), int-based with `label`, `mask`, `from_label` properties
-- `TaskDifficulty(int, Enum)` — Easy/Medium/Hard/Elite/Master with `label`, `points` properties
+- `Skill(IntEnum)` — 23 OSRS skills, int-based with `label`, `mask` properties
+- `Region(IntEnum)` — 12 regions (including GENERAL), int-based with `label`, `mask`, `from_label` properties
+- `TaskDifficulty(IntEnum)` — Easy/Medium/Hard/Elite/Master with `label`, `points` properties
 - `DiaryLocation(str, Enum)` — 12 diary regions with `xp_reward(tier)`, `min_level(tier)` methods
 - `DiaryTier(str, Enum)` — Easy/Medium/Hard/Elite
 - `EquipmentSlot(str, Enum)` — 11 equipment slots (head, weapon, body, legs, shield, cape, hands, feet, neck, ammo, ring) with `label`, `from_label` (maps wiki `2h` to `WEAPON`)
@@ -16,9 +16,9 @@
 - `VariableType(str, Enum)` — varp, varbit, varc_int, varc_str with `from_label`
 - `ContentCategory(str, Enum)` — quest, skill, npc, location, item, minigame, activity with `from_label`
 - `FunctionalTag(str, Enum)` — progress, toggle, counter, ui, config, storage, timer, cosmetic with `from_label`
-- `ActionTriggerType(int, Enum)` — CLICK_OBJECT, CLICK_NPC, CLICK_ITEM, USE_ITEM_ON_OBJECT, USE_ITEM_ON_NPC, USE_ITEM_ON_ITEM, CLICK_WIDGET, WIDGET_ON_ITEM with `mask`, `label` properties
-- `Facility(int, Enum)` — Bank, Furnace, Anvil, Range, Altar, Spinning wheel, Loom with `mask`, `label` properties
-- `Immunity(int, Enum)` — Poison, Venom, Cannon, Thrall, Burn with `mask`, `label` properties
+- `ActionTriggerType(IntEnum)` — CLICK_OBJECT, CLICK_NPC, CLICK_ITEM, USE_ITEM_ON_OBJECT, USE_ITEM_ON_NPC, USE_ITEM_ON_ITEM, CLICK_WIDGET, WIDGET_ON_ITEM with `mask`, `label` properties
+- `Facility(IntEnum)` — Bank, Furnace, Anvil, Range, Altar, Spinning wheel, Loom with `mask`, `label` properties
+- `Immunity(IntEnum)` — Poison, Venom, Cannon, Thrall, Burn with `mask`, `label` properties
 - `Spellbook(str, Enum)` — normal, ancient, lunar, arceuus with `from_label` (maps "Standard" to NORMAL)
 - `Element(str, Enum)` — air, water, earth, fire, ice, shadow, blood, smoke with `from_label`
 - `MapSquareType(str, Enum)` — color, collision, water
