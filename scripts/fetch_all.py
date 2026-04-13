@@ -37,6 +37,7 @@ SCRIPTS = [
     "scripts/pipeline/fetch_spells.py",
     "scripts/pipeline/fetch_ground_items.py",
     "scripts/pipeline/fetch_npc_locations.py",
+    "scripts/pipeline/fetch_npc_transports.py",
     "scripts/pipeline/fetch_actions.py",
     "scripts/pipeline/fetch_wiki_vars.py",
     "scripts/pipeline/fetch_dialogues.py",
